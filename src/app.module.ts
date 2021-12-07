@@ -6,7 +6,8 @@ import { UploadModule } from './upload/upload.module';
 import { StreamModule } from './stream/stream.module';
 import { MulterModule } from '@nestjs/platform-express';
 import { UPLOAD_TMP_DIR } from './upload/services/storage.service';
-import { AuthenticationModule } from './authentication/authentication.module';
+
+import { SSOModule } from "@tsalliance/sso-nest"
 
 @Module({
   imports: [
@@ -39,7 +40,14 @@ import { AuthenticationModule } from './authentication/authentication.module';
     SongModule,
     UploadModule,
     StreamModule,
-    AuthenticationModule
+    SSOModule.forRoot({
+      baseUrl: process.env.SSO_URL,
+      clientId: process.env.SSO_CLIENT_ID,
+      clientSecret: process.env.SSO_CLIENT_SECRET,
+      redirectUri: "http://localhost:3001",
+      retries: 30,
+      retryDelay: 3000
+    })
   ],
   controllers: [],
   providers: [],
