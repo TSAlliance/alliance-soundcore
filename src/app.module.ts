@@ -44,9 +44,7 @@ import { SSOModule } from "@tsalliance/sso-nest"
       baseUrl: process.env.SSO_URL,
       clientId: process.env.SSO_CLIENT_ID,
       clientSecret: process.env.SSO_CLIENT_SECRET,
-      redirectUri: "http://localhost:3001",
-      retries: 30,
-      retryDelay: 3000
+      redirectUri: process.env.SSO_REDIRECT_URI
     })
   ],
   controllers: [],
