@@ -1,22 +1,19 @@
 import { forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { createReadStream, readFileSync } from 'fs';
-import * as NodeID3 from 'node-id3';
 import { DeleteResult, UpdateResult } from 'typeorm';
-import { UploadedFile } from '../upload/entities/uploaded-file.entity';
 import { UploadService } from '../upload/services/upload.service';
 import { CreateSongDTO } from './dto/create-song.dto';
 import { UpdateSongDTO } from './dto/update-song.dto';
 import { Song } from './entities/song.entity';
 import { SongRepository } from './repositories/song.repository';
 
-import * as ffprobe from "ffprobe"
-import * as ffprobeStatic from "ffprobe-static"
+import { StorageService } from '../upload/services/storage.service';
 
 @Injectable()
 export class SongService {
 
     constructor(
         @Inject(forwardRef(() => UploadService)) private uploadService: UploadService,
+        private storageService: StorageService,
         private songRepository: SongRepository
     ) { }
 
@@ -38,20 +35,14 @@ export class SongService {
 
     /**
      * Create new song entry in database from metadata found in buffer.
-     * @param file Buffer
-     * @param uploadedFile UploadedFile Entity
+     * @param file Path to file
+     * @param uploadedFile UploadedAudioFile id for metadata context
      * @returns Song
      */
-    public async createMetadataFromBuffer(filepath: string, uploadedFile: UploadedFile): Promise<Song> {
-        const id3Tags = NodeID3.read(readFileSync(filepath));
-
-        const probe = await ffprobe(filepath, { path: ffprobeStatic.path })
-        const durationInSeconds = Math.round(probe.streams[0].duration || 0);
-
+    public async createFromFile(filepath: string, uploadedFileId: string): Promise<Song> {
         const song = await this.create({ 
-            title: id3Tags.title,
-            durationInSeconds,
-            file: uploadedFile
+            ...await this.storageService.readMetadataFromAudioFile(filepath),
+            file: { id: uploadedFileId }
         });
 
         return song;

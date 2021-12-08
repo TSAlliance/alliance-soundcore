@@ -1,5 +1,5 @@
 import { EntityRepository, Repository } from "typeorm";
-import { UploadedFile } from "../entities/uploaded-file.entity";
+import { UploadedAudioFile } from "../entities/uploaded-file.entity";
 
-@EntityRepository(UploadedFile)
-export class UploadedFileRepository extends Repository<UploadedFile> {}
+@EntityRepository(UploadedAudioFile)
+export class UploadedFileRepository extends Repository<UploadedAudioFile> {}

@@ -1,8 +1,12 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, InternalServerErrorException } from "@nestjs/common";
 import { createHash } from "crypto";
-import { createReadStream, existsSync, mkdirSync, rmSync, unlinkSync } from "fs";
+import * as ffprobe from "ffprobe"
+import * as ffprobeStatic from "ffprobe-static"
+import * as NodeID3 from 'node-id3';
+import { createReadStream, existsSync, mkdirSync, readFileSync, rmSync, unlinkSync } from "fs";
 import { join } from "path";
 import { Readable } from "stream";
+import { SongMetadataDTO } from "../../song/dto/song-metadata.dto";
 import { UploadedFileRepository } from "../repositories/uploaded-file.repository";
 
 export const UPLOAD_TMP_DIR = join(process.cwd(), "tmp-data");
@@ -47,9 +51,18 @@ export class StorageService {
      * @param file Express Multer File
      * @returns True or False
      */
-    public async hasSupportedAudioFormat(file: Express.Multer.File): Promise<boolean> {
-        const supportedFormats = ["audio/mpeg", "audio/mp4", "audio/ogg", "audio/vorbis", "audio/aac", "audio/opus", "audio/wav", "audio/webm", "audio/flac", "audio/x-flac"];
-        return supportedFormats.includes(file.mimetype.toLowerCase());
+    public async hasSupportedAudioFormat(filepath: string): Promise<boolean> {
+        const metadata = await ffprobe(filepath, { path: ffprobeStatic.path }).catch((error) => { 
+            console.error(error); 
+            return null 
+        });
+
+        if(!metadata) throw new InternalServerErrorException("Could not read file.")
+
+        const mimetype = metadata.streams[0].codec_type + "/" + metadata.streams[0].codec_name;
+        const supportedFormats = ["audio/mpeg", "audio/mp4", "audio/mp3", "audio/ogg", "audio/vorbis", "audio/aac", "audio/opus", "audio/wav", "audio/webm", "audio/flac", "audio/x-flac"];
+        
+        return supportedFormats.includes(mimetype.toLowerCase());
     }
 
     /**
@@ -78,6 +91,23 @@ export class StorageService {
      */
     public async existsFileByChecksum(checksum: string): Promise<boolean> {
         return !!(await this.uploadRepository.findOne({ where: { checksum }}));
+    }
+
+    /**
+         * Read metadata of audio files.
+         * @param filepath 
+         * @returns 
+         */
+    public async readMetadataFromAudioFile(filepath: string): Promise<SongMetadataDTO> {
+        const id3Tags = NodeID3.read(readFileSync(filepath));
+
+        const probe = await ffprobe(filepath, { path: ffprobeStatic.path })
+        const durationInSeconds = Math.round(probe.streams[0].duration || 0);
+
+        return {
+            title: id3Tags.title,
+            durationInSeconds
+        }
     }
 
 }

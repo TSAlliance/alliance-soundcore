@@ -1,9 +1,10 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Song } from "../../song/entities/song.entity";
 import { FileStatus } from "../enums/file-status.enum";
 import { FileType } from "../enums/file-type.enum";
 
-@Entity("file")
-export class UploadedFile {
+@Entity("audio-file")
+export class UploadedAudioFile {
 
     @PrimaryGeneratedColumn("uuid")
     public id: string;
@@ -22,5 +23,9 @@ export class UploadedFile {
 
     @CreateDateColumn()
     public uploadedAt: Date;
+
+    @OneToOne(() => Song, { onDelete: "CASCADE", nullable: true })
+    @JoinColumn()
+    public songMetadata: Song;
 
 }

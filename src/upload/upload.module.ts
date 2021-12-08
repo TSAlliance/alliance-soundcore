@@ -21,7 +21,8 @@ import { StorageService } from './services/storage.service';
     forwardRef(() => SongModule)
   ],
   exports: [
-    UploadService
+    UploadService,
+    StorageService
   ]
 })
 export class UploadModule {}

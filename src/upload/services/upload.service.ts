@@ -1,9 +1,9 @@
-import { BadRequestException, forwardRef, Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, forwardRef, Inject, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { execSync } from 'child_process';
 import * as pathToFfmpeg from 'ffmpeg-static';
-import { existsSync, mkdirSync, readFileSync, statSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rm, statSync } from 'fs';
 import { join } from 'path';
-import { UploadedFile } from '../entities/uploaded-file.entity';
+import { UploadedAudioFile } from '../entities/uploaded-file.entity';
 import { FileStatus } from '../enums/file-status.enum';
 import { FileType } from '../enums/file-type.enum';
 import { UploadedFileRepository } from '../repositories/uploaded-file.repository';
@@ -13,6 +13,7 @@ import { StorageService, UPLOAD_SONGS_DIR } from './storage.service';
 
 @Injectable()
 export class UploadService {
+    private logger: Logger = new Logger(UploadService.name)
 
     constructor(
         @Inject(forwardRef(() => SongService)) private songService: SongService,
@@ -21,12 +22,12 @@ export class UploadService {
     ) {}
 
     /**
-     * Convert UploadedFile to mp3 file format. This encodes the file using ffmpeg and deletes tmp file after completion.
-     * @param file UploadedFile data
+     * Convert UploadedAudioFile to mp3 file format. This encodes the file using ffmpeg and deletes tmp file after completion.
+     * @param file UploadedAudioFile data
      * @param tmpFilepath Path to tmp file
-     * @returns UploadedFile
+     * @returns UploadedAudioFile
      */
-    public async convertUploadedFileToMp3(file: UploadedFile, tmpFilepath: string): Promise<UploadedFile> {      
+    public async convertUploadedFileToMp3(file: UploadedAudioFile, tmpFilepath: string): Promise<UploadedAudioFile> {      
         return new Promise((resolve) => {
             setTimeout(() => {
                 const filepath = tmpFilepath;
@@ -60,45 +61,61 @@ export class UploadService {
     /**
      * Create database entry for new uploaded file.
      * @param file File metadata
-     * @returns UploadedFile
+     * @returns UploadedAudioFile
      */
-    public async create(file: Express.Multer.File): Promise<UploadedFile> {
-        const readableBuffer = file.path ? readFileSync(file.path) : file.buffer;
+    public async create(file: Express.Multer.File): Promise<UploadedAudioFile> {
+        return this.createFromFile(file.path);
+    }
+
+    /**
+     * Create database file entry from file on filesystem and transpile file into predefined formats.
+     * @param filepath Path to the file
+     * @returns UploadedAudioFile
+     */
+    public async createFromFile(filepath: string): Promise<UploadedAudioFile> {
+        const readableBuffer = filepath ? readFileSync(filepath) : undefined;
+        if(!readableBuffer) throw new InternalServerErrorException("Error reading file.");
 
         // Check file format
-        if(!(await this.storageService.hasSupportedAudioFormat(file))) throw new BadRequestException("File format not supported.");
+        if(!(await this.storageService.hasSupportedAudioFormat(filepath))) throw new BadRequestException("File format not supported.");
 
         // Create data to be inserted in database
-        const uploadedFile = new UploadedFile();
+        const uploadedFile = new UploadedAudioFile();
         uploadedFile.fileType = FileType.FILE_SONG;
-        uploadedFile.sizeInBytes = file.size;
-        uploadedFile.status = FileStatus.STATUS_PROCESSING;
+        uploadedFile.sizeInBytes = statSync(filepath)?.size || 0;
+        uploadedFile.status = uploadedFile.sizeInBytes > 0 ? FileStatus.STATUS_PROCESSING : FileStatus.STATUS_CORRUPTED;
 
         // Create new entry to retrieve resulting id from database.
         const result = await this.uploadRepository.save(uploadedFile);
 
         try {
             // Create song entry
-            await this.songService.createMetadataFromBuffer(file.path, result);
+            const song = await this.songService.createFromFile(filepath, result.id);
+            if(!song) throw new InternalServerErrorException("Could not create metadata from file.")
 
             // Convert file to mp3 in background and update entry in database.
-            this.convertUploadedFileToMp3(result, file.path).then(async (convertedFile: UploadedFile) => {
-                uploadedFile.checksum = await this.storageService.generateChecksumOfFile(readableBuffer);
+            this.convertUploadedFileToMp3(result, filepath).then(async (convertedFile: UploadedAudioFile) => {
+                const convertedFilepath = join(UPLOAD_SONGS_DIR, convertedFile.id, `${convertedFile.id}.mp3`);
+                uploadedFile.checksum = await this.storageService.generateChecksumOfFile(convertedFilepath);
 
                 // Check if the same file already exists (checksum)
                 if(await this.storageService.existsFileByChecksum(uploadedFile.checksum)) uploadedFile.status = FileStatus.STATUS_DUPLICATE;
 
+                uploadedFile.sizeInBytes = statSync(convertedFilepath)?.size || 0;
+                uploadedFile.status = uploadedFile.sizeInBytes > 0 ? FileStatus.STATUS_AVAILABLE : FileStatus.STATUS_CORRUPTED;
+                uploadedFile.songMetadata = song;         
+
                 this.uploadRepository.update({ id: result.id }, convertedFile);
 
                 // Cleanup temporary file
-                this.storageService.deleteFile(file.path);
+                this.storageService.deleteFile(filepath);
             })
 
             return result;
         } catch (error) {
-            if(file.path) this.storageService.deleteFile(file.path);
+            if(filepath) this.storageService.deleteFile(filepath);
             this.delete(result.id)
-            throw new InternalServerErrorException()
+            throw error
         }
     }
 
@@ -124,9 +141,9 @@ export class UploadService {
     /**
      * Find uploaded file by id in database.
      * @param uploadId Id of file
-     * @returns UploadedFile
+     * @returns UploadedAudioFile
      */
-    public async findById(uploadId: string): Promise<UploadedFile> {
+    public async findById(uploadId: string): Promise<UploadedAudioFile> {
         return this.uploadRepository.findOne(uploadId);
     }
 
@@ -136,7 +153,7 @@ export class UploadService {
      * @returns 
      */
     public async findPathById(uploadId: string): Promise<string> {
-        const uploadedFile: UploadedFile = await this.findById(uploadId);
+        const uploadedFile: UploadedAudioFile = await this.findById(uploadId);
         if(!uploadedFile) throw new NotFoundException("Medial file not found.");
 
         let filePath = null;
@@ -146,6 +163,44 @@ export class UploadService {
     
         if(!existsSync(filePath)) throw new NotFoundException("Media file not found");
         return filePath
+    }
+
+    /**
+     * 
+     */
+    public async reindexAudioUploads() {
+        try { 
+            const allEntries = (await this.uploadRepository.find()).map((entry) => entry.id);
+            const deadDirectoryNames = readdirSync(UPLOAD_SONGS_DIR).filter((dir) => !allEntries.includes(dir));
+            const results: UploadedAudioFile[] = []
+
+            for(const dirName of deadDirectoryNames) {
+                const fullDir = join(UPLOAD_SONGS_DIR, dirName);
+                const filepath = join(fullDir, `${dirName}.mp3`);
+
+                if(!existsSync(filepath)) continue;
+
+                const result = await this.createFromFile(filepath).catch((error) => {
+                    console.error(error);
+                    return null;
+                })
+
+                if(result) results.push(result);
+                else this.logger.warn(`Could not reindex '${fullDir}'`);
+            }
+
+            for(const dirName of deadDirectoryNames) {
+                const fullDir = join(UPLOAD_SONGS_DIR, dirName);
+
+                rm(fullDir, { recursive: true, force: true }, (error) => { if(error) console.error(error) })
+            }
+
+            if(results.length > 0) {
+                this.logger.log(`Reindexed ${results.length} files.`);
+            }
+        } catch (error) {
+            console.error(error)
+        }
     }
 
     public async convertAudioToHls() {
