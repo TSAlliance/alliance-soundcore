@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException } from "@nestjs/common";
+import { Injectable, InternalServerErrorException, Logger } from "@nestjs/common";
 import { createHash } from "crypto";
 import * as ffprobe from "ffprobe"
 import * as ffprobeStatic from "ffprobe-static"
@@ -15,6 +15,7 @@ export const UPLOAD_SONGS_DIR = join(UPLOAD_ROOT_DIR, "songs");
 
 @Injectable()
 export class StorageService {
+    private logger: Logger = new Logger(StorageService.name)
 
     constructor(private uploadRepository: UploadedFileRepository){
         this.deleteDirectory(UPLOAD_TMP_DIR).then(() => {
@@ -79,7 +80,10 @@ export class StorageService {
      * @param filepath Path to clear
      */
      public async deleteDirectory(dir: string): Promise<void> {
-        if(!existsSync(dir)) return;
+        if(!existsSync(dir)) {
+            this.logger.warn(`Could not delete directory ${dir}`)
+            return;
+        }
         rmSync(dir, { recursive: true })
     }
 

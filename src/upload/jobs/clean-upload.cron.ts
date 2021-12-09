@@ -1,20 +1,20 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
 import { readdirSync } from "fs";
+import { join } from "path";
 import { In } from "typeorm";
 import { FileStatus } from "../enums/file-status.enum";
 import { UploadedFileRepository } from "../repositories/uploaded-file.repository";
-import { UPLOAD_SONGS_DIR } from "../services/storage.service";
+import { StorageService, UPLOAD_SONGS_DIR } from "../services/storage.service";
 import { UploadService } from "../services/upload.service";
+
+type DuplicateAudioFile = { checksum: string, times: number }
 
 @Injectable()
 export class CleanUploadService {
     private readonly logger = new Logger("Cleanup");
 
-    // TODO: If audio is reindexed, it may happen that it is processed so fast, that checksums are calculated at exact same times.
-    // This causes duplicates not being detected. Therefor these duplicates need to be cleaned up
-
-    constructor(private uploadRepository: UploadedFileRepository, private uploadService: UploadService) {
+    constructor(private uploadRepository: UploadedFileRepository, private uploadService: UploadService, private storageService: StorageService) {
         this.handleUploadCleanup();
     }
 
@@ -28,6 +28,7 @@ export class CleanUploadService {
 
         await this.cleanDeadEntries();
         await this.cleanupProcessingFiles();
+        await this.cleanupDuplicateChecksums();
         // await this.cleanDeadFiles();
 
         this.uploadService.reindexAudioUploads();
@@ -56,12 +57,34 @@ export class CleanUploadService {
     }
 
     /**
-     * Delete all files, that have no database entry.
+     * Delete all files that may be duplicates. This is checked via the indexed checksum in the database
      */
-    private async cleanDeadFiles() {
-        /*const files = readdirSync(UPLOAD_SONGS_DIR);
-        console.log(files)*/
-        // TODO: Maybe add ability for users to trigger re-indexing process, so that missing entries in database can be recreated
+    private async cleanupDuplicateChecksums() {
+        const duplicateEntries = (await this.uploadRepository.find());
+        const duplicateGrouped = duplicateEntries.reduce((prev: DuplicateAudioFile[], current) => {
+            const i = prev.findIndex( x => x.checksum === current.checksum);
+            return i === -1 ? prev.push({ checksum : current.checksum, times : 1 }) : prev[i].times++, prev;
+        }, [])
+
+        const duplicateChecksums = duplicateGrouped.filter((value) => value.times > 1).map((value) => value.checksum as string);
+        const duplicateIds = duplicateEntries.filter((entry) => duplicateChecksums.includes(entry.checksum)).map((entry) => entry.id).slice(1);
+
+        if(duplicateIds.length <= 0) {
+            return;
+        }
+
+        this.logger.warn(`Found ${duplicateIds.length + 1} duplicate files. Deleting duplicates (${duplicateIds.length})...`)
+
+        await this.uploadRepository.delete({ checksum: In(duplicateIds) }).then(() => {
+            for(const id of duplicateIds) {
+                this.storageService.deleteDirectory(join(UPLOAD_SONGS_DIR, id));
+            }
+
+            this.logger.log("Successfully cleaned up duplicate files.")
+        }).catch((reason) => {
+            this.logger.error("Could not clean up all duplicate files on system: ")
+            this.logger.error(reason);
+        })
     }
 
     
