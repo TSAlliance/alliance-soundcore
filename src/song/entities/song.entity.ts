@@ -1,7 +1,8 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { UploadedAudioFile } from "../../upload/entities/uploaded-file.entity";
 
 import { CanRead } from "@tsalliance/rest"
+import { Artist } from "../../artist/entities/artist.entity";
 
 @Entity()
 export class Song {
@@ -15,9 +16,11 @@ export class Song {
     @Column({ nullable: false })
     public durationInSeconds: number;
 
-    // TODO: public artist: any;
     // TODO: public album: any;
     // TODO: public playlists: any[];
+
+    @ManyToMany(() => Artist)
+    public artists: Artist[];
 
     @CanRead(false)
     @OneToOne(() => UploadedAudioFile, { onDelete: "CASCADE", nullable: false })

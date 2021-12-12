@@ -8,6 +8,7 @@ import { MulterModule } from '@nestjs/platform-express';
 import { UPLOAD_TMP_DIR } from './upload/services/storage.service';
 
 import { SSOModule } from "@tsalliance/sso-nest"
+import { ArtistModule } from './artist/artist.module';
 
 @Module({
   imports: [
@@ -45,7 +46,8 @@ import { SSOModule } from "@tsalliance/sso-nest"
       clientId: process.env.SSO_CLIENT_ID,
       clientSecret: process.env.SSO_CLIENT_SECRET,
       redirectUri: process.env.SSO_REDIRECT_URI
-    })
+    }),
+    ArtistModule
   ],
   controllers: [],
   providers: [],
