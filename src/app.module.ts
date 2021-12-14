@@ -7,7 +7,7 @@ import { StreamModule } from './stream/stream.module';
 import { MulterModule } from '@nestjs/platform-express';
 import { UPLOAD_TMP_DIR } from './upload/services/storage.service';
 
-import { SSOModule } from "@tsalliance/sso-nest"
+import { SSOModule, SSOUser } from "@tsalliance/sso-nest"
 import { ArtistModule } from './artist/artist.module';
 
 @Module({
@@ -28,7 +28,8 @@ import { ArtistModule } from './artist/artist.module';
       database: process.env.DB_NAME,
       entities: [
         "src/**/*.entity{ .ts,.js}",
-        "dist/**/*.entity{ .ts,.js}"
+        "dist/**/*.entity{ .ts,.js}",
+        SSOUser
       ],
       synchronize: true,
       entityPrefix: process.env.DB_PREFIX,
