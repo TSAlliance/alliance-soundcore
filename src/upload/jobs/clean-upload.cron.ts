@@ -75,7 +75,7 @@ export class CleanUploadService {
 
         this.logger.warn(`Found ${duplicateIds.length + 1} duplicate files. Deleting duplicates (${duplicateIds.length})...`)
 
-        await this.uploadRepository.delete({ checksum: In(duplicateIds) }).then(() => {
+        await this.uploadRepository.delete({ id: In(duplicateIds) }).then(() => {
             for(const id of duplicateIds) {
                 this.storageService.deleteDirectory(join(UPLOAD_SONGS_DIR, id));
             }

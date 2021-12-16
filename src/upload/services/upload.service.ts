@@ -2,14 +2,15 @@ import { BadRequestException, forwardRef, Inject, Injectable, InternalServerErro
 import { execSync } from 'child_process';
 import * as pathToFfmpeg from 'ffmpeg-static';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rm, statSync } from 'fs';
-import { join } from 'path';
+import { basename, join } from 'path';
 import { UploadedAudioFile } from '../entities/uploaded-file.entity';
 import { FileStatus } from '../enums/file-status.enum';
-import { FileType } from '../enums/file-type.enum';
 import { UploadedFileRepository } from '../repositories/uploaded-file.repository';
 import { SongService } from '../../song/song.service';
 import { DeleteResult } from 'typeorm';
 import { StorageService, UPLOAD_SONGS_DIR } from './storage.service';
+import { SSOUser } from '@tsalliance/sso-nest';
+import { Page, Pageable } from 'nestjs-pager';
 
 @Injectable()
 export class UploadService {
@@ -20,6 +21,17 @@ export class UploadService {
         private storageService: StorageService,
         public uploadRepository: UploadedFileRepository
     ) {}
+
+    public async findAllByUploaderId(uploaderId: string, pageable: Pageable): Promise<Page<UploadedAudioFile>> {
+        return this.uploadRepository.findAll(pageable, {
+            where: {
+                uploader: {
+                    id: uploaderId
+                }
+            },
+            relations: ["metadata"]
+        })
+    }
 
     /**
      * Convert UploadedAudioFile to mp3 file format. This encodes the file using ffmpeg and deletes tmp file after completion.
@@ -63,8 +75,8 @@ export class UploadService {
      * @param file File metadata
      * @returns UploadedAudioFile
      */
-    public async create(file: Express.Multer.File): Promise<UploadedAudioFile> {
-        return this.createFromFile(file.path);
+    public async create(file: Express.Multer.File, uploader: SSOUser): Promise<UploadedAudioFile> {
+        return this.createFromFile(file.path, uploader, file.originalname);
     }
 
     /**
@@ -72,7 +84,7 @@ export class UploadService {
      * @param filepath Path to the file
      * @returns UploadedAudioFile
      */
-    public async createFromFile(filepath: string): Promise<UploadedAudioFile> {
+    public async createFromFile(filepath: string, uploader?: SSOUser, originalName?: string): Promise<UploadedAudioFile> {
         const readableBuffer = filepath ? readFileSync(filepath) : undefined;
         if(!readableBuffer) throw new InternalServerErrorException("Error reading file.");
 
@@ -81,9 +93,10 @@ export class UploadService {
 
         // Create data to be inserted in database
         const uploadedFile = new UploadedAudioFile();
-        uploadedFile.fileType = FileType.FILE_SONG;
         uploadedFile.sizeInBytes = statSync(filepath)?.size || 0;
         uploadedFile.status = uploadedFile.sizeInBytes > 0 ? FileStatus.STATUS_PROCESSING : FileStatus.STATUS_CORRUPTED;
+        uploadedFile.uploader = uploader
+        uploadedFile.originalName = originalName ? originalName : basename(filepath);
 
         // Create new entry to retrieve resulting id from database.
         const result = await this.uploadRepository.save(uploadedFile);
@@ -98,12 +111,12 @@ export class UploadService {
                 const convertedFilepath = join(UPLOAD_SONGS_DIR, convertedFile.id, `${convertedFile.id}.mp3`);
                 uploadedFile.checksum = await this.storageService.generateChecksumOfFile(convertedFilepath);
 
-                // Check if the same file already exists (checksum)
-                if(await this.storageService.existsFileByChecksum(uploadedFile.checksum)) uploadedFile.status = FileStatus.STATUS_DUPLICATE;
-
                 uploadedFile.sizeInBytes = statSync(convertedFilepath)?.size || 0;
                 uploadedFile.status = uploadedFile.sizeInBytes > 0 ? FileStatus.STATUS_AVAILABLE : FileStatus.STATUS_CORRUPTED;
-                uploadedFile.songMetadata = song;         
+                uploadedFile.metadata = song;    
+                
+                // Check if the same file already exists (checksum)
+                if(await this.storageService.existsFileByChecksum(uploadedFile.checksum)) uploadedFile.status = FileStatus.STATUS_DUPLICATE;
 
                 this.uploadRepository.update({ id: result.id }, convertedFile);
 
@@ -126,11 +139,8 @@ export class UploadService {
      */
     public async delete(id: string): Promise<DeleteResult> {
         const uploadedFile = await this.findById(id);
-        let deletePath;
-
-        if(uploadedFile.fileType == FileType.FILE_SONG) {
-            deletePath = join(`${UPLOAD_SONGS_DIR}`, id);
-        }
+        if(!uploadedFile) return;
+        const deletePath = join(`${UPLOAD_SONGS_DIR}`, id);
 
         return this.uploadRepository.delete(id).then((result) => {
             this.storageService.deleteFile(deletePath);
@@ -156,10 +166,7 @@ export class UploadService {
         const uploadedFile: UploadedAudioFile = await this.findById(uploadId);
         if(!uploadedFile) throw new NotFoundException("Medial file not found.");
 
-        let filePath = null;
-        if(uploadedFile.fileType == FileType.FILE_SONG) {
-            filePath = join(UPLOAD_SONGS_DIR, uploadId, `${uploadId}.mp3`);
-        }
+        const filePath = join(UPLOAD_SONGS_DIR, uploadId, `${uploadId}.mp3`);
     
         if(!existsSync(filePath)) throw new NotFoundException("Media file not found");
         return filePath
