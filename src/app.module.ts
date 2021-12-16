@@ -9,6 +9,9 @@ import { UPLOAD_TMP_DIR } from './upload/services/storage.service';
 
 import { SSOModule, SSOUser } from "@tsalliance/sso-nest"
 import { ArtistModule } from './artist/artist.module';
+import { APP_GUARD } from '@nestjs/core';
+import { AuthenticationGuard } from './guard/authentication.guard';
+import { AllianceRestModule } from '@tsalliance/rest';
 
 @Module({
   imports: [
@@ -46,11 +49,20 @@ import { ArtistModule } from './artist/artist.module';
       baseUrl: process.env.SSO_URL,
       clientId: process.env.SSO_CLIENT_ID,
       clientSecret: process.env.SSO_CLIENT_SECRET,
-      redirectUri: process.env.SSO_REDIRECT_URI
+      redirectUri: process.env.SSO_REDIRECT_URI,
+      logging: false
+    }),
+    AllianceRestModule.forRoot({
+      logging: false
     }),
     ArtistModule
   ],
   controllers: [],
-  providers: [],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: AuthenticationGuard,
+    }
+  ],
 })
 export class AppModule {}
