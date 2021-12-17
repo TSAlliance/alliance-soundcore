@@ -9,9 +9,8 @@ import { UPLOAD_TMP_DIR } from './upload/services/storage.service';
 
 import { SSOModule, SSOUser } from "@tsalliance/sso-nest"
 import { ArtistModule } from './artist/artist.module';
-import { APP_GUARD } from '@nestjs/core';
-import { AuthenticationGuard } from './guard/authentication.guard';
 import { AllianceRestModule } from '@tsalliance/rest';
+import { SearchModule } from './search/search.module';
 
 @Module({
   imports: [
@@ -55,14 +54,10 @@ import { AllianceRestModule } from '@tsalliance/rest';
     AllianceRestModule.forRoot({
       logging: false
     }),
-    ArtistModule
+    ArtistModule,
+    SearchModule
   ],
   controllers: [],
-  providers: [
-    {
-      provide: APP_GUARD,
-      useClass: AuthenticationGuard,
-    }
-  ],
+  providers: [],
 })
 export class AppModule {}

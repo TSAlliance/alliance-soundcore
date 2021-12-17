@@ -1,5 +1,5 @@
 import { forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { DeleteResult, UpdateResult } from 'typeorm';
+import { DeleteResult, FindManyOptions, ILike, In, Like, UpdateResult } from 'typeorm';
 import { UploadService } from '../upload/services/upload.service';
 import { CreateSongDTO } from './dto/create-song.dto';
 import { UpdateSongDTO } from './dto/update-song.dto';
@@ -7,6 +7,7 @@ import { Song } from './entities/song.entity';
 import { SongRepository } from './repositories/song.repository';
 
 import { StorageService } from '../upload/services/storage.service';
+import { Page, Pageable } from 'nestjs-pager';
 
 @Injectable()
 export class SongService {
@@ -27,6 +28,20 @@ export class SongService {
 
     public async create(createSongDto: CreateSongDTO): Promise<Song> {
         return this.songRepository.save(createSongDto);
+    }
+
+    public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Song>> {
+        if(!query) query = ""
+        query = query.replace(/\s/g, '%');
+
+        const result = await this.songRepository.findAll(pageable, {
+            where: {
+                title: ILike(`%${query}%`)
+            },
+            relations: ["artists"]
+        })
+
+        return result;
     }
 
     public async update(id: string, updateSongDto: UpdateSongDTO): Promise<UpdateResult> {
