@@ -7,13 +7,15 @@ import { CleanUploadService } from './jobs/clean-upload.cron';
 import { SongModule } from '../song/song.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { StorageService } from './services/storage.service';
+import { UploadStatusGateway } from './gateways/upload-status.gateway';
 
 @Module({
   controllers: [UploadController],
   providers: [
     UploadService, 
     StorageService,
-    CleanUploadService
+    CleanUploadService,
+    UploadStatusGateway
   ],
   imports: [
     ScheduleModule.forRoot(),

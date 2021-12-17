@@ -11,6 +11,7 @@ import { DeleteResult } from 'typeorm';
 import { StorageService, UPLOAD_SONGS_DIR } from './storage.service';
 import { SSOUser } from '@tsalliance/sso-nest';
 import { Page, Pageable } from 'nestjs-pager';
+import { UploadStatusGateway } from '../gateways/upload-status.gateway';
 
 @Injectable()
 export class UploadService {
@@ -19,6 +20,7 @@ export class UploadService {
     constructor(
         @Inject(forwardRef(() => SongService)) private songService: SongService,
         private storageService: StorageService,
+        private uploadStatusGateway: UploadStatusGateway,
         public uploadRepository: UploadedFileRepository
     ) {}
 
@@ -106,22 +108,30 @@ export class UploadService {
             const song = await this.songService.createFromFile(filepath, result.id);
             if(!song) throw new InternalServerErrorException("Could not create metadata from file.")
 
+            // TODO: Separate reindexing from default upload by user?
+            // This leads to errors, because reindexing sets uploader to null
+
             // Convert file to mp3 in background and update entry in database.
             this.convertUploadedFileToMp3(result, filepath).then(async (convertedFile: UploadedAudioFile) => {
                 const convertedFilepath = join(UPLOAD_SONGS_DIR, convertedFile.id, `${convertedFile.id}.mp3`);
                 uploadedFile.checksum = await this.storageService.generateChecksumOfFile(convertedFilepath);
 
                 uploadedFile.sizeInBytes = statSync(convertedFilepath)?.size || 0;
-                uploadedFile.status = uploadedFile.sizeInBytes > 0 ? FileStatus.STATUS_AVAILABLE : FileStatus.STATUS_CORRUPTED;
+                uploadedFile.status = convertedFile.sizeInBytes > 0 ? FileStatus.STATUS_AVAILABLE : FileStatus.STATUS_CORRUPTED;
                 uploadedFile.metadata = song;    
                 
                 // Check if the same file already exists (checksum)
                 if(await this.storageService.existsFileByChecksum(uploadedFile.checksum)) uploadedFile.status = FileStatus.STATUS_DUPLICATE;
 
-                this.uploadRepository.update({ id: result.id }, convertedFile);
+                await this.uploadRepository.update({ id: result.id }, uploadedFile);
 
                 // Cleanup temporary file
-                this.storageService.deleteFile(filepath);
+                await this.storageService.deleteFile(filepath);
+
+                if(uploadedFile.uploader) {
+                    this.uploadStatusGateway.sendStatusToUploader(uploadedFile)
+                }
+                
             })
 
             return result;
