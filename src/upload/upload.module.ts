@@ -8,6 +8,7 @@ import { SongModule } from '../song/song.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { StorageService } from './services/storage.service';
 import { UploadStatusGateway } from './gateways/upload-status.gateway';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 
 @Module({
   controllers: [UploadController],
@@ -20,7 +21,8 @@ import { UploadStatusGateway } from './gateways/upload-status.gateway';
   imports: [
     ScheduleModule.forRoot(),
     TypeOrmModule.forFeature([ UploadedFileRepository ]),
-    forwardRef(() => SongModule)
+    forwardRef(() => SongModule),
+    EventEmitterModule.forRoot()
   ],
   exports: [
     UploadService,

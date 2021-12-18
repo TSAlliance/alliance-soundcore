@@ -12,6 +12,8 @@ import { StorageService, UPLOAD_SONGS_DIR } from './storage.service';
 import { SSOUser } from '@tsalliance/sso-nest';
 import { Page, Pageable } from 'nestjs-pager';
 import { UploadStatusGateway } from '../gateways/upload-status.gateway';
+import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
+import { UploadCreatedEvent } from '../events/upload-created.event';
 
 @Injectable()
 export class UploadService {
@@ -21,7 +23,8 @@ export class UploadService {
         @Inject(forwardRef(() => SongService)) private songService: SongService,
         private storageService: StorageService,
         private uploadStatusGateway: UploadStatusGateway,
-        public uploadRepository: UploadedFileRepository
+        public uploadRepository: UploadedFileRepository,
+        private eventEmitter: EventEmitter2
     ) {}
 
     public async findAllByUploaderId(uploaderId: string, pageable: Pageable): Promise<Page<UploadedAudioFile>> {
@@ -94,50 +97,38 @@ export class UploadService {
         if(!(await this.storageService.hasSupportedAudioFormat(filepath))) throw new BadRequestException("File format not supported.");
 
         // Create data to be inserted in database
-        const uploadedFile = new UploadedAudioFile();
+        let uploadedFile = new UploadedAudioFile();
         uploadedFile.sizeInBytes = statSync(filepath)?.size || 0;
         uploadedFile.status = uploadedFile.sizeInBytes > 0 ? FileStatus.STATUS_PROCESSING : FileStatus.STATUS_CORRUPTED;
         uploadedFile.uploader = uploader
         uploadedFile.originalName = originalName ? originalName : basename(filepath);
 
         // Create new entry to retrieve resulting id from database.
-        const result = await this.uploadRepository.save(uploadedFile);
+        uploadedFile = await this.uploadRepository.save(uploadedFile);
+
+        // Create song entry
+        const song = await this.songService.createFromFile(filepath, uploadedFile.id);
+        if(!song) throw new InternalServerErrorException("Could not create metadata from file.")
+        uploadedFile.metadata = song;
+
+        // Save relation to database.
+        uploadedFile = await this.uploadRepository.save(uploadedFile);
+
+        // Do processing in background. This triggers an event which
+        // does some audio encoding in background to optimize streaming
+        // experience
+        this.eventEmitter.emitAsync("upload.created", new UploadCreatedEvent(uploadedFile.id, filepath));
+
 
         try {
-            // Create song entry
-            const song = await this.songService.createFromFile(filepath, result.id);
-            if(!song) throw new InternalServerErrorException("Could not create metadata from file.")
-
             // TODO: Separate reindexing from default upload by user?
             // This leads to errors, because reindexing sets uploader to null
 
-            // Convert file to mp3 in background and update entry in database.
-            this.convertUploadedFileToMp3(result, filepath).then(async (convertedFile: UploadedAudioFile) => {
-                const convertedFilepath = join(UPLOAD_SONGS_DIR, convertedFile.id, `${convertedFile.id}.mp3`);
-                uploadedFile.checksum = await this.storageService.generateChecksumOfFile(convertedFilepath);
 
-                uploadedFile.sizeInBytes = statSync(convertedFilepath)?.size || 0;
-                uploadedFile.status = convertedFile.sizeInBytes > 0 ? FileStatus.STATUS_AVAILABLE : FileStatus.STATUS_CORRUPTED;
-                uploadedFile.metadata = song;    
-                
-                // Check if the same file already exists (checksum)
-                if(await this.storageService.existsFileByChecksum(uploadedFile.checksum)) uploadedFile.status = FileStatus.STATUS_DUPLICATE;
-
-                await this.uploadRepository.update({ id: result.id }, uploadedFile);
-
-                // Cleanup temporary file
-                await this.storageService.deleteFile(filepath);
-
-                if(uploadedFile.uploader) {
-                    this.uploadStatusGateway.sendStatusToUploader(uploadedFile)
-                }
-                
-            })
-
-            return result;
+            return uploadedFile;
         } catch (error) {
             if(filepath) this.storageService.deleteFile(filepath);
-            this.delete(result.id)
+            this.delete(uploadedFile.id)
             throw error
         }
     }
@@ -168,13 +159,25 @@ export class UploadService {
     }
 
     /**
+     * Find uploaded file by id in database.
+     * @param uploadId Id of file
+     * @returns UploadedAudioFile
+     */
+     public async findByIdWithRelations(uploadId: string): Promise<UploadedAudioFile> {
+        return this.uploadRepository.findOne({
+            where: { id: uploadId },
+            relations: ["metadata", "metadata.artists", "uploader"]
+        });
+    }
+
+    /**
      * Get file path for upload id.
      * @param uploadId Id to lookup file for
      * @returns 
      */
     public async findPathById(uploadId: string): Promise<string> {
         const uploadedFile: UploadedAudioFile = await this.findById(uploadId);
-        if(!uploadedFile) throw new NotFoundException("Medial file not found.");
+        if(!uploadedFile) throw new NotFoundException("Media file not found.");
 
         const filePath = join(UPLOAD_SONGS_DIR, uploadId, `${uploadId}.mp3`);
     
@@ -222,6 +225,41 @@ export class UploadService {
 
     public async convertAudioToHls() {
         //
+    }
+
+    /**
+     * Handler for UploadCreatedEvent.
+     * This is used to act on newly created uploads and optimizes the uploaded files.
+     * @param event Event data
+     */
+    @OnEvent("upload.created", { async: true })
+    public async onUploadCreatedEvent(event: UploadCreatedEvent) {
+        const filepath = event.filepath;
+        const uploadedFile = await this.findByIdWithRelations(event.id);
+        if(!uploadedFile) return;
+
+        // Convert file to mp3 in background and update entry in database.
+        this.convertUploadedFileToMp3(uploadedFile, filepath).then(async (convertedFile: UploadedAudioFile) => {
+            const convertedFilepath = join(UPLOAD_SONGS_DIR, convertedFile.id, `${convertedFile.id}.mp3`);
+            uploadedFile.checksum = await this.storageService.generateChecksumOfFile(convertedFilepath);
+
+            uploadedFile.sizeInBytes = statSync(convertedFilepath)?.size || 0;
+            uploadedFile.status = convertedFile.sizeInBytes > 0 ? FileStatus.STATUS_AVAILABLE : FileStatus.STATUS_CORRUPTED;
+            
+            // Check if the same file already exists (checksum)
+            if(await this.storageService.existsFileByChecksum(uploadedFile.checksum)) uploadedFile.status = FileStatus.STATUS_DUPLICATE;
+
+            // Update
+            this.uploadRepository.update({ id: uploadedFile.id }, uploadedFile);
+
+            // Cleanup temporary file
+            this.storageService.deleteFile(filepath);
+
+            if(uploadedFile.uploader) {
+                this.uploadStatusGateway.sendStatusToUploader(uploadedFile)
+            }
+            
+        })
     }
 
 }
