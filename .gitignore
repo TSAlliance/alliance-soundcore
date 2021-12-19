@@ -5,6 +5,7 @@
 .env.dev
 uploaded-data/
 tmp-data/
+artwork-data
 
 # Logs
 logs

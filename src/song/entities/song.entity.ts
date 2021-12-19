@@ -3,6 +3,7 @@ import { UploadedAudioFile } from "../../upload/entities/uploaded-file.entity";
 
 import { CanRead } from "@tsalliance/rest"
 import { Artist } from "../../artist/entities/artist.entity";
+import { Artwork } from "../../artwork/entities/artwork.entity";
 
 @Entity()
 export class Song {
@@ -19,14 +20,18 @@ export class Song {
     // TODO: public album: any;
     // TODO: public playlists: any[];
 
-    @ManyToMany(() => Artist)
-    @JoinTable()
+    @ManyToMany(() => Artist, (artist) => artist.songs)
+    @JoinTable({ name: "song2artists" })
     public artists: Artist[];
 
     @CanRead(false)
     @OneToOne(() => UploadedAudioFile, { onDelete: "CASCADE", nullable: false })
     @JoinColumn()
     public file: UploadedAudioFile;
+
+    @OneToOne(() => Artwork, { onDelete: "SET NULL", cascade: ["insert"], nullable: true })
+    @JoinColumn()
+    public artwork: Artwork;
 
     @CreateDateColumn()
     public createdAt: Date;

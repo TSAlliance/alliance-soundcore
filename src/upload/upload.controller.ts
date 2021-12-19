@@ -4,7 +4,7 @@ import { Authentication, IsAuthenticated } from '@tsalliance/rest';
 import { SSOUser } from '@tsalliance/sso-nest';
 import { Page, Pageable } from 'nestjs-pager';
 import { UploadedAudioFile } from './entities/uploaded-file.entity';
-import { UPLOAD_TMP_DIR } from './services/storage.service';
+import { UPLOAD_TMP_DIR } from '../storage/storage.service';
 import { UploadService } from './services/upload.service';
 
 @Controller('uploads')
@@ -20,6 +20,6 @@ export class UploadController {
 
   @Get("/byUploader/:uploaderId")
   public async findAllByUploaderId(@Param("uploaderId") uploaderId: string, @Pageable() pageable: Pageable): Promise<Page<UploadedAudioFile>> {
-    return this.uploadService.findAllByUploaderId(uploaderId, pageable);
+    return this.uploadService.findAllByUploaderIdWithRelations(uploaderId, pageable);
   }
 }

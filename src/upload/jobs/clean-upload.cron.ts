@@ -5,7 +5,7 @@ import { join } from "path";
 import { In } from "typeorm";
 import { FileStatus } from "../enums/file-status.enum";
 import { UploadedFileRepository } from "../repositories/uploaded-file.repository";
-import { StorageService, UPLOAD_SONGS_DIR } from "../services/storage.service";
+import { StorageService, UPLOAD_SONGS_DIR } from "../../storage/storage.service";
 import { UploadService } from "../services/upload.service";
 
 type DuplicateAudioFile = { checksum: string, times: number }
@@ -77,7 +77,7 @@ export class CleanUploadService {
 
         await this.uploadRepository.delete({ id: In(duplicateIds) }).then(() => {
             for(const id of duplicateIds) {
-                this.storageService.deleteDirectory(join(UPLOAD_SONGS_DIR, id));
+                this.storageService.delete(join(UPLOAD_SONGS_DIR, id));
             }
 
             this.logger.log("Successfully cleaned up duplicate files.")

@@ -5,12 +5,13 @@ import { SongModule } from './song/song.module';
 import { UploadModule } from './upload/upload.module';
 import { StreamModule } from './stream/stream.module';
 import { MulterModule } from '@nestjs/platform-express';
-import { UPLOAD_TMP_DIR } from './upload/services/storage.service';
+import { UPLOAD_TMP_DIR } from './storage/storage.service';
 
 import { SSOModule, SSOUser } from "@tsalliance/sso-nest"
 import { ArtistModule } from './artist/artist.module';
 import { AllianceRestModule } from '@tsalliance/rest';
 import { SearchModule } from './search/search.module';
+import { ArtworkModule } from './artwork/artwork.module';
 
 @Module({
   imports: [
@@ -55,7 +56,8 @@ import { SearchModule } from './search/search.module';
       logging: false
     }),
     ArtistModule,
-    SearchModule
+    SearchModule,
+    ArtworkModule
   ],
   controllers: [],
   providers: [],

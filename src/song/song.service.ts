@@ -1,13 +1,17 @@
 import { forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { DeleteResult, FindManyOptions, ILike, In, Like, UpdateResult } from 'typeorm';
+import { DeleteResult, ILike, UpdateResult } from 'typeorm';
 import { UploadService } from '../upload/services/upload.service';
 import { CreateSongDTO } from './dto/create-song.dto';
 import { UpdateSongDTO } from './dto/update-song.dto';
 import { Song } from './entities/song.entity';
 import { SongRepository } from './repositories/song.repository';
 
-import { StorageService } from '../upload/services/storage.service';
+import { StorageService } from '../storage/storage.service';
 import { Page, Pageable } from 'nestjs-pager';
+import { ArtworkService } from '../artwork/artwork.service';
+import { Artist } from '../artist/entities/artist.entity';
+import { ArtistService } from '../artist/artist.service';
+import { Artwork } from '../artwork/entities/artwork.entity';
 
 @Injectable()
 export class SongService {
@@ -15,6 +19,8 @@ export class SongService {
     constructor(
         @Inject(forwardRef(() => UploadService)) private uploadService: UploadService,
         private storageService: StorageService,
+        private artworkService: ArtworkService,
+        private artistService: ArtistService,
         private songRepository: SongRepository
     ) { }
 
@@ -23,7 +29,7 @@ export class SongService {
     }
 
     public async findByIdWithRelations(id: string): Promise<Song> {
-        return this.songRepository.findOne(id, { relations: ["file"] });
+        return this.songRepository.findOne(id, { relations: ["file", "artwork", "artists"] });
     }
 
     public async create(createSongDto: CreateSongDTO): Promise<Song> {
@@ -55,12 +61,22 @@ export class SongService {
      * @returns Song
      */
     public async createFromFile(filepath: string, uploadedFileId: string): Promise<Song> {
+        const metadataResult = await this.storageService.readMetadataFromAudioFile(filepath);
+
+        const artists: Artist[] = [];
+
+        for(const artist of metadataResult.artists) {
+            artists.push(await this.artistService.createIfNotExists({ name: artist.name }))
+        }
+
+        // TODO: Add artwork creation here. Currently created in the upload created event
+
         const song = await this.create({ 
-            ...await this.storageService.readMetadataFromAudioFile(filepath),
+            ...metadataResult,
+            artists,
             file: { id: uploadedFileId }
         });
-
-        return song;
+        return this.songRepository.save(song);
     }
 
     /**
@@ -81,10 +97,16 @@ export class SongService {
         const song = await this.findByIdWithRelations(id);
         if(!song) throw new NotFoundException("Song not found.");
 
-        return this.songRepository.delete(id).then((result) => {
-            this.uploadService.delete(song.file.id)
-            return result;
-        });
+        // Songs are deleted by deleting corresponding upload
+        return this.uploadService.delete(song.file.id);
+    }
+
+    public async setArtwork(id: string, artwork: Artwork): Promise<Song> {
+        const song: Song = await this.findByIdWithRelations(id);
+        if(!song) throw new NotFoundException("Song not found");
+
+        song.artwork = artwork;
+        return this.songRepository.save(song);
     }
 
 }

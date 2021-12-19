@@ -15,9 +15,10 @@
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
-    "noFallthroughCasesInSwitch": false
+    "noFallthroughCasesInSwitch": false,
+    "esModuleInterop": true
   },
   "watchOptions": {
-    "excludeFiles": ["tmp-data", "uploaded-data"]
+    "excludeFiles": ["tmp-data", "uploaded-data", "artwork-data"]
   }
 }

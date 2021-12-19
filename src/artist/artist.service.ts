@@ -1,26 +1,25 @@
 import { Injectable } from '@nestjs/common';
+import { ILike } from 'typeorm';
 import { CreateArtistDto } from './dto/create-artist.dto';
-import { UpdateArtistDto } from './dto/update-artist.dto';
+import { Artist } from './entities/artist.entity';
+import { ArtistRepository } from './repositories/artist.repository';
 
 @Injectable()
 export class ArtistService {
-  create(createArtistDto: CreateArtistDto) {
-    return 'This action adds a new artist';
+
+  constructor(private artistRepository: ArtistRepository) {}
+
+  public async create(createArtistDto: CreateArtistDto): Promise<Artist> {
+    //
+    return
   }
 
-  findAll() {
-    return `This action returns all artist`;
+  public async createIfNotExists(createArtistDto: CreateArtistDto): Promise<Artist> {
+    const artistNameLike = `%${createArtistDto.name.replace(/\s/g, "_")}%`;
+    console.log(artistNameLike)
+    const result = await this.artistRepository.findOne({ where: { name: ILike(artistNameLike) }});
+
+    return result || this.artistRepository.save(createArtistDto);
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} artist`;
-  }
-
-  update(id: number, updateArtistDto: UpdateArtistDto) {
-    return `This action updates a #${id} artist`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} artist`;
-  }
 }
