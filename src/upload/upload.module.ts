@@ -6,27 +6,28 @@ import { UploadedFileRepository } from './repositories/uploaded-file.repository'
 import { CleanUploadService } from './jobs/clean-upload.cron';
 import { SongModule } from '../song/song.module';
 import { ScheduleModule } from '@nestjs/schedule';
-import { StorageService } from './services/storage.service';
 import { UploadStatusGateway } from './gateways/upload-status.gateway';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ArtworkModule } from '../artwork/artwork.module';
+import { StorageModule } from '../storage/storage.module';
 
 @Module({
   controllers: [UploadController],
   providers: [
     UploadService, 
-    StorageService,
     CleanUploadService,
     UploadStatusGateway
   ],
   imports: [
+    StorageModule,
+    ArtworkModule,
     ScheduleModule.forRoot(),
     TypeOrmModule.forFeature([ UploadedFileRepository ]),
     forwardRef(() => SongModule),
     EventEmitterModule.forRoot()
   ],
   exports: [
-    UploadService,
-    StorageService
+    UploadService
   ]
 })
 export class UploadModule {}
