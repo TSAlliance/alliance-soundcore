@@ -1,13 +1,14 @@
 import { Injectable, InternalServerErrorException, Logger } from "@nestjs/common";
 import { createHash } from "crypto";
-import * as ffprobe from "ffprobe"
-import * as ffprobeStatic from "ffprobe-static"
-import * as NodeID3 from 'node-id3';
-import { createReadStream, existsSync, mkdirSync, readFileSync, rmSync, unlinkSync } from "fs";
+import ffprobe from "ffprobe"
+import ffprobeStatic from "ffprobe-static"
+import NodeID3 from 'node-id3';
+import { createReadStream, existsSync, lstatSync, mkdirSync, readFileSync, rmSync, unlinkSync } from "fs";
 import { join } from "path";
 import { Readable } from "stream";
-import { SongMetadataDTO } from "../../song/dto/song-metadata.dto";
-import { UploadedFileRepository } from "../repositories/uploaded-file.repository";
+import { SongMetadataDTO } from "../song/dto/song-metadata.dto";
+import { Artist } from "../artist/entities/artist.entity";
+import sharp from "sharp";
 
 export const UPLOAD_TMP_DIR = join(process.cwd(), "tmp-data");
 export const UPLOAD_ROOT_DIR = join(process.cwd(), "uploaded-data");
@@ -17,8 +18,8 @@ export const UPLOAD_SONGS_DIR = join(UPLOAD_ROOT_DIR, "songs");
 export class StorageService {
     private logger: Logger = new Logger(StorageService.name)
 
-    constructor(private uploadRepository: UploadedFileRepository){
-        this.deleteDirectory(UPLOAD_TMP_DIR).then(() => {
+    constructor(){
+        this.delete(UPLOAD_TMP_DIR).then(() => {
             if(!existsSync(UPLOAD_ROOT_DIR)) mkdirSync(UPLOAD_ROOT_DIR, { recursive: true });
             if(!existsSync(UPLOAD_TMP_DIR)) mkdirSync(UPLOAD_TMP_DIR, { recursive: true });
             if(!existsSync(UPLOAD_SONGS_DIR)) mkdirSync(UPLOAD_SONGS_DIR, { recursive: true });
@@ -70,47 +71,46 @@ export class StorageService {
      * Delete file from filesystem
      * @param filepath Path to delete.
      */
-    public async deleteFile(filepath: string): Promise<void> {
-        if(!existsSync(filepath)) return;
-        unlinkSync(filepath);
-    }
+    public async delete(filepath: string): Promise<void> {
+        if(!filepath || !existsSync(filepath)) return;
 
-    /**
-     * Clear directory on filesystem
-     * @param filepath Path to clear
-     */
-     public async deleteDirectory(dir: string): Promise<void> {
-        if(!existsSync(dir)) {
-            this.logger.warn(`Could not delete directory ${dir}`)
-            return;
+        const stats = lstatSync(filepath, { throwIfNoEntry: false })
+        if(!stats) return;
+
+        if(stats.isDirectory()) {
+            rmSync(filepath, { recursive: true })
+        } else {
+            unlinkSync(filepath);
         }
-        rmSync(dir, { recursive: true })
     }
 
     /**
-     * Check if there already is an entry in database with exact same checksum.
-     * If true, there might be a duplicate file upload.
-     * @param checksum 
+     * Read metadata of audio files.
+     * @param filepath 
      * @returns 
      */
-    public async existsFileByChecksum(checksum: string): Promise<boolean> {
-        return !!(await this.uploadRepository.findOne({ where: { checksum }}));
-    }
-
-    /**
-         * Read metadata of audio files.
-         * @param filepath 
-         * @returns 
-         */
     public async readMetadataFromAudioFile(filepath: string): Promise<SongMetadataDTO> {
         const id3Tags = NodeID3.read(readFileSync(filepath));
 
+        // Get duration in seconds
         const probe = await ffprobe(filepath, { path: ffprobeStatic.path })
         const durationInSeconds = Math.round(probe.streams[0].duration || 0);
 
+        // Get artists
+        const artists = id3Tags.artist.split("/")
+        for(const index in artists) {
+            artists.push(...artists[index].split(","))
+            artists.splice(parseInt(index), 1)
+        }
+
+        // Get artwork buffer
+        const artworkBuffer: Buffer = id3Tags.image["imageBuffer"];
+    
         return {
             title: id3Tags.title,
-            durationInSeconds
+            artists: artists.map((name) => ({ name }) as Artist),
+            durationInSeconds,
+            artworkBuffer: sharp(artworkBuffer).jpeg({ quality: 90 }).toBuffer()
         }
     }
 
