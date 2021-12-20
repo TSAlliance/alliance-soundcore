@@ -38,16 +38,29 @@ export class SongService {
 
     public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Song>> {
         if(!query) query = ""
-        query = query.replace(/\s/g, '%');
+        query = `%${query.replace(/\s/g, '%')}%`;
 
-        const result = await this.songRepository.findAll(pageable, {
-            where: {
-                title: ILike(`%${query}%`)
+        // TODO: Sort by "views"?
+        // TODO: Add playlists featuring the song / artist
+
+        // Find song by title or if the artist has similar name
+        const result = await this.songRepository.find({
+            relations: ["artists", "artwork"],
+            join: {
+                alias: "song",
+                innerJoin: {
+                    artists: "song.artists"
+                }
             },
-            relations: ["artists"]
+            where: qb => {
+                qb.where({
+                    title: ILike(query)
+                }).orWhere("artists.name LIKE :query", { query })
+            },
+            
         })
 
-        return result;
+        return Page.of(result, result.length, pageable.page);
     }
 
     public async update(id: string, updateSongDto: UpdateSongDTO): Promise<UpdateResult> {
