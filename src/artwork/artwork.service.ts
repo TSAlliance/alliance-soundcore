@@ -3,7 +3,6 @@ import { createReadStream, existsSync, mkdirSync, readFileSync, ReadStream, writ
 import NodeID3 from 'node-id3';
 import { join } from 'path';
 import sharp from 'sharp';
-import { StorageService } from '../storage/storage.service';
 import { Artwork } from './entities/artwork.entity';
 import { ArtworkType } from './enums/artwork-type.enum';
 import { ArtworkRepository } from './repositories/artwork.repository';
@@ -17,7 +16,7 @@ const ARTWORK_ARTIST_DIR = join(ARTWORK_ROOT_DIR, ArtworkType.ARTIST_COVER);
 @Injectable()
 export class ArtworkService {
 
-    constructor(private artworkRepository: ArtworkRepository, private storageService: StorageService) {
+    constructor(private artworkRepository: ArtworkRepository) {
         mkdirSync(ARTWORK_SONGS_DIR, { recursive: true })
         mkdirSync(ARTWORK_ALBUM_DIR, { recursive: true })
         mkdirSync(ARTWORK_PLAYLIST_DIR, { recursive: true })
@@ -55,7 +54,7 @@ export class ArtworkService {
         if(!artwork) throw new NotFoundException("Artwork not found.");
 
         const filepath = await this.getPath(artwork);
-        return this.storageService.delete(filepath);
+        return // this.storageService.delete(filepath);
     }
 
     public async createArtworkFromAudioFile(filepath: string): Promise<Artwork> {

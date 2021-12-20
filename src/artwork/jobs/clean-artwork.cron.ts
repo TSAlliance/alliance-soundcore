@@ -1,6 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
-import { StorageService } from "../../storage/storage.service";
 import { Artwork } from "../entities/artwork.entity";
 import { ArtworkType } from "../enums/artwork-type.enum";
 import { ArtworkRepository } from "../repositories/artwork.repository";
@@ -11,7 +10,7 @@ type GroupedArtworks = { [key: string]: Artwork[] }
 export class CleanArtworkService {
     private readonly logger = new Logger("Artwork Cleanup");
 
-    constructor(private artworkRepository: ArtworkRepository, private storageService: StorageService) {
+    constructor(private artworkRepository: ArtworkRepository) {
         this.handleUploadCleanup();
     }
 

@@ -9,7 +9,6 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { UploadStatusGateway } from './gateways/upload-status.gateway';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ArtworkModule } from '../artwork/artwork.module';
-import { StorageModule } from '../storage/storage.module';
 
 @Module({
   controllers: [UploadController],
@@ -19,7 +18,6 @@ import { StorageModule } from '../storage/storage.module';
     UploadStatusGateway
   ],
   imports: [
-    StorageModule,
     ArtworkModule,
     ScheduleModule.forRoot(),
     TypeOrmModule.forFeature([ UploadedFileRepository ]),

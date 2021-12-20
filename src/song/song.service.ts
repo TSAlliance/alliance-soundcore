@@ -6,7 +6,6 @@ import { UpdateSongDTO } from './dto/update-song.dto';
 import { Song } from './entities/song.entity';
 import { SongRepository } from './repositories/song.repository';
 
-import { StorageService } from '../storage/storage.service';
 import { Page, Pageable } from 'nestjs-pager';
 import { ArtworkService } from '../artwork/artwork.service';
 import { Artist } from '../artist/entities/artist.entity';
@@ -19,7 +18,7 @@ export class SongService {
 
     constructor(
         @Inject(forwardRef(() => UploadService)) private uploadService: UploadService,
-        private storageService: StorageService,
+        // private storageService: StorageService,
         private artworkService: ArtworkService,
         private artistService: ArtistService,
         private songRepository: SongRepository
@@ -43,7 +42,8 @@ export class SongService {
     }
 
     public async create(createSongDto: CreateSongDTO): Promise<Song> {
-        return this.songRepository.save(createSongDto);
+       // return this.songRepository.save(createSongDto);
+       return null;
     }
 
     public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Song>> {
@@ -74,7 +74,8 @@ export class SongService {
     }
 
     public async update(id: string, updateSongDto: UpdateSongDTO): Promise<UpdateResult> {
-        return this.songRepository.update({ id }, updateSongDto);
+        // return this.songRepository.update({ id }, updateSongDto);
+        return null
     }
 
     /**
@@ -84,7 +85,7 @@ export class SongService {
      * @returns Song
      */
     public async createFromFile(filepath: string, uploadedFileId: string): Promise<Song> {
-        const metadataResult = await this.storageService.readMetadataFromAudioFile(filepath);
+        const metadataResult = null //await this.storageService.readMetadataFromAudioFile(filepath);
 
         const artists: Artist[] = [];
 
@@ -121,7 +122,7 @@ export class SongService {
         if(!song) throw new NotFoundException("Song not found.");
 
         // Songs are deleted by deleting corresponding upload
-        return this.uploadService.delete(song.file.id);
+        return // this.uploadService.delete(song.file.id);
     }
 
     public async setArtwork(id: string, artwork: Artwork): Promise<Song> {

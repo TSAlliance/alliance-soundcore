@@ -1,0 +1,51 @@
+import { Injectable, Logger } from '@nestjs/common';
+import os from "os"
+import { join } from 'path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { RandomUtil } from '@tsalliance/rest';
+import { BucketRepository } from '../repositories/bucket.repository';
+import { MountRepository } from '../repositories/mount.repository';
+
+export const MACHINE_ID_LENGTH = 32
+
+@Injectable()
+export class StorageBucketService {
+
+    private logger: Logger = new Logger("Bucket")
+    private _machineId: string;
+
+    constructor(private mountRepository: MountRepository) {
+        // this._machineId = this.createOrReadMachineId();
+        this.logger.log(`Identified machine as ${this._machineId}`)
+    }
+
+    /*public get machineId(): string {
+        return this._machineId;
+    }*/
+
+    /*public async findSelfBucket(): Promise<StorageBucket> {
+        const machineId: string = await this.createOrReadMachineId();
+    }*/
+
+    private createOrReadMachineId(): string {
+        const userDir: string = os.homedir();
+        const soundcoreDir: string = join(userDir, ".soundcore")
+        const machineIdFile: string = join(soundcoreDir, ".soundcoreId")
+        let machineId: string = null;
+
+        if(!existsSync(soundcoreDir)) mkdirSync(soundcoreDir, { recursive: true })
+        if(!existsSync(machineIdFile)) {
+            machineId = RandomUtil.randomString(MACHINE_ID_LENGTH)
+            writeFileSync(machineIdFile, machineId);
+        } else {
+            machineId = readFileSync(machineIdFile, "utf-8");
+        }
+
+        // Create bucket in database if not exists
+        /*this.bucketRepository.findOne({ where: { machineId }}).catch(() => null).then((bucket) => {
+            if(!bucket) this.bucketRepository.save({ machineId })
+        })*/
+        return machineId;
+    }
+
+}

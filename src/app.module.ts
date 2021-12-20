@@ -5,7 +5,7 @@ import { SongModule } from './song/song.module';
 import { UploadModule } from './upload/upload.module';
 import { StreamModule } from './stream/stream.module';
 import { MulterModule } from '@nestjs/platform-express';
-import { UPLOAD_TMP_DIR } from './storage/storage.service';
+// import { UPLOAD_TMP_DIR } from './storage/storage_old.service';
 
 import { SSOModule, SSOUser } from "@tsalliance/sso-nest"
 import { ArtistModule } from './artist/artist.module';
@@ -40,7 +40,7 @@ import { ArtworkModule } from './artwork/artwork.module';
       retryDelay: 10000
     }),
     MulterModule.register({
-      dest: UPLOAD_TMP_DIR
+      dest: "UPLOAD_TMP_DIR"
     }),
     SongModule,
     UploadModule,

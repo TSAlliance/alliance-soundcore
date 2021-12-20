@@ -8,7 +8,7 @@ import { FileStatus } from '../enums/file-status.enum';
 import { UploadedFileRepository } from '../repositories/uploaded-file.repository';
 import { SongService } from '../../song/song.service';
 import { DeleteResult } from 'typeorm';
-import { StorageService, UPLOAD_SONGS_DIR } from '../../storage/storage.service';
+// import { StorageService, UPLOAD_SONGS_DIR } from '../../storage/storage_old.service';
 import { SSOUser } from '@tsalliance/sso-nest';
 import { Page, Pageable } from 'nestjs-pager';
 import { UploadStatusGateway } from '../gateways/upload-status.gateway';
@@ -22,7 +22,7 @@ export class UploadService {
 
     constructor(
         @Inject(forwardRef(() => SongService)) private songService: SongService,
-        private storageService: StorageService,
+        // private storageService: StorageService,
         private artworkService: ArtworkService,
         private uploadStatusGateway: UploadStatusGateway,
         public uploadRepository: UploadedFileRepository,
@@ -92,7 +92,7 @@ export class UploadService {
         const uploadedFile: UploadedAudioFile = await this.findById(uploadId);
         if(!uploadedFile) throw new NotFoundException("Media file not found.");
 
-        const filePath = join(UPLOAD_SONGS_DIR, uploadId, `${uploadId}.mp3`);
+        const filePath = "" // join(UPLOAD_SONGS_DIR, uploadId, `${uploadId}.mp3`);
     
         if(!existsSync(filePath)) throw new NotFoundException("Media file not found");
         return filePath
@@ -105,7 +105,8 @@ export class UploadService {
      * @returns 
      */
      public async existsUploadByChecksum(checksum: string): Promise<boolean> {
-        return !!(await this.uploadRepository.findOne({ where: { checksum }, select: [ "id" ]}));
+        // return !!(await this.uploadRepository.findOne({ where: { checksum }, select: [ "id" ]}));
+        return false
     }
 
     /**
@@ -123,7 +124,7 @@ export class UploadService {
      * @returns UploadedAudioFile
      */
     public async createFromFile(tmpPath: string, uploader?: SSOUser, originalName?: string): Promise<UploadedAudioFile> {
-        const readableBuffer = tmpPath ? readFileSync(tmpPath) : undefined;
+        /*const readableBuffer = tmpPath ? readFileSync(tmpPath) : undefined;
         if(!readableBuffer) throw new InternalServerErrorException("Error reading file.");
 
         // Check file format
@@ -162,7 +163,8 @@ export class UploadService {
             this.storageService.delete(tmpPath);
             this.delete(uploadedFile.id)
             throw error
-        }
+        }*/
+        return null
     }
 
     /**
@@ -173,11 +175,11 @@ export class UploadService {
     public async delete(id: string): Promise<DeleteResult> {
         const uploadedFile = await this.findByIdWithRelations(id);
         if(!uploadedFile) return;
-        const deletePath = join(`${UPLOAD_SONGS_DIR}`, id);
+        const deletePath = ""// join(`${UPLOAD_SONGS_DIR}`, id);
 
         return this.uploadRepository.delete(id).then((result) => {
             this.artworkService.deleteById(uploadedFile.metadata?.artwork?.id)
-            this.storageService.delete(deletePath);
+            // this.storageService.delete(deletePath);
             return result;
         });
     }
@@ -191,7 +193,7 @@ export class UploadService {
      public async convertUploadedFileToMp3(file: UploadedAudioFile, tmpFilepath: string): Promise<UploadedAudioFile> {      
         return new Promise((resolve, reject) => {
             setTimeout(() => {
-                const filepath = tmpFilepath;
+                /*const filepath = tmpFilepath;
                 const destFiledir = join(UPLOAD_SONGS_DIR, file.id);
                 const destFilepath = join(destFiledir, `${file.id}.mp3`);
 
@@ -220,7 +222,7 @@ export class UploadService {
                     reject(error);
                 }
                 
-                resolve(file);
+                resolve(file);*/
             }, 1000)
         })
     }
@@ -237,7 +239,7 @@ export class UploadService {
         if(!uploadedFile) return;
 
         // Convert file to mp3 in background and update entry in database.
-        this.convertUploadedFileToMp3(uploadedFile, tmpPath).then(async (convertedFile: UploadedAudioFile) => {
+        /*this.convertUploadedFileToMp3(uploadedFile, tmpPath).then(async (convertedFile: UploadedAudioFile) => {
             const convertedFilepath = join(UPLOAD_SONGS_DIR, convertedFile.id, `${convertedFile.id}.mp3`);
             uploadedFile.checksum = await this.storageService.generateChecksumOfFile(convertedFilepath);
 
@@ -268,7 +270,7 @@ export class UploadService {
         }).finally(() => {
             // Cleanup temporary file
             this.storageService.delete(tmpPath);
-        })
+        })*/
     }
 
     public async convertAudioToHls() {

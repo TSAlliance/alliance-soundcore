@@ -16,7 +16,7 @@ export class StreamService {
         const song = await this.songService.findByIdWithRelations(songId);
         if(!song) throw new NotFoundException("Song not found.");
 
-        const filePath = await this.uploadService.findPathById(song.file.id);
+        const filePath = "" // await this.uploadService.findPathById(song.file.id);
     
         const stat = statSync(filePath);
         const total = stat.size;
