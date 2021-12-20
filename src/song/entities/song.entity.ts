@@ -20,7 +20,7 @@ export class Song {
     // TODO: public album: any;
     // TODO: public playlists: any[];
 
-    @ManyToMany(() => Artist, (artist) => artist.songs)
+    @ManyToMany(() => Artist, (artist) => artist.songs, { onDelete: "CASCADE" })
     @JoinTable({ name: "song2artists" })
     public artists: Artist[];
 
@@ -29,7 +29,7 @@ export class Song {
     @JoinColumn()
     public file: UploadedAudioFile;
 
-    @OneToOne(() => Artwork, { onDelete: "SET NULL", cascade: ["insert"], nullable: true })
+    @OneToOne(() => Artwork, { onDelete: "CASCADE", nullable: true })
     @JoinColumn()
     public artwork: Artwork;
 

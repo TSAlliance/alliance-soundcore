@@ -1,7 +1,7 @@
 import { BadRequestException, forwardRef, Inject, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { execSync } from 'child_process';
 import pathToFfmpeg from 'ffmpeg-static';
-import { existsSync, mkdirSync, readdirSync, readFileSync, rm, statSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, statSync } from 'fs';
 import { basename, join } from 'path';
 import { UploadedAudioFile } from '../entities/uploaded-file.entity';
 import { FileStatus } from '../enums/file-status.enum';
@@ -79,7 +79,7 @@ export class UploadService {
                     id: uploaderId
                 }
             },
-            relations: ["metadata", "metadata.artists", "metadata.artwork", "metadata.artists.artwork"]
+            relations: ["metadata", "metadata.artists", "metadata.artwork"]
         })
     }
 
@@ -171,11 +171,12 @@ export class UploadService {
      * @returns DeleteResult
      */
     public async delete(id: string): Promise<DeleteResult> {
-        const uploadedFile = await this.findById(id);
+        const uploadedFile = await this.findByIdWithRelations(id);
         if(!uploadedFile) return;
         const deletePath = join(`${UPLOAD_SONGS_DIR}`, id);
 
         return this.uploadRepository.delete(id).then((result) => {
+            this.artworkService.deleteById(uploadedFile.metadata?.artwork?.id)
             this.storageService.delete(deletePath);
             return result;
         });
@@ -193,10 +194,6 @@ export class UploadService {
                 const filepath = tmpFilepath;
                 const destFiledir = join(UPLOAD_SONGS_DIR, file.id);
                 const destFilepath = join(destFiledir, `${file.id}.mp3`);
-
-                console.log(filepath)
-                console.log(destFiledir)
-                console.log(destFilepath)
 
                 // Create and convert file to mp3
                 if(!existsSync(destFiledir)) mkdirSync(destFiledir, { recursive: true });
@@ -282,7 +279,9 @@ export class UploadService {
      * 
      */
      public async reindexAudioUploads() {
-        try { 
+         // TODO: Better reindexing
+         // This should not only consider directories but also look for files with no dir
+        /*try { 
             const allEntries = (await this.uploadRepository.find()).map((entry) => entry.id);
             const deadDirectoryNames = readdirSync(UPLOAD_SONGS_DIR).filter((dir) => !allEntries.includes(dir));
             const results: UploadedAudioFile[] = []
@@ -313,7 +312,7 @@ export class UploadService {
             }
         } catch (error) {
             console.error(error)
-        }
+        }*/
     }
 
 }
