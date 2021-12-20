@@ -11,10 +11,10 @@ export class Artist {
     @Column({ nullable: false, unique: true })
     public name: string;
 
-    @ManyToMany(() => Song)
+    @ManyToMany(() => Song, { onDelete: "CASCADE" })
     public songs?: Song[]
 
-    @OneToOne(() => Artwork, { onDelete: "SET NULL", cascade: ["insert"] })
+    @OneToOne(() => Artwork, { onDelete: "CASCADE", nullable: true })
     public artwork?: Artwork;
 
 }
