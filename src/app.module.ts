@@ -12,6 +12,7 @@ import { ArtistModule } from './artist/artist.module';
 import { AllianceRestModule } from '@tsalliance/rest';
 import { SearchModule } from './search/search.module';
 import { ArtworkModule } from './artwork/artwork.module';
+import { StorageModule } from './storage/storage.module';
 
 @Module({
   imports: [
@@ -57,7 +58,8 @@ import { ArtworkModule } from './artwork/artwork.module';
     }),
     ArtistModule,
     SearchModule,
-    ArtworkModule
+    ArtworkModule,
+    StorageModule
   ],
   controllers: [],
   providers: [],
