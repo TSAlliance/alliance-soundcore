@@ -15,6 +15,7 @@ import { Artwork } from '../artwork/entities/artwork.entity';
 
 @Injectable()
 export class SongService {
+    
 
     constructor(
         @Inject(forwardRef(() => UploadService)) private uploadService: UploadService,
@@ -30,6 +31,15 @@ export class SongService {
 
     public async findByIdWithRelations(id: string): Promise<Song> {
         return this.songRepository.findOne(id, { relations: ["file", "artwork", "artists"] });
+    }
+
+    public async findAllLatestWithRelations(pageable: Pageable): Promise<Page<Song>> {
+        return this.songRepository.findAll(pageable, {
+            order: {
+                createdAt: "DESC"
+            },
+            relations: ["artists", "artwork"]
+        })
     }
 
     public async create(createSongDto: CreateSongDTO): Promise<Song> {

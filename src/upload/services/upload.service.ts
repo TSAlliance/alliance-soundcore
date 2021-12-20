@@ -198,7 +198,7 @@ export class UploadService {
                 // Create and convert file to mp3
                 if(!existsSync(destFiledir)) mkdirSync(destFiledir, { recursive: true });
                 try {                    
-                    execSync(`${pathToFfmpeg} -i ${filepath} -vn -ac 2 -b:a 192k ${destFilepath}`, { stdio: "pipe" });
+                    execSync(`${pathToFfmpeg} -i ${filepath} -vn -filter:a loudnorm -filter:a "volume=4" -ac 2 -b:a 192k ${destFilepath}`, { stdio: "pipe" });
 
                     // Update file status
                     file.status = FileStatus.STATUS_AVAILABLE;

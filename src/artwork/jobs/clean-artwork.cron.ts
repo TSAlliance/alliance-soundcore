@@ -41,8 +41,10 @@ export class CleanArtworkService {
             return result;
         }, {});
 
+        // TODO
+
         for(const key of Object.values(ArtworkType)) {
-            
+
         }
 
         for(const key in artworks) {
