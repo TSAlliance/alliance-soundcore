@@ -8,7 +8,7 @@ export class StorageMount {
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
-    @Column({ nullable: false, unique: true })
+    @Column({ nullable: false, type: "text" })
     public path: string;
 
     @ManyToOne(() => StorageBucket, { onDelete: "CASCADE" })

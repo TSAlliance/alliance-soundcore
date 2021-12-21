@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Param } from '@nestjs/common';
 import { Pageable } from 'nestjs-pager';
 import { StorageBucketService } from '../services/bucket.service';
 
@@ -10,6 +10,11 @@ export class StorageBucketController {
     @Get()
     public async findAll(@Pageable() pageable: Pageable) {
         return this.bucketService.findAll(pageable);
+    }
+
+    @Get(":bucketId")
+    public async findById(@Param("bucketId") bucketId: string) {
+        return this.bucketService.findById(bucketId)
     }
 
 }

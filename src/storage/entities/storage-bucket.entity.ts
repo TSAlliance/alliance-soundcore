@@ -7,6 +7,9 @@ export class StorageBucket {
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
+    @Column({ nullable: false, length: 64, unique: true })
+    public name: string;
+
     @Column({ nullable: false, length: 64 })
     public machineId: string;
 

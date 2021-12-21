@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from "@nestjs/common";
+import { BadRequestException, forwardRef, Inject, Injectable, InternalServerErrorException, Logger, NotFoundException } from "@nestjs/common";
 import { existsSync, mkdirSync } from "fs";
 import { Page, Pageable } from "nestjs-pager";
 import { resolve } from "path";
@@ -20,7 +20,7 @@ export class StorageMountService {
 
     constructor(
         private storageService: StorageService,
-        private bucketService: StorageBucketService,
+        @Inject(forwardRef(() => StorageBucketService)) private bucketService: StorageBucketService,
         private mountRepository: MountRepository
     ) {}
 
@@ -98,16 +98,22 @@ export class StorageMountService {
         if(!mount) throw new NotFoundException("Mount not found")
 
         const destDir = updateMountDto.path;
+        let result = null;
 
-        if(destDir && destDir != mount.path) {
-            if(await this.existsByPath(destDir)) throw new BadRequestException("Path already mounted.")
-
-            mount.path = destDir;
-            const result = await this.mountRepository.save(mount);
-
-            mkdirSync(destDir, { recursive: true })
-            return result;
-        }
+        try {
+            if(destDir && destDir != mount.path) {
+                if(await this.existsByPath(destDir)) throw new BadRequestException("Path already mounted.")
+    
+                mount.path = destDir;
+                result = await this.mountRepository.save(mount);
+    
+                mkdirSync(destDir, { recursive: true })
+                return result;
+            }
+        } catch (error) {
+            if(!!result) await this.delete(result.id);
+            throw new InternalServerErrorException("Not allowed to create mount at provided path.")
+        } 
         
         return mount;
     }
