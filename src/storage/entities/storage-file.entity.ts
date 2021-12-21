@@ -1,3 +1,4 @@
+import { CanRead } from "@tsalliance/rest";
 import { Column, CreateDateColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { StorageMount } from "./storage-mount.entity";
 
@@ -12,6 +13,7 @@ export abstract class StorageFile {
     @Column({ nullable: true })
     public originalName: string;
 
+    @CanRead(false)
     @ManyToOne(() => StorageMount, { onDelete: "CASCADE" })
     public mount: StorageMount;
 

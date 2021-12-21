@@ -5,6 +5,7 @@ import { join } from "path";
 import os from "os"
 import { BucketRepository } from "../repositories/bucket.repository";
 import { StorageBucket } from "../entities/storage-bucket.entity";
+import { Page, Pageable } from "nestjs-pager";
 
 @Injectable()
 export class StorageBucketService {
@@ -19,6 +20,20 @@ export class StorageBucketService {
 
     public get machineId(): string {
         return this._machineId;
+    }
+
+    public async findById(bucketId: string): Promise<StorageBucket> {
+        return this.bucketRepository.findOne({ where: { id: bucketId }})
+    }
+
+    public async findAll(pageable: Pageable): Promise<Page<StorageBucket>> {
+        const selfBucket = await this.findSelfBucket();
+
+        if(selfBucket.isolated) {
+            return this.bucketRepository.findAll(pageable, { where: { machineId: selfBucket.machineId }})
+        } else {
+            return this.bucketRepository.findAll(pageable, { where: { isolated: 0 }})
+        }
     }
 
     public async findSelfBucket(): Promise<StorageBucket> {
