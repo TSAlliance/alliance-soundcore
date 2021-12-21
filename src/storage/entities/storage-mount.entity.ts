@@ -1,4 +1,5 @@
 import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { StorageMountStatus } from "../enums/storage-mount-status.enum";
 import { StorageBucket } from "./storage-bucket.entity";
 
 @Entity()
@@ -12,5 +13,8 @@ export class StorageMount {
 
     @ManyToOne(() => StorageBucket, { onDelete: "CASCADE" })
     public bucket: StorageBucket;
+
+    @Column({ nullable: false, default: "ok" })
+    public status: StorageMountStatus;
 
 }

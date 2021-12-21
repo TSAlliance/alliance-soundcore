@@ -14,6 +14,8 @@ import { StorageService } from "./storage.service";
 @Injectable()
 export class StorageMountService {
 
+    // TODO: Index files when mount is created or if files inside have updated on existing mounts
+
     private logger: Logger = new Logger("StorageBucket")
 
     constructor(
@@ -22,14 +24,30 @@ export class StorageMountService {
         private mountRepository: MountRepository
     ) {}
 
+    /**
+     * Find a page of mounts inside a specific bucket.
+     * @param bucketId Id of the bucket
+     * @param pageable Page settings
+     * @returns Page<StorageMount>
+     */
     public async findAllByBucketId(bucketId: string, pageable: Pageable): Promise<Page<StorageMount>> {
         return this.mountRepository.findAll(pageable, { where: { bucket: { id: bucketId }}})
     }
 
+    /**
+     * Find mount by its id.
+     * @param mountId Id to lookup
+     * @returns StorageMount
+     */
     public async findById(mountId: string): Promise<StorageMount> {
         return this.mountRepository.findOne({ where: { id: mountId }})
     }
 
+    /**
+     * Check if a mount with path already exists in database.
+     * @param path Path to check
+     * @returns True or False
+     */
     public async existsByPath(path: string): Promise<boolean> {
         return !!(await this.mountRepository.findOne({ where: { path: path }}))
     }
@@ -57,7 +75,6 @@ export class StorageMountService {
                 }
 
                 mkdirSync(path, { recursive: true })
-                console.log(path)
             }
         } catch (error) {
             throw new InternalServerErrorException(error.message)
@@ -71,9 +88,10 @@ export class StorageMountService {
     }
 
     /**
-     * Update existing mount
-     * @param updateMountDto 
-     * @returns 
+     * Update existing mount.
+     * @param mountId Id of the mount that should be updated
+     * @param updateMountDto Data to be updated
+     * @returns StorageMount
      */
     public async update(mountId: string, updateMountDto: UpdateMountDTO): Promise<StorageMount> {
         const mount = await this.findById(mountId)
@@ -97,7 +115,7 @@ export class StorageMountService {
     /**
      * Delete a mount.
      * @param mountId Mount id to delete
-     * @returns 
+     * @returns DeleteResult
      */
     public async delete(mountId: string): Promise<DeleteResult> {
         return this.mountRepository.delete({ id: mountId })
