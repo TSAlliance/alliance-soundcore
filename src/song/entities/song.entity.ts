@@ -1,9 +1,6 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
-import { UploadedAudioFile } from "../../upload/entities/uploaded-file.entity";
-
-import { CanRead } from "@tsalliance/rest"
+import { Column, Entity, JoinColumn, ManyToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Artist } from "../../artist/entities/artist.entity";
-import { Artwork } from "../../artwork/entities/artwork.entity";
+import { Index } from "../../index/entities/index.entity";
 
 @Entity()
 export class Song {
@@ -11,29 +8,19 @@ export class Song {
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
-    @Column({ nullable: false })
+    @Column({ nullable: true })
     public title: string;
 
-    @Column({ nullable: false })
-    public durationInSeconds: number;
+    @Column({ nullable: false, default: 0 })
+    public duration: number;
 
-    // TODO: public album: any;
-    // TODO: public playlists: any[];
+    @OneToOne(() => Index, { onDelete: "CASCADE" })
+    @JoinColumn()
+    public index: Index;
 
-    @ManyToMany(() => Artist, (artist) => artist.songs, { onDelete: "CASCADE" })
-    @JoinTable({ name: "song2artists" })
+    @ManyToMany(() => Artist, { onDelete: "SET NULL" })
     public artists: Artist[];
 
-    @CanRead(false)
-    @OneToOne(() => UploadedAudioFile, { onDelete: "CASCADE", nullable: false })
-    @JoinColumn()
-    public file: UploadedAudioFile;
-
-    @OneToOne(() => Artwork, { onDelete: "CASCADE", nullable: true })
-    @JoinColumn()
-    public artwork: Artwork;
-
-    @CreateDateColumn()
-    public createdAt: Date;
+    
 
 }

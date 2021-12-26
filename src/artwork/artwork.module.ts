@@ -1,19 +1,16 @@
 import { Module } from '@nestjs/common';
 import { ArtworkService } from './artwork.service';
 import { ArtworkController } from './artwork.controller';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { ArtworkRepository } from './repositories/artwork.repository';
-import { CleanArtworkService } from './jobs/clean-artwork.cron';
+import { SharedModule } from '../shared/shared.module';
 
 @Module({
   controllers: [ArtworkController],
-  providers: [
-    ArtworkService,
-    CleanArtworkService
-  ],
+  providers: [ArtworkService],
   imports: [
-    TypeOrmModule.forFeature([ ArtworkRepository ])
+    SharedModule
   ],
-  exports: [ ArtworkService ]
+  exports: [
+    ArtworkService
+  ]
 })
 export class ArtworkModule {}

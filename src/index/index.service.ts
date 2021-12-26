@@ -1,6 +1,7 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { SSOUser } from '@tsalliance/sso-nest';
 import { Mount } from '../bucket/entities/mount.entity';
+import { SongService } from '../song/song.service';
 import { StorageService } from '../storage/storage.service';
 import { Index } from './entities/index.entity';
 import { IndexStatus } from './enum/index-status.enum';
@@ -8,9 +9,11 @@ import { IndexRepository } from './repositories/index.repository';
 
 @Injectable()
 export class IndexService {
+    private logger: Logger = new Logger(IndexService.name)
 
     constructor(
         private storageService: StorageService,
+        private songService: SongService,
         private indexRepository: IndexRepository
     ){}
 
@@ -22,7 +25,7 @@ export class IndexService {
         if(!fileStats) throw new InternalServerErrorException("Could not read file stats.");
 
         // Create index in database
-        const index = await this.indexRepository.save({
+        const index: Index = await this.indexRepository.save({
             mount,
             filename,
             size: fileStats.size,
@@ -31,14 +34,48 @@ export class IndexService {
         })
 
         // Do indexing tasks in background
-        this.storageService.createOptimizedMp3File(index).then((index) => {
-            // TODO: Send index update via websocket
-            this.indexRepository.save(index);
-            
+        this.storageService.generateChecksumOfIndex(index).then(async (index) => {
+            this.setStatus(index, index.status);
+            if(index.status == IndexStatus.ERRORED) return;
+
+            // Check for duplicate files and abort if so
+            if(await this.existsByChecksum(index.checksum)) {
+                this.setStatus(index, IndexStatus.DUPLICATE);
+                return;
+            }
+
+            // Continue with next step: Create optimized mp3 files
+            this.storageService.createOptimizedMp3File(index).then(async (index) => {
+                index = await this.setStatus(index, IndexStatus.PROCESSING)
+                if(index.status == IndexStatus.ERRORED) return;
+
+                // Continue with next step: Create song metadata from index
+                this.songService.createFromIndex(index).then(async (index) => {
+                    await this.setStatus(index, index.status)
+
+                    // Done at this point. The createFromIndex() in song service handles all required
+                    // steps to gather information like artists, album and cover artwork
+                });
+            })
+        }).catch((error) => {
+            this.logger.error(error);
+
+            index.status = IndexStatus.ERRORED;
+            this.setStatus(index, IndexStatus.ERRORED);
         })
 
         // Return index object.
         return index;
+    }
+
+    public async existsByChecksum(checksum: string): Promise<boolean> {
+        return !!(await this.indexRepository.findOne({ where: { checksum }}));
+    }
+
+    private async setStatus(index: Index, status: IndexStatus): Promise<Index> {
+        // TODO: Send index update via websocket
+        index.status = status;
+        return this.indexRepository.save(index);
     }
 
 }

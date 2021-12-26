@@ -19,24 +19,22 @@ export class StorageService {
     constructor(@Inject(BUCKET_ID) private bucketId: string){}
 
     /**
-     * Calculte checksum from file contents.
-     * @param filepath Path to file
-     * @returns String
+     * Calculte checksum from index.
+     * @param index Index to generate checksum for
+     * @returns Index with new checksum
      */
-    public async generateChecksumOfFile(filepath: string | Buffer): Promise<string> {
+    public async generateChecksumOfIndex(index: Index): Promise<Index> {
         return new Promise((resolve, reject) => {
+            const filepath = this.buildFilepath(index.mount, index.filename);
             const hash = crypto.createHash('md5');
-            let stream;
-
-            if(Buffer.isBuffer(filepath)) {
-                stream = Readable.from(filepath.toString())
-            } else {
-                stream = Readable.from(fs.createReadStream(filepath))
-            }
+            const stream = Readable.from(fs.createReadStream(filepath))
 
             stream.on('error', reject);
             stream.on('data', (chunk) => hash.update(chunk));
-            stream.on('close', () => resolve(hash.digest('hex')));
+            stream.on('close', () => {
+                index.checksum = hash.digest('hex');
+                resolve(index)
+            });
         })
     }
 

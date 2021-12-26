@@ -1,6 +1,7 @@
 import { SSOUser } from "@tsalliance/sso-nest";
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, JoinColumn, ManyToOne, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Mount } from "../../bucket/entities/mount.entity";
+import { Song } from "../../song/entities/song.entity";
 import { IndexStatus } from "../enum/index-status.enum";
 
 @Entity()
@@ -17,6 +18,13 @@ export class Index {
 
     @Column({ nullable: false, default: "preparing"})
     public status: IndexStatus;
+
+    @Column({ nullable: true, type: "text"})
+    public checksum: string;
+
+    @OneToOne(() => Song, { onDelete: "CASCADE" })
+    @JoinColumn()
+    public song: Song;
 
     @ManyToOne(() => Mount, { onDelete: "CASCADE" })
     public mount: Mount;

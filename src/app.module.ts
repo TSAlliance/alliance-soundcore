@@ -1,18 +1,19 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { SongModule } from './song/song.module';
-import { UploadModule } from './upload/upload.module';
-import { StreamModule } from './stream/stream.module';
 import { MulterModule } from '@nestjs/platform-express';
-// import { UPLOAD_TMP_DIR } from './storage/storage_old.service';
 
 import { SSOModule, SSOUser } from "@tsalliance/sso-nest"
 import { ArtistModule } from './artist/artist.module';
 import { AllianceRestModule } from '@tsalliance/rest';
 import { SearchModule } from './search/search.module';
-import { ArtworkModule } from './artwork/artwork.module';
+import { BucketModule } from './bucket/bucket.module';
+import { IndexModule } from './index/index.module';
+import { AlbumModule } from './album/album.module';
+import { GenreModule } from './genre/genre.module';
 import { StorageModule } from './storage/storage.module';
+import { SharedModule } from './shared/shared.module';
+import { SongModule } from './song/song.module';
 
 @Module({
   imports: [
@@ -40,12 +41,7 @@ import { StorageModule } from './storage/storage.module';
       retryAttempts: Number.MAX_VALUE,
       retryDelay: 10000
     }),
-    MulterModule.register({
-      dest: "UPLOAD_TMP_DIR"
-    }),
-    SongModule,
-    UploadModule,
-    StreamModule,
+    MulterModule.register(),
     SSOModule.forRoot({
       baseUrl: process.env.SSO_URL,
       clientId: process.env.SSO_CLIENT_ID,
@@ -54,12 +50,19 @@ import { StorageModule } from './storage/storage.module';
       logging: false
     }),
     AllianceRestModule.forRoot({
-      logging: false
+      logging: false,
+      disableErrorHandling: false,
+      disableValidation: false
     }),
+    SharedModule,
     ArtistModule,
     SearchModule,
-    ArtworkModule,
-    StorageModule
+    BucketModule,
+    IndexModule,
+    AlbumModule,
+    GenreModule,
+    StorageModule,
+    SongModule
   ],
   controllers: [],
   providers: [],
