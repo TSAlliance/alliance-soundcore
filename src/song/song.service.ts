@@ -13,11 +13,16 @@ import { CreateSongDTO } from './dtos/create-song.dto';
 import { Song } from './entities/song.entity';
 import { SongRepository } from './repositories/song.repository';
 import { ID3TagsDTO } from './dtos/id3-tags.dto';
+import { ArtistService } from '../artist/artist.service';
+import { Artist } from '../artist/entities/artist.entity';
 
 @Injectable()
 export class SongService {
 
-    constructor(private songRepository: SongRepository){}
+    constructor(
+        private artistService: ArtistService,
+        private songRepository: SongRepository
+    ){}
 
     public async create(createSongDto: CreateSongDTO): Promise<Song> {
         return this.songRepository.save(createSongDto);
@@ -33,6 +38,19 @@ export class SongService {
             title: id3tags.title
         });
 
+        // Add artists to song
+        // and song to artists
+        const artists: Artist[] = await Promise.all(id3tags.artists.map(async (id3Artist) => await this.artistService.createIfNotExists(id3Artist.name))) || [];
+        song.artists = artists;
+        console.log(artists);
+
+        // Save relation with artists
+        for(const artist of artists) {
+            await this.artistService.addSongToArtist(song, artist);
+        }
+        
+        await this.songRepository.save(song);
+
         index.song = song;
         return index;
     }
@@ -45,19 +63,21 @@ export class SongService {
         const durationInSeconds = Math.round(probe.streams[0].duration || 0);
 
         // Get artists
-        /*const artists = id3Tags.artist.split("/")
+        const artists = id3Tags.artist.split("/") || []
         for(const index in artists) {
             artists.push(...artists[index].split(","))
             artists.splice(parseInt(index), 1)
-        }*/
+        }
+
+        console.log(id3Tags.genre)
 
         // Get artwork buffer
         // const artworkBuffer: Buffer = id3Tags.image["imageBuffer"];
     
         return {
             title: id3Tags.title,
-            duration: durationInSeconds
-            // artists: artists.map((name) => ({ name }) as Artist),
+            duration: durationInSeconds,
+            artists: artists.map((name) => ({ name })),
             // artworkBuffer: sharp(artworkBuffer).jpeg({ quality: 90 }).toBuffer()
         }
     }

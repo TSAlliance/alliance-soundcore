@@ -1,32 +1,38 @@
 import { Injectable } from '@nestjs/common';
-import { Page, Pageable } from 'nestjs-pager';
-import { ILike, Like } from 'typeorm';
-import { CreateArtistDto } from './dto/create-artist.dto';
+import { Song } from '../song/entities/song.entity';
 import { Artist } from './entities/artist.entity';
 import { ArtistRepository } from './repositories/artist.repository';
 
 @Injectable()
 export class ArtistService {
 
-  constructor(private artistRepository: ArtistRepository) {}
+    constructor(private artistRepository: ArtistRepository){}
 
-  public async create(createArtistDto: CreateArtistDto): Promise<Artist> {
-    //
-    return
-  }
+    public async findByName(name: string): Promise<Artist> {
+        return await this.artistRepository.findOne({ where: { name }});
+    }
 
-  public async createIfNotExists(createArtistDto: CreateArtistDto): Promise<Artist> {
-    const artistNameLike = `%${createArtistDto.name.replace(/\s/g, "_")}%`;
-    const result = await this.artistRepository.findOne({ where: { name: ILike(artistNameLike) }});
+    public async existsByName(name: string): Promise<boolean> {
+        return !!(await this.artistRepository.findOne({ where: { name }}));
+    }
 
-    return result || this.artistRepository.save(createArtistDto);
-  }
+    public async createIfNotExists(name: string): Promise<Artist> {
+        const artist = await this.findByName(name) || await this.artistRepository.save({ name })
+        // TODO: Create artwork for artist.
 
-  public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Artist>> {
-    if(!query) query = ""
-    query = `%${query.replace(/\s/g, '%')}%`;
+        return artist;
+    }
 
-    return this.artistRepository.findAll(pageable, { where: { name: ILike(query) }});
-}
+    /**
+     * Add new song to artist.
+     * @param song Song to add
+     * @param artist Artist
+     */
+    public async addSongToArtist(song: Song, artist: Artist): Promise<void> {
+        artist.songs = [ ...artist.songs, song];
+        this.artistRepository.save(artist)
+    }
+
+    
 
 }

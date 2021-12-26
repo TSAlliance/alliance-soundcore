@@ -6,7 +6,6 @@ import { MulterModule } from '@nestjs/platform-express';
 import { SSOModule, SSOUser } from "@tsalliance/sso-nest"
 import { ArtistModule } from './artist/artist.module';
 import { AllianceRestModule } from '@tsalliance/rest';
-import { SearchModule } from './search/search.module';
 import { BucketModule } from './bucket/bucket.module';
 import { IndexModule } from './index/index.module';
 import { AlbumModule } from './album/album.module';
@@ -56,7 +55,6 @@ import { SongModule } from './song/song.module';
     }),
     SharedModule,
     ArtistModule,
-    SearchModule,
     BucketModule,
     IndexModule,
     AlbumModule,
