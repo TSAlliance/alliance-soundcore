@@ -72,7 +72,9 @@ export class StorageService {
         mkdirSync(optimizedDir, { recursive: true })
         
         try {
-            execSync(`${pathToFfmpeg} -i "${srcFilepath}" -vn -filter:a loudnorm -filter:a "volume=4" -ac 2 -b:a 192k "${dstFilepath}"`, { stdio: "pipe" });
+            if(!fs.existsSync) {
+                execSync(`${pathToFfmpeg} -i "${srcFilepath}" -vn -filter:a loudnorm -filter:a "volume=4" -ac 2 -b:a 192k "${dstFilepath}"`, { stdio: "pipe" });
+            }
 
             if(!fs.existsSync(dstFilepath)) {
                 index.status = IndexStatus.ERRORED;

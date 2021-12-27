@@ -1,5 +1,6 @@
 import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { SSOUser } from '@tsalliance/sso-nest';
+import { In } from 'typeorm';
 import { Mount } from '../bucket/entities/mount.entity';
 import { SongService } from '../song/song.service';
 import { StorageService } from '../storage/storage.service';
@@ -73,7 +74,7 @@ export class IndexService {
     }
 
     public async existsByChecksum(checksum: string): Promise<boolean> {
-        return !!(await this.indexRepository.findOne({ where: { checksum }}));
+        return !!(await this.indexRepository.findOne({ where: { checksum, status: In([IndexStatus.OK, IndexStatus.PREPARING, IndexStatus.PROCESSING])}}));
     }
 
     private async setStatus(index: Index, status: IndexStatus): Promise<Index> {

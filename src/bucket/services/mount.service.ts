@@ -12,6 +12,7 @@ import { UpdateMountDTO } from '../dto/update-mount.dto';
 import { Index } from "../../index/entities/index.entity";
 import { IndexService } from "../../index/index.service";
 import { BUCKET_ID } from "../../shared/shared.module";
+import { IndexStatus } from '../../index/enum/index-status.enum';
 
 @Injectable()
 export class MountService {
@@ -118,7 +119,7 @@ export class MountService {
             return;
         }
 
-        const indices: string[] = (await this.indexService.findAllByMount(mount.id)).map((index) => index.filename);
+        const indices: string[] = (await this.indexService.findAllByMount(mount.id)).filter((index) => index.status != IndexStatus.ERRORED).map((index) => index.filename);
         const files: string[] = fs.readdirSync(mountDir, { withFileTypes: true }).filter((file) => file.isFile()).map((file) => file.name);
         const notIndexedFiles: string[] = files.filter((file) => !indices.includes(file));
             
