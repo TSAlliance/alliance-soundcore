@@ -29,7 +29,12 @@ export class ArtistService {
      * @param artist Artist
      */
     public async addSongToArtist(song: Song, artist: Artist): Promise<void> {
-        artist.songs = [ ...artist.songs, song];
+        if(artist.songs) {
+            artist.songs.push(song);
+        } else {
+            artist.songs = [ song ]
+        }
+        
         this.artistRepository.save(artist)
     }
 

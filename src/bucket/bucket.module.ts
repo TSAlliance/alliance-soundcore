@@ -36,7 +36,7 @@ export class BucketModule implements OnModuleInit {
   ){ }
   
   public async onModuleInit(): Promise<void> {
-    await this.bucketService.createWithId(this.bucketService.bucketId, {
+    await this.bucketService.createWithId(this.bucketId, {
       name: `${os.hostname()}#${RandomUtil.randomString(4)}`,
       isolated: false
     })
@@ -47,6 +47,8 @@ export class BucketModule implements OnModuleInit {
       bucket: { id: this.bucketId }
     }).catch(() => {
       // Do nothing
+    }).then(() => {
+      this.mountService.checkLocalIndices();
     })
   }
 

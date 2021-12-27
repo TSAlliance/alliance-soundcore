@@ -17,6 +17,10 @@ export class IndexService {
         private indexRepository: IndexRepository
     ){}
 
+    public async findAllByMount(mountId: string): Promise<Index[]> {
+        return this.indexRepository.find({ where: { mount: mountId }});
+    }
+
     public async createIndex(mount: Mount, filename: string, uploader?: SSOUser): Promise<Index> {
         const filepath = this.storageService.buildFilepath(mount, filename);
         if(!filepath) throw new InternalServerErrorException("Could not find file.");
@@ -46,7 +50,7 @@ export class IndexService {
 
             // Continue with next step: Create optimized mp3 files
             this.storageService.createOptimizedMp3File(index).then(async (index) => {
-                index = await this.setStatus(index, IndexStatus.PROCESSING)
+                index = await this.setStatus(index, index.status)
                 if(index.status == IndexStatus.ERRORED) return;
 
                 // Continue with next step: Create song metadata from index

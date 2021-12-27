@@ -1,10 +1,8 @@
-import os from "os";
 import path from 'path';
+import fs from 'fs';
 
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { RandomUtil } from '@tsalliance/rest';
 import { MountRepository } from '../repositories/mount.repository';
 import { Mount } from '../entities/mount.entity';
 import { CreateMountDTO } from '../dto/create-mount.dto';
@@ -17,6 +15,7 @@ import { BUCKET_ID } from "../../shared/shared.module";
 
 @Injectable()
 export class MountService {
+    private logger: Logger = new Logger(MountService.name);
 
     constructor(
         private indexService: IndexService,
@@ -29,12 +28,16 @@ export class MountService {
         return this.mountRepository.findAll(pageable);
     }
 
-    public async findById(bucketId: string): Promise<Mount> {
-        return this.mountRepository.findOne({ where: { id: bucketId }});
+    public async findById(mountId: string): Promise<Mount> {
+        return this.mountRepository.findOne({ where: { id: mountId }});
     }
 
-    public async findByIdWithRelations(bucketId: string): Promise<Mount> {
-        return this.mountRepository.findOne({ where: { id: bucketId }, relations: ["bucket"]});
+    public async findByIdWithRelations(mountId: string): Promise<Mount> {
+        return this.mountRepository.findOne({ where: { id: mountId }, relations: ["bucket"]});
+    }
+
+    public async findByBucketId(bucketId: string): Promise<Mount[]> {
+        return this.mountRepository.find({ where: { bucket: { id: bucketId } }});
     }
 
     public async existsByNameInBucket(bucketId: string, name: string): Promise<boolean> {
@@ -63,7 +66,7 @@ export class MountService {
             throw new BadRequestException("Mount with that path already exists in bucket.");
         }
         
-        mkdirSync(createMountDto.path, { recursive: true })
+        fs.mkdirSync(createMountDto.path, { recursive: true })
         return this.mountRepository.save(createMountDto);    
     }
 
@@ -85,7 +88,7 @@ export class MountService {
             throw new BadRequestException("Mount with that path already exists in bucket.");
         }
 
-        mkdirSync(mount.path, { recursive: true })
+        fs.mkdirSync(mount.path, { recursive: true })
         return this.mountRepository.save(mount);
     }
 
@@ -103,17 +106,43 @@ export class MountService {
         return this.indexService.createIndex(mount, filename);
     }
 
-    private readBucketId(): string {
-        const soundcoreDir = path.join(os.homedir(), ".soundcore");
-        const soundCoreFile = path.join(soundcoreDir, ".soundcoreId");
+    /**
+     * Check if files inside of mount are indexed or not. If not, then the reindexing process is triggered.
+     * @param mount Mount to check
+     */
+    public async checkIndicesOfMount(mount: Mount): Promise<void> {
+        const mountDir = path.join(mount.path);
 
-        mkdirSync(soundcoreDir, { recursive: true });
-        if(!existsSync(soundCoreFile)) {
-            writeFileSync(soundCoreFile, RandomUtil.randomString(36));
+        if(!fs.existsSync(mountDir)) {
+            this.logger.warn(`Directory for mount '${mount.name}' not found. Was looking for: ${mountDir}`);
+            return;
         }
 
-        const bucketId = readFileSync(soundCoreFile).toString("utf8");
-        return bucketId;
+        const indices: string[] = (await this.indexService.findAllByMount(mount.id)).map((index) => index.filename);
+        const files: string[] = fs.readdirSync(mountDir, { withFileTypes: true }).filter((file) => file.isFile()).map((file) => file.name);
+        const notIndexedFiles: string[] = files.filter((file) => !indices.includes(file));
+            
+        if(notIndexedFiles.length <= 0) return;
+
+        this.logger.warn(`Found ${notIndexedFiles.length} files that require indexing. Indexing now in background...`);
+            
+        for(const filename of notIndexedFiles) {
+            // TODO: Maybe build queuing system? Currently awaiting finish of one process at a time.
+            await this.indexService.createIndex(mount, filename)
+        }
+    }
+
+    /**
+     * Check if files inside of all mounts from this bucket are indexed or not. If not, then the reindexing process is triggered.
+     */
+    public async checkLocalIndices(): Promise<void> {
+        const mounts = await this.findByBucketId(this.bucketId);
+        if(!mounts || mounts.length <= 0) return;
+
+        for(const mount of mounts) {
+            await this.checkIndicesOfMount(mount);
+        }
+        
     }
 
 }

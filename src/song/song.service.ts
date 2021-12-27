@@ -15,6 +15,7 @@ import { SongRepository } from './repositories/song.repository';
 import { ID3TagsDTO } from './dtos/id3-tags.dto';
 import { ArtistService } from '../artist/artist.service';
 import { Artist } from '../artist/entities/artist.entity';
+import { IndexStatus } from '../index/enum/index-status.enum';
 
 @Injectable()
 export class SongService {
@@ -41,17 +42,20 @@ export class SongService {
         // Add artists to song
         // and song to artists
         const artists: Artist[] = await Promise.all(id3tags.artists.map(async (id3Artist) => await this.artistService.createIfNotExists(id3Artist.name))) || [];
-        song.artists = artists;
         console.log(artists);
 
         // Save relation with artists
         for(const artist of artists) {
             await this.artistService.addSongToArtist(song, artist);
         }
-        
-        await this.songRepository.save(song);
 
         index.song = song;
+        song.index = index;
+
+        await this.songRepository.save(song);
+
+        // Set status to OK, as this is the last step of the indexing process
+        index.status = IndexStatus.OK;
         return index;
     }
 
