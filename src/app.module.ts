@@ -13,6 +13,9 @@ import { GenreModule } from './genre/genre.module';
 import { StorageModule } from './storage/storage.module';
 import { SharedModule } from './shared/shared.module';
 import { SongModule } from './song/song.module';
+import { GeniusModule } from './genius/genius.module';
+import { LabelModule } from './label/label.module';
+import { PublisherModule } from './publisher/publisher.module';
 
 @Module({
   imports: [
@@ -60,7 +63,10 @@ import { SongModule } from './song/song.module';
     AlbumModule,
     GenreModule,
     StorageModule,
-    SongModule
+    SongModule,
+    GeniusModule,
+    LabelModule,
+    PublisherModule
   ],
   controllers: [],
   providers: [],

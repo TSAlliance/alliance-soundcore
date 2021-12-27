@@ -16,11 +16,17 @@ import { ID3TagsDTO } from './dtos/id3-tags.dto';
 import { ArtistService } from '../artist/artist.service';
 import { Artist } from '../artist/entities/artist.entity';
 import { IndexStatus } from '../index/enum/index-status.enum';
+import { GeniusService } from '../genius/services/genius.service';
+import { LabelService } from '../label/label.service';
+import { PublisherService } from '../publisher/publisher.service';
 
 @Injectable()
 export class SongService {
 
     constructor(
+        private geniusService: GeniusService,
+        private labelService: LabelService,
+        private publisherService: PublisherService,
         private artistService: ArtistService,
         private songRepository: SongRepository
     ){}
@@ -52,10 +58,21 @@ export class SongService {
         index.song = song;
         song.index = index;
 
+        const result = await this.geniusService.findSongInfo(song);
+        if(result) {
+            if(result.label) song.label = await this.labelService.createIfNotExists(result.label.name, result.label.id)
+            if(result.publisher) song.publisher = await this.publisherService.createIfNotExists(result.publisher.name, result.publisher.id)
+
+            song.location = result.recordingLocation;
+            song.youtubeUrl = result.youtubeUrl;
+            song.released = result.releaseDate;
+            song.geniusId = result.geniusId;
+        }
+
         await this.songRepository.save(song);
 
         // Set status to OK, as this is the last step of the indexing process
-        index.status = IndexStatus.OK;
+        index.status = IndexStatus.ERRORED;
         return index;
     }
 

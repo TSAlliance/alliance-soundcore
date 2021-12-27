@@ -19,6 +19,7 @@ export class ArtistService {
     public async createIfNotExists(name: string): Promise<Artist> {
         const artist = await this.findByName(name) || await this.artistRepository.save({ name })
         // TODO: Create artwork for artist.
+        // Search on genius and get info: https://genius.com/api/search/artist?q=
 
         return artist;
     }
