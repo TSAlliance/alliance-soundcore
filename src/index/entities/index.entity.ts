@@ -31,10 +31,6 @@ export class Index {
     public mount: Mount;
 
     @ManyToOne(() => SSOUser, { onDelete: "SET NULL" })
-    public uploader: SSOUser; 
-
-    @OneToOne(() => Artwork, { onDelete: "SET NULL" })
-    @JoinColumn()
-    public artwork: Artwork;
+    public uploader: SSOUser;
 
 }

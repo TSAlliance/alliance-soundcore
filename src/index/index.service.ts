@@ -1,5 +1,6 @@
 import { Inject, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { SSOUser } from '@tsalliance/sso-nest';
+import { Page, Pageable } from 'nestjs-pager';
 import { DeleteResult, In } from 'typeorm';
 import { Mount } from '../bucket/entities/mount.entity';
 import { BUCKET_ID } from '../shared/shared.module';
@@ -26,6 +27,10 @@ export class IndexService {
 
     public async findAllByStatusInBucket(bucketId: string, status: string[]): Promise<Index[]> {
         return this.indexRepository.find({ where: { mount: { bucket: { id: bucketId } }, status: In(status) }, relations: ["mount", "mount.bucket"], select: [ "id", "checksum", "filename", "size", "status", "uploader" ]});
+    }
+
+    public async findPageByUploader(uploaderId: string, pageable: Pageable): Promise<Page<Index>> {
+        return this.indexRepository.findAll(pageable, { where: { uploader: { id: uploaderId}}, relations: ["song", "song.artists", "song.artwork"]})
     }
 
     public async createIndex(mount: Mount, filename: string, uploader?: SSOUser): Promise<Index> {
