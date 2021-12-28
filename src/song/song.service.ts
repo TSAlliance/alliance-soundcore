@@ -131,7 +131,7 @@ export class SongService {
 
         // Find song by title or if the artist has similar name
         const result = await this.songRepository.find({
-            relations: ["artists"],
+            relations: ["artists", "artwork"],
             join: {
                 alias: "song",
                 innerJoin: {
