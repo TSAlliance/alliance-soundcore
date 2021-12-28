@@ -9,7 +9,6 @@ import { AllianceRestModule } from '@tsalliance/rest';
 import { BucketModule } from './bucket/bucket.module';
 import { IndexModule } from './index/index.module';
 import { AlbumModule } from './album/album.module';
-import { GenreModule } from './genre/genre.module';
 import { StorageModule } from './storage/storage.module';
 import { SharedModule } from './shared/shared.module';
 import { SongModule } from './song/song.module';
@@ -17,6 +16,7 @@ import { GeniusModule } from './genius/genius.module';
 import { LabelModule } from './label/label.module';
 import { PublisherModule } from './publisher/publisher.module';
 import { UploadModule } from './upload/upload.module';
+import { SearchModule } from './search/search.module';
 
 @Module({
   imports: [
@@ -62,13 +62,13 @@ import { UploadModule } from './upload/upload.module';
     BucketModule,
     IndexModule,
     AlbumModule,
-    GenreModule,
     StorageModule,
     SongModule,
     GeniusModule,
     LabelModule,
     PublisherModule,
-    UploadModule
+    UploadModule,
+    SearchModule
   ],
   controllers: [],
   providers: [],
