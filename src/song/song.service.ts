@@ -19,6 +19,8 @@ import { IndexStatus } from '../index/enum/index-status.enum';
 import { GeniusService } from '../genius/services/genius.service';
 import { LabelService } from '../label/label.service';
 import { PublisherService } from '../publisher/publisher.service';
+import { Page, Pageable } from 'nestjs-pager';
+import { ILike } from 'typeorm';
 
 @Injectable()
 export class SongService {
@@ -57,12 +59,10 @@ export class SongService {
 
         index.song = song;
         song.index = index;
+        song.artists = artists;
 
         // Save relations
         await this.songRepository.save(song);
-
-        // This relation cannot be saved. Why?!
-        song.artists = artists;
 
         try {
             // Request song info on Genius.com
@@ -78,8 +78,6 @@ export class SongService {
             }
 
             // Save song metadata
-            // Remember: This relation cannot be saved somehow..
-            song.artists = undefined;
             await this.songRepository.save(song);
 
             // Set status to OK, as this is the last step of the indexing process
@@ -105,7 +103,7 @@ export class SongService {
             artists.splice(parseInt(index), 1)
         }
 
-        console.log(id3Tags.genre)
+        console.log("Album: ", id3Tags.album)
 
         // Get artwork buffer
         // const artworkBuffer: Buffer = id3Tags.image["imageBuffer"];
@@ -116,6 +114,33 @@ export class SongService {
             artists: artists.map((name) => ({ name })),
             // artworkBuffer: sharp(artworkBuffer).jpeg({ quality: 90 }).toBuffer()
         }
+    }
+
+    public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Song>> {
+        if(!query) query = ""
+        query = `%${query.replace(/\s/g, '%')}%`;
+
+        // TODO: Sort by "views"?
+        // TODO: Add playlists featuring the song / artist
+
+        // Find song by title or if the artist has similar name
+        const result = await this.songRepository.find({
+            relations: ["artists"],
+            join: {
+                alias: "song",
+                innerJoin: {
+                    artists: "song.artists"
+                }
+            },
+            where: qb => {
+                qb.where({
+                    title: ILike(query)
+                }).orWhere("artists.name LIKE :query", { query })
+            },
+            
+        })
+
+        return Page.of(result, result.length, pageable.page);
     }
 
 }
