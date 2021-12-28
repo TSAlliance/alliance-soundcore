@@ -72,7 +72,7 @@ export class SongService {
         await this.songRepository.save(song);
 
         // Set status to OK, as this is the last step of the indexing process
-        index.status = IndexStatus.ERRORED;
+        index.status = IndexStatus.OK;
         return index;
     }
 
