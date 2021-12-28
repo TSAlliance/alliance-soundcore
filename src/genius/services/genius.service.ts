@@ -18,6 +18,7 @@ export class GeniusService {
         return axios.get(`${GENIUS_BASE_URL}/search?${params}`, { headers: { "Authorization": `Bearer ${process.env.GENIUS_TOKEN}` } }).catch(() => null).then(async(response) => {
             if(!response || response.data["meta"]["status"] != 200) return null;
 
+            if(!response.data["response"]["hits"][0]) return null;
             const searchHit = response.data["response"]["hits"][0]["result"];
             if(!searchHit) return null;
             const geniusSongPath = searchHit["api_path"];

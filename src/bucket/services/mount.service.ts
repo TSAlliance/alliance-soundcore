@@ -14,6 +14,7 @@ import { IndexService } from "../../index/index.service";
 import { BUCKET_ID, MOUNT_ID } from "../../shared/shared.module";
 import { IndexStatus } from '../../index/enum/index-status.enum';
 import { SSOUser } from '@tsalliance/sso-nest';
+import { MountStatus } from '../enums/mount-status.enum';
 
 @Injectable()
 export class MountService {
@@ -47,6 +48,10 @@ export class MountService {
         return this.mountRepository.find({ where: { bucket: { id: bucketId || this.bucketId } }});
     }
 
+    public async findPageByBucketId(bucketId: string, pageable: Pageable): Promise<Page<Mount>> {
+        return this.mountRepository.findAll(pageable, { where: { bucket: { id: bucketId }}});
+    }
+
     public async existsByNameInBucket(bucketId: string, name: string): Promise<boolean> {
         return !!(await this.mountRepository.findOne({ where: { name, bucket: { id: bucketId } }}));
     }
@@ -74,7 +79,10 @@ export class MountService {
         }
         
         fs.mkdirSync(createMountDto.path, { recursive: true })
-        return this.mountRepository.save(createMountDto);    
+
+        const mount = await this.mountRepository.save(createMountDto);
+        this.checkIndicesOfMount(mount)
+        return mount;    
     }
 
     public async createWithId(mountId: string, createMountDto: CreateMountDTO): Promise<Mount> {
@@ -103,7 +111,7 @@ export class MountService {
     }
 
     public async update(mountId: string, updateMountDto: UpdateMountDTO): Promise<Mount> {
-        const mount = await this.findById(mountId);
+        const mount = await this.findByIdWithRelations(mountId);
 
         if(!mount || !mount.bucket) {
             throw new NotFoundException("Could not find mount or the bucket the mount belongs to.")
@@ -112,11 +120,11 @@ export class MountService {
         if(updateMountDto.name) mount.name = updateMountDto.name;
         if(updateMountDto.path) mount.path = path.resolve(updateMountDto.path);
 
-        if(updateMountDto.name && await this.existsByNameInBucket(mount.bucket.id, updateMountDto.name)) {
+        if(updateMountDto.name && updateMountDto.name != mount.name && await this.existsByNameInBucket(mount.bucket.id, updateMountDto.name)) {
             throw new BadRequestException("Mount with that name already exists in bucket.");
         }
 
-        if(updateMountDto.path && await this.existsByPathInBucket(mount.bucket.id, updateMountDto.path)) {
+        if(updateMountDto.path && updateMountDto.path != mount.path && await this.existsByPathInBucket(mount.bucket.id, updateMountDto.path)) {
             throw new BadRequestException("Mount with that path already exists in bucket.");
         }
 
@@ -154,13 +162,16 @@ export class MountService {
         const files: string[] = fs.readdirSync(mountDir, { withFileTypes: true }).filter((file) => file.isFile()).map((file) => file.name);
         const notIndexedFiles: string[] = files.filter((file) => !indices.includes(file));
             
-        if(notIndexedFiles.length <= 0) return;
+        if(notIndexedFiles.length > 0) {
+            this.setStatus(mount, MountStatus.INDEXING)
+            this.logger.warn(`Found ${notIndexedFiles.length} files that require indexing. Indexing mount '${mount.name}'...`);
+                
+            for(const filename of notIndexedFiles) {
+                // TODO: Maybe build queuing system? Currently awaiting finish of one process at a time.
+                await this.indexService.createIndex(mount, filename)
+            }
 
-        this.logger.warn(`Found ${notIndexedFiles.length} files that require indexing. Indexing now in background...`);
-            
-        for(const filename of notIndexedFiles) {
-            // TODO: Maybe build queuing system? Currently awaiting finish of one process at a time.
-            await this.indexService.createIndex(mount, filename)
+            this.setStatus(mount, MountStatus.OK)
         }
     }
 
@@ -175,6 +186,13 @@ export class MountService {
             await this.checkIndicesOfMount(mount);
         }
         
+    }
+
+    public async setStatus(mount: Mount, status: MountStatus): Promise<Mount> {
+        mount.status = status;
+        await this.mountRepository.save(mount);
+        // TODO: Send update to sockets
+        return mount;
     }
 
 }

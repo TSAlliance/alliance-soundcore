@@ -1,6 +1,6 @@
 import { Inject, Module, OnModuleInit } from '@nestjs/common';
 import { BucketService } from './services/bucket.service';
-import { BucketController } from './bucket.controller';
+import { BucketController } from './controllers/bucket.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BucketRepository } from './repositories/bucket.repository';
 import { MountRepository } from './repositories/mount.repository';
@@ -12,9 +12,13 @@ import { StorageModule } from '../storage/storage.module';
 import { StorageService } from '../storage/storage.service';
 import { IndexModule } from '../index/index.module';
 import { BUCKET_ID, MOUNT_ID } from '../shared/shared.module';
+import { MountController } from './controllers/mount.controller';
 
 @Module({
-  controllers: [BucketController],
+  controllers: [
+    BucketController,
+    MountController
+  ],
   providers: [
     BucketService, 
     MountService
