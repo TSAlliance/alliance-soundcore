@@ -12,6 +12,7 @@ export class UploadController {
   constructor(private readonly uploadService: UploadService) {}
 
   @Get("formats")
+  @IsAuthenticated()
   public async findFormats(): Promise<Formats> {
     return this.uploadService.findSupportedFormats();
   }

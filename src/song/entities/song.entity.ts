@@ -1,4 +1,5 @@
 import { Column, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Album } from "../../album/entities/album.entity";
 import { Artist } from "../../artist/entities/artist.entity";
 import { Index } from "../../index/entities/index.entity";
 import { Label } from "../../label/entities/label.entity";
@@ -38,11 +39,14 @@ export class Song {
 
     @ManyToOne(() => Publisher, { onDelete: "SET NULL" })
     @JoinColumn()
-    public publisher: Publisher
+    public publisher: Publisher;
 
     @ManyToOne(() => Label, { onDelete: "SET NULL" })
     @JoinColumn()
-    public label: Label
-    
+    public label: Label;
+
+    @ManyToMany(() => Album)
+    @JoinTable({ name: "song2album" })
+    public albums: Album[];
 
 }

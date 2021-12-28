@@ -21,6 +21,8 @@ import { LabelService } from '../label/label.service';
 import { PublisherService } from '../publisher/publisher.service';
 import { Page, Pageable } from 'nestjs-pager';
 import { ILike } from 'typeorm';
+import { Album } from '../album/entities/album.entity';
+import { AlbumService } from '../album/album.service';
 
 @Injectable()
 export class SongService {
@@ -28,6 +30,7 @@ export class SongService {
 
     constructor(
         private geniusService: GeniusService,
+        private albumService: AlbumService,
         private labelService: LabelService,
         private publisherService: PublisherService,
         private artistService: ArtistService,
@@ -43,7 +46,7 @@ export class SongService {
         if(!fs.existsSync(filepath)) throw new NotFoundException("Could not find song file");
 
         const id3tags = await this.readId3Tags(filepath);
-        const song = await this.create({
+        const song: Song = await this.create({
             duration: id3tags.duration,
             title: id3tags.title
         });
@@ -51,17 +54,15 @@ export class SongService {
         // Add artists to song
         // and song to artists
         const artists: Artist[] = await Promise.all(id3tags.artists.map(async (id3Artist) => await this.artistService.createIfNotExists(id3Artist.name))) || [];
-
-        // Save relation with artists
-        for(const artist of artists) {
-            await this.artistService.addSongToArtist(song, artist);
-        }
-
-        index.song = song;
-        song.index = index;
         song.artists = artists;
 
+        // Getting album info
+        const album: Album = await this.albumService.createIfNotExists(id3tags.album, artists);
+        song.albums = [ album ];
+
         // Save relations
+        index.song = song;
+        song.index = index;
         await this.songRepository.save(song);
 
         try {
@@ -103,8 +104,6 @@ export class SongService {
             artists.splice(parseInt(index), 1)
         }
 
-        console.log("Album: ", id3Tags.album)
-
         // Get artwork buffer
         // const artworkBuffer: Buffer = id3Tags.image["imageBuffer"];
     
@@ -112,6 +111,7 @@ export class SongService {
             title: id3Tags.title,
             duration: durationInSeconds,
             artists: artists.map((name) => ({ name })),
+            album: id3Tags.album
             // artworkBuffer: sharp(artworkBuffer).jpeg({ quality: 90 }).toBuffer()
         }
     }

@@ -24,21 +24,6 @@ export class ArtistService {
         return artist;
     }
 
-    /**
-     * Add new song to artist.
-     * @param song Song to add
-     * @param artist Artist
-     */
-    public async addSongToArtist(song: Song, artist: Artist): Promise<void> {
-        if(artist.songs) {
-            artist.songs.push(song);
-        } else {
-            artist.songs = [ song ]
-        }
-        
-        this.artistRepository.save(artist)
-    }
-
     
 
 }

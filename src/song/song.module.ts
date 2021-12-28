@@ -7,6 +7,7 @@ import { ArtistModule } from '../artist/artist.module';
 import { GeniusModule } from '../genius/genius.module';
 import { PublisherModule } from '../publisher/publisher.module';
 import { LabelModule } from '../label/label.module';
+import { AlbumModule } from '../album/album.module';
 
 @Module({
   controllers: [SongController],
@@ -16,6 +17,7 @@ import { LabelModule } from '../label/label.module';
     ArtistModule,
     PublisherModule,
     LabelModule,
+    AlbumModule,
     TypeOrmModule.forFeature([ SongRepository ])
   ],
   exports: [

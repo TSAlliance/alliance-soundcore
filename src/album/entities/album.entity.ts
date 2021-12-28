@@ -8,10 +8,14 @@ export class Album {
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
+    @Column({ nullable: true })
+    public geniusId: string;
+
     @Column({ nullable: false })
     public title: string;
 
     @ManyToMany(() => Artist)
+    @JoinTable({ name: "album2artist" })
     public artists: Artist[];
 
     @ManyToMany(() => Song)

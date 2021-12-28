@@ -12,7 +12,7 @@ export class Artist {
     public name: string;
 
     @CreateDateColumn()
-    public registeredAt: string;
+    public registeredAt: Date;
 
     @ManyToMany(() => Song)
     @JoinTable({ name: "artist2song" })
