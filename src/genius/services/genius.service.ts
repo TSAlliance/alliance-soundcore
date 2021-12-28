@@ -10,9 +10,10 @@ export class GeniusService {
 
     public async findSongInfo(song: Song): Promise<GeniusSongDTO> {
         const title = song.title.replace(/^(?:\[[^\]]*\]|\([^()]*\))\s*|\s*(?:\[[^\]]*\]|\([^()]*\))/gm, "").split("-")[0];
+        const artists = song.artists[0]?.name || "";
 
         const params = new URLSearchParams();
-        params.append("q", title)
+        params.append("q", title + " " + artists)
 
         return axios.get(`${GENIUS_BASE_URL}/search?${params}`, { headers: { "Authorization": `Bearer ${process.env.GENIUS_TOKEN}` } }).catch(() => null).then(async(response) => {
             if(!response || response.data["meta"]["status"] != 200) return null;

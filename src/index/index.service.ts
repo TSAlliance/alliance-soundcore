@@ -1,7 +1,8 @@
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { Inject, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { SSOUser } from '@tsalliance/sso-nest';
-import { In } from 'typeorm';
+import { DeleteResult, In } from 'typeorm';
 import { Mount } from '../bucket/entities/mount.entity';
+import { BUCKET_ID } from '../shared/shared.module';
 import { SongService } from '../song/song.service';
 import { StorageService } from '../storage/storage.service';
 import { Index } from './entities/index.entity';
@@ -15,11 +16,16 @@ export class IndexService {
     constructor(
         private storageService: StorageService,
         private songService: SongService,
-        private indexRepository: IndexRepository
+        private indexRepository: IndexRepository,
+        @Inject(BUCKET_ID) private bucketId: string
     ){}
 
     public async findAllByMount(mountId: string): Promise<Index[]> {
         return this.indexRepository.find({ where: { mount: mountId }});
+    }
+
+    public async findAllByStatusInBucket(bucketId: string, status: string[]): Promise<Index[]> {
+        return this.indexRepository.find({ where: { mount: { bucket: { id: bucketId } }, status: In(status) }, relations: ["mount", "mount.bucket"], select: [ "id", "checksum", "filename", "size", "status", "uploader" ]});
     }
 
     public async createIndex(mount: Mount, filename: string, uploader?: SSOUser): Promise<Index> {
@@ -81,6 +87,11 @@ export class IndexService {
         // TODO: Send index update via websocket
         index.status = status;
         return this.indexRepository.save(index);
+    }
+
+    public async clearProcessingOrPreparing(): Promise<DeleteResult> {
+        const indices = await this.findAllByStatusInBucket(this.bucketId, [ IndexStatus.PREPARING, IndexStatus.PROCESSING ]);
+        return this.indexRepository.delete({ id: In(indices.map((index) => index.id)) });
     }
 
 }

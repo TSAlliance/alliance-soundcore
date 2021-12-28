@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import NodeID3 from 'node-id3';
 import path from 'path';
@@ -22,6 +22,7 @@ import { PublisherService } from '../publisher/publisher.service';
 
 @Injectable()
 export class SongService {
+    private logger: Logger = new Logger(SongService.name)
 
     constructor(
         private geniusService: GeniusService,
@@ -48,7 +49,6 @@ export class SongService {
         // Add artists to song
         // and song to artists
         const artists: Artist[] = await Promise.all(id3tags.artists.map(async (id3Artist) => await this.artistService.createIfNotExists(id3Artist.name))) || [];
-        console.log(artists);
 
         // Save relation with artists
         for(const artist of artists) {
@@ -58,21 +58,36 @@ export class SongService {
         index.song = song;
         song.index = index;
 
-        const result = await this.geniusService.findSongInfo(song);
-        if(result) {
-            if(result.label) song.label = await this.labelService.createIfNotExists(result.label.name, result.label.id)
-            if(result.publisher) song.publisher = await this.publisherService.createIfNotExists(result.publisher.name, result.publisher.id)
-
-            song.location = result.recordingLocation;
-            song.youtubeUrl = result.youtubeUrl;
-            song.released = result.releaseDate;
-            song.geniusId = result.geniusId;
-        }
-
+        // Save relations
         await this.songRepository.save(song);
 
-        // Set status to OK, as this is the last step of the indexing process
-        index.status = IndexStatus.OK;
+        // This relation cannot be saved. Why?!
+        song.artists = artists;
+
+        try {
+            // Request song info on Genius.com
+            const result = await this.geniusService.findSongInfo(song);
+            if(result) {
+                if(result.label) song.label = await this.labelService.createIfNotExists(result.label.name, result.label.id)
+                if(result.publisher) song.publisher = await this.publisherService.createIfNotExists(result.publisher.name, result.publisher.id)
+
+                song.location = result.recordingLocation;
+                song.youtubeUrl = result.youtubeUrl;
+                song.released = result.releaseDate;
+                song.geniusId = result.geniusId;
+            }
+
+            // Save song metadata
+            // Remember: This relation cannot be saved somehow..
+            song.artists = undefined;
+            await this.songRepository.save(song);
+
+            // Set status to OK, as this is the last step of the indexing process
+            index.status = IndexStatus.OK;
+        } catch (error) {
+            this.logger.error(error);
+            index.status = IndexStatus.ERRORED;
+        }
         return index;
     }
 
