@@ -11,8 +11,9 @@ import { DeleteResult } from 'typeorm';
 import { UpdateMountDTO } from '../dto/update-mount.dto';
 import { Index } from "../../index/entities/index.entity";
 import { IndexService } from "../../index/index.service";
-import { BUCKET_ID } from "../../shared/shared.module";
+import { BUCKET_ID, MOUNT_ID } from "../../shared/shared.module";
 import { IndexStatus } from '../../index/enum/index-status.enum';
+import { SSOUser } from '@tsalliance/sso-nest';
 
 @Injectable()
 export class MountService {
@@ -22,7 +23,8 @@ export class MountService {
         private indexService: IndexService,
         private mountRepository: MountRepository, 
         private bucketRepository: BucketRepository,
-        @Inject(BUCKET_ID) private bucketId: string
+        @Inject(BUCKET_ID) private bucketId: string,
+        @Inject(MOUNT_ID) private mountId: string
     ){}
 
     public async findPage(pageable: Pageable): Promise<Page<Mount>> {
@@ -37,8 +39,12 @@ export class MountService {
         return this.mountRepository.findOne({ where: { id: mountId }, relations: ["bucket"]});
     }
 
-    public async findByBucketId(bucketId: string): Promise<Mount[]> {
-        return this.mountRepository.find({ where: { bucket: { id: bucketId } }});
+    public async findDefaultMount(): Promise<Mount> {
+        return this.mountRepository.findOne({ where: { id: this.mountId }});
+    }
+
+    public async findByBucketId(bucketId?: string): Promise<Mount[]> {
+        return this.mountRepository.find({ where: { bucket: { id: bucketId || this.bucketId } }});
     }
 
     public async existsByNameInBucket(bucketId: string, name: string): Promise<boolean> {
@@ -69,6 +75,31 @@ export class MountService {
         
         fs.mkdirSync(createMountDto.path, { recursive: true })
         return this.mountRepository.save(createMountDto);    
+    }
+
+    public async createWithId(mountId: string, createMountDto: CreateMountDTO): Promise<Mount> {
+        const bucketId: string = createMountDto.bucket?.id || this.bucketId;
+        
+        createMountDto.bucket = { id: bucketId }
+        createMountDto.path = path.resolve(createMountDto.path);
+
+        if(!await this.bucketRepository.findOne({ where: { id: bucketId }})) {
+            throw new NotFoundException("Bucket not found.")
+        }
+
+        if(await this.existsByNameInBucket(bucketId, createMountDto.name)) {
+            throw new BadRequestException("Mount with that name already exists in bucket.");
+        }
+
+        if(await this.existsByPathInBucket(bucketId, createMountDto.path)) {
+            throw new BadRequestException("Mount with that path already exists in bucket.");
+        }
+        
+        fs.mkdirSync(createMountDto.path, { recursive: true })
+        return this.mountRepository.save({
+            ...createMountDto,
+            id: mountId
+        });    
     }
 
     public async update(mountId: string, updateMountDto: UpdateMountDTO): Promise<Mount> {
@@ -103,8 +134,8 @@ export class MountService {
      * @param filename File to be indexed
      * @returns Index
      */
-    public async mountFile(mount: Mount, filename: string): Promise<Index> {
-        return this.indexService.createIndex(mount, filename);
+    public async mountFile(mount: Mount, filename: string, uploader?: SSOUser): Promise<Index> {
+        return this.indexService.createIndex(mount, filename, uploader);
     }
 
     /**

@@ -115,7 +115,7 @@ export class StorageService {
      * Get optimized directory of a mount that contains all optimized mp3 files
      * @returns string
      */
-     public getOptimizedDir(mount?: Mount): string {
+    public getOptimizedDir(mount?: Mount): string {
         if(!mount) return path.join(this.getSoundcoreDir(), this.bucketId);
         return path.join(mount.path, "optimized");
     }

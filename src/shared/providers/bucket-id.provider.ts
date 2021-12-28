@@ -3,7 +3,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 
-export function machineIdProvider(): string {
+export function bucketIdProvider(): string {
     const soundcoreDir = path.join(os.homedir(), ".soundcore");
     const soundCoreFile = path.join(soundcoreDir, ".soundcoreId");
 

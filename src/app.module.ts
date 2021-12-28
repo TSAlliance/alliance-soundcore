@@ -16,6 +16,7 @@ import { SongModule } from './song/song.module';
 import { GeniusModule } from './genius/genius.module';
 import { LabelModule } from './label/label.module';
 import { PublisherModule } from './publisher/publisher.module';
+import { UploadModule } from './upload/upload.module';
 
 @Module({
   imports: [
@@ -66,7 +67,8 @@ import { PublisherModule } from './publisher/publisher.module';
     SongModule,
     GeniusModule,
     LabelModule,
-    PublisherModule
+    PublisherModule,
+    UploadModule
   ],
   controllers: [],
   providers: [],

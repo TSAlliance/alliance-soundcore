@@ -11,7 +11,7 @@ import path from 'path';
 import { StorageModule } from '../storage/storage.module';
 import { StorageService } from '../storage/storage.service';
 import { IndexModule } from '../index/index.module';
-import { BUCKET_ID } from '../shared/shared.module';
+import { BUCKET_ID, MOUNT_ID } from '../shared/shared.module';
 
 @Module({
   controllers: [BucketController],
@@ -32,7 +32,8 @@ export class BucketModule implements OnModuleInit {
     private bucketService: BucketService,
     private mountService: MountService,
     private storageService: StorageService,
-    @Inject(BUCKET_ID) private bucketId: string
+    @Inject(BUCKET_ID) private bucketId: string,
+    @Inject(MOUNT_ID) private mountId: string
   ){ }
   
   public async onModuleInit(): Promise<void> {
@@ -41,7 +42,7 @@ export class BucketModule implements OnModuleInit {
       isolated: false
     })
 
-    await this.mountService.create({
+    await this.mountService.createWithId(this.mountId, {
       name: `Default Mount#${RandomUtil.randomString(4)}`,
       path: `${path.join(this.storageService.getSoundcoreDir(), this.bucketId)}`,
       bucket: { id: this.bucketId }
