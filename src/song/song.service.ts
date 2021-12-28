@@ -23,6 +23,7 @@ import { Page, Pageable } from 'nestjs-pager';
 import { ILike } from 'typeorm';
 import { Album } from '../album/entities/album.entity';
 import { AlbumService } from '../album/album.service';
+import { ArtworkService } from '../artwork/artwork.service';
 
 @Injectable()
 export class SongService {
@@ -32,6 +33,7 @@ export class SongService {
         private geniusService: GeniusService,
         private albumService: AlbumService,
         private labelService: LabelService,
+        private artworkService: ArtworkService,
         private publisherService: PublisherService,
         private artistService: ArtistService,
         private songRepository: SongRepository
@@ -59,6 +61,10 @@ export class SongService {
         // Getting album info
         const album: Album = await this.albumService.createIfNotExists(id3tags.album, artists);
         song.albums = [ album ];
+
+        // Create artwork
+        const artwork = await this.artworkService.createFromIndexAndBuffer(index, id3tags.artwork);
+        song.artwork = artwork;
 
         // Save relations
         index.song = song;
@@ -105,14 +111,14 @@ export class SongService {
         }
 
         // Get artwork buffer
-        // const artworkBuffer: Buffer = id3Tags.image["imageBuffer"];
+        const artworkBuffer: Buffer = id3Tags?.image?.["imageBuffer"];
     
         return {
             title: id3Tags.title,
             duration: durationInSeconds,
             artists: artists.map((name) => ({ name })),
-            album: id3Tags.album
-            // artworkBuffer: sharp(artworkBuffer).jpeg({ quality: 90 }).toBuffer()
+            album: id3Tags.album,
+            artwork: artworkBuffer
         }
     }
 

@@ -116,8 +116,17 @@ export class StorageService {
      * @returns string
      */
     public getOptimizedDir(mount?: Mount): string {
-        if(!mount) return path.join(this.getSoundcoreDir(), this.bucketId);
+        if(!mount) return path.join(this.getSoundcoreDir(), this.bucketId, "optimized");
         return path.join(mount.path, "optimized");
+    }
+
+    /**
+     * Get artworks directory of a mount that contains all cover images
+     * @returns string
+     */
+     public getArtworksDir(mount?: Mount): string {
+        if(!mount) return path.join(this.getSoundcoreDir(), this.bucketId, "artworks");
+        return path.join(mount.path, "artworks");
     }
 
     /**
