@@ -1,4 +1,4 @@
-import { Column, Entity, JoinColumn, ManyToMany, ManyToOne, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Artist } from "../../artist/entities/artist.entity";
 import { Index } from "../../index/entities/index.entity";
 import { Label } from "../../label/entities/label.entity";
@@ -32,7 +32,8 @@ export class Song {
     @JoinColumn()
     public index: Index;
 
-    @ManyToMany(() => Artist, { onDelete: "SET NULL" })
+    @ManyToMany(() => Artist)
+    @JoinTable({ name: "artist2song" })
     public artists: Artist[];
 
     @ManyToOne(() => Publisher, { onDelete: "SET NULL" })

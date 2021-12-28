@@ -1,4 +1,4 @@
-import { Column, Entity, JoinTable, ManyToMany, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinTable, ManyToMany, PrimaryGeneratedColumn } from "typeorm";
 import { Album } from "../../album/entities/album.entity";
 import { Song } from "../../song/entities/song.entity";
 
@@ -11,8 +11,11 @@ export class Artist {
     @Column({ nullable: false, unique: true })
     public name: string;
 
+    @CreateDateColumn()
+    public registeredAt: string;
+
     @ManyToMany(() => Song)
-    @JoinTable({ name: "song2artist" })
+    @JoinTable({ name: "artist2song" })
     public songs: Song[];
 
     @ManyToMany(() => Album)
