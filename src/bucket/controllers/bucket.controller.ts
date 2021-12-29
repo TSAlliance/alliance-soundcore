@@ -1,5 +1,5 @@
 import { Controller, Get, Param } from '@nestjs/common';
-import { IsAuthenticated } from '@tsalliance/rest';
+import { IsAuthenticated } from '@tsalliance/sso-nest';
 import { Page, Pageable } from 'nestjs-pager';
 import { Bucket } from '../entities/bucket.entity';
 import { BucketService } from '../services/bucket.service';

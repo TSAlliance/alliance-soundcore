@@ -1,5 +1,4 @@
 import { Controller, Get, Param, Res } from '@nestjs/common';
-import { IsAuthenticated } from '@tsalliance/rest';
 import { Response } from 'express';
 import { ArtworkService } from './artwork.service';
 
@@ -8,7 +7,7 @@ export class ArtworkController {
   constructor(private readonly artworkService: ArtworkService) {}
 
   @Get(":artworkId")
-  @IsAuthenticated()
+  // @IsAuthenticated()
   public async streamArtwork(@Param("artworkId") artworkId: string, @Res() response: Response) {
     return this.artworkService.streamArtwork(artworkId, response);
   }

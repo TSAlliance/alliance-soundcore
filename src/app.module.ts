@@ -17,6 +17,7 @@ import { LabelModule } from './label/label.module';
 import { PublisherModule } from './publisher/publisher.module';
 import { UploadModule } from './upload/upload.module';
 import { SearchModule } from './search/search.module';
+import { PlaylistModule } from './playlist/playlist.module';
 
 @Module({
   imports: [
@@ -68,7 +69,8 @@ import { SearchModule } from './search/search.module';
     LabelModule,
     PublisherModule,
     UploadModule,
-    SearchModule
+    SearchModule,
+    PlaylistModule
   ],
   controllers: [],
   providers: [],

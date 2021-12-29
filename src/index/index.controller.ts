@@ -1,5 +1,5 @@
 import { Controller, Get, Param } from '@nestjs/common';
-import { IsAuthenticated } from '@tsalliance/rest';
+import { IsAuthenticated } from '@tsalliance/sso-nest';
 import { Page, Pageable } from 'nestjs-pager';
 import { Index } from './entities/index.entity';
 import { IndexService } from './index.service';

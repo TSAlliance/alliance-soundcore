@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
-import { IsAuthenticated } from '@tsalliance/rest';
+import { IsAuthenticated } from '@tsalliance/sso-nest';
 import { Page, Pageable } from 'nestjs-pager';
 import { DeleteResult } from 'typeorm';
 import { CreateMountDTO } from '../dto/create-mount.dto';
