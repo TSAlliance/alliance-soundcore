@@ -8,11 +8,7 @@ import { Readable } from "stream";
 import { Index } from "../index/entities/index.entity";
 import { Mount } from "../bucket/entities/mount.entity";
 import { BUCKET_ID } from "../shared/shared.module";
-import pathToFfmpeg from "ffmpeg-static";
-import { execSync } from "child_process";
 import { IndexStatus } from "../index/enum/index-status.enum";
-
-const VOLUME_MULTIPLIER = 2
 
 @Injectable()
 export class StorageService {
@@ -75,16 +71,19 @@ export class StorageService {
         
         try {
             if(!fs.existsSync(dstFilepath)) {
-                execSync(`${pathToFfmpeg} -i "${srcFilepath}" -vn -filter:a loudnorm -filter:a "volume=${VOLUME_MULTIPLIER}" -ac 2 -b:a 192k "${dstFilepath}"`, { stdio: "pipe" });
+                // The following ffmpeg command causes overdriven bass.
+                // execSync(`${pathToFfmpeg} -i "${srcFilepath}" "${dstFilepath}"`, { stdio: "pipe" });
             }
 
-            if(!fs.existsSync(dstFilepath)) {
+            // Only needed if above is not commented out
+            /*if(!fs.existsSync(dstFilepath)) {
                 index.status = IndexStatus.ERRORED;
                 index.size = 0;
-            } else {
+            } else {*/
                 index.status = IndexStatus.PROCESSING;
-                index.size = (await this.getFileStats(dstFilepath)).size;
-            }
+                // index.size = (await this.getFileStats(dstFilepath)).size;
+                index.size = (await this.getFileStats(srcFilepath)).size;
+            // }
         } catch (error) {
             this.logger.error(error)
 

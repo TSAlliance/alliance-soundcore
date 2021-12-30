@@ -42,8 +42,7 @@ export class BucketModule implements OnModuleInit {
   
   public async onModuleInit(): Promise<void> {
     await this.bucketService.createWithId(this.bucketId, {
-      name: `${os.hostname()}#${RandomUtil.randomString(4)}`,
-      isolated: false
+      name: `${os.hostname()}#${RandomUtil.randomString(4)}`
     })
 
     await this.mountService.createWithId(this.mountId, {
