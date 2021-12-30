@@ -1,4 +1,4 @@
-import { Column, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Album } from "../../album/entities/album.entity";
 import { Artist } from "../../artist/entities/artist.entity";
 import { Artwork } from "../../artwork/entities/artwork.entity";
@@ -29,6 +29,9 @@ export class Song {
 
     @Column({ nullable: true, type: "date" })
     public released: Date;
+
+    @CreateDateColumn()
+    public createdAt: Date;
 
     @OneToOne(() => Index, { onDelete: "CASCADE" })
     @JoinColumn()

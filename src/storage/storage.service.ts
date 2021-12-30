@@ -12,6 +12,8 @@ import pathToFfmpeg from "ffmpeg-static";
 import { execSync } from "child_process";
 import { IndexStatus } from "../index/enum/index-status.enum";
 
+const VOLUME_MULTIPLIER = 2
+
 @Injectable()
 export class StorageService {
     private logger: Logger = new Logger(StorageService.name)
@@ -73,7 +75,7 @@ export class StorageService {
         
         try {
             if(!fs.existsSync(dstFilepath)) {
-                execSync(`${pathToFfmpeg} -i "${srcFilepath}" -vn -filter:a loudnorm -filter:a "volume=4" -ac 2 -b:a 192k "${dstFilepath}"`, { stdio: "pipe" });
+                execSync(`${pathToFfmpeg} -i "${srcFilepath}" -vn -filter:a loudnorm -filter:a "volume=${VOLUME_MULTIPLIER}" -ac 2 -b:a 192k "${dstFilepath}"`, { stdio: "pipe" });
             }
 
             if(!fs.existsSync(dstFilepath)) {
@@ -101,6 +103,16 @@ export class StorageService {
      */
     public buildFilepath(mount: Mount, filename: string): string {
         return path.join(mount.path, filename);
+    }
+
+    /**
+     * Get the full path to a file within mount.
+     * @param mount Corresponding mount
+     * @param filename Filename
+     * @returns string
+     */
+     public buildOptimizedFilepath(mount: Mount, filename: string): string {
+        return path.join(this.getOptimizedDir(mount), filename);
     }
 
     /**

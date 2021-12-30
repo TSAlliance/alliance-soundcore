@@ -8,6 +8,9 @@ export class Artist {
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
+    @Column({ nullable: true })
+    public geniusId: string;
+
     @Column({ nullable: false, unique: true })
     public name: string;
 
