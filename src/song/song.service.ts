@@ -40,6 +40,43 @@ export class SongService {
     ){}
 
     /**
+     * Find page with the 20 latest indexed songs.
+     * @returns Page<Song>
+     */
+    public async findLatestPage(): Promise<Page<Song>> {
+        return this.songRepository.findAll({ size: 20, page: 0 }, {
+            order: {
+                createdAt: "DESC",
+                released: "DESC"
+            },
+            relations: ["artwork", "artists"]
+        });
+    }
+
+    /**
+     * Find page with the oldest songs by their actual release date
+     * @returns Page<Song>
+     */
+    public async findOldestReleasePage(): Promise<Page<Song>> {
+        return this.songRepository.findAll({ size: 20, page: 0 }, {
+            order: {
+                released: "ASC",
+                createdAt: "ASC"
+            },
+            relations: ["artwork", "artists"]
+        });
+    }
+
+    /**
+     * Find song by its id including its indexed file info.
+     * @param songId Song's id
+     * @returns Song
+     */
+    public async findByIdWithIndex(songId: string): Promise<Song> {
+        return this.songRepository.findOne({ where: { id: songId }, relations: ["index", "index.mount"]})
+    }
+
+    /**
      * Create new song entry in database.
      * @param createSongDto Song data to be saved
      * @returns Song
