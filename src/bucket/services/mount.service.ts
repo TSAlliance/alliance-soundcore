@@ -28,38 +28,86 @@ export class MountService {
         @Inject(MOUNT_ID) private mountId: string
     ){}
 
+    /**
+     * Find a page of mounts.
+     * @param pageable Page settings
+     * @returns Page<Mount>
+     */
     public async findPage(pageable: Pageable): Promise<Page<Mount>> {
         return this.mountRepository.findAll(pageable);
     }
 
+    /**
+     * Find a mount by its id
+     * @param mountId Mount's id
+     * @returns Mount
+     */
     public async findById(mountId: string): Promise<Mount> {
         return this.mountRepository.findOne({ where: { id: mountId }});
     }
 
+    /**
+     * Find a mount by its id including all relations.
+     * @param mountId Mount's id
+     * @returns Mount
+     */
     public async findByIdWithRelations(mountId: string): Promise<Mount> {
         return this.mountRepository.findOne({ where: { id: mountId }, relations: ["bucket"]});
     }
 
+    /**
+     * Find the default mount of the bucket on this machine.
+     * @returns Mount
+     */
     public async findDefaultMount(): Promise<Mount> {
         return this.mountRepository.findOne({ where: { id: this.mountId }});
     }
 
+    /**
+     * Find all mounts inside a bucket.
+     * @param bucketId Bucket's id
+     * @returns Mount[]
+     */
     public async findByBucketId(bucketId?: string): Promise<Mount[]> {
         return this.mountRepository.find({ where: { bucket: { id: bucketId || this.bucketId } }});
     }
 
+    /**
+     * Find a page of mounts inside a bucket.
+     * @param bucketId Bucket's id
+     * @param pageable Page settings
+     * @returns Page<Mount>
+     */
     public async findPageByBucketId(bucketId: string, pageable: Pageable): Promise<Page<Mount>> {
         return this.mountRepository.findAll(pageable, { where: { bucket: { id: bucketId }}});
     }
 
+    /**
+     * Check if a mount with certain name already exists inside bucket
+     * @param bucketId Bucket's id
+     * @param name Name of the bucket
+     * @returns True or False
+     */
     public async existsByNameInBucket(bucketId: string, name: string): Promise<boolean> {
         return !!(await this.mountRepository.findOne({ where: { name, bucket: { id: bucketId } }}));
     }
 
+    /**
+     * Check if a mount with certain path already exists inside bucket
+     * @param bucketId Bucket's id
+     * @param path Path of the bucket
+     * @returns True or False
+     */
     public async existsByPathInBucket(bucketId: string, path: string): Promise<boolean> {
         return !!(await this.mountRepository.findOne({ where: { path, bucket: { id: bucketId } }}));
     }
 
+    /**
+     * Create new mount. If no bucketId is provided, then the bucket of the current machine is used.
+     * On success, the indexing process is triggered automatically.
+     * @param createMountDto New mount's data
+     * @returns Mount
+     */
     public async create(createMountDto: CreateMountDTO): Promise<Mount> {
         const bucketId: string = createMountDto.bucket?.id || this.bucketId;
         
@@ -85,6 +133,12 @@ export class MountService {
         return mount;    
     }
 
+    /**
+     * Create new mount providing a predefined id.
+     * @param mountId Predefined id.
+     * @param createMountDto Mount's data
+     * @returns Mount
+     */
     public async createWithId(mountId: string, createMountDto: CreateMountDTO): Promise<Mount> {
         const bucketId: string = createMountDto.bucket?.id || this.bucketId;
         
@@ -110,6 +164,12 @@ export class MountService {
         });    
     }
 
+    /**
+     * Update existing mount.
+     * @param mountId Mount's id
+     * @param updateMountDto Mount's updated data
+     * @returns Mount
+     */
     public async update(mountId: string, updateMountDto: UpdateMountDTO): Promise<Mount> {
         const mount = await this.findByIdWithRelations(mountId);
 
@@ -132,6 +192,11 @@ export class MountService {
         return this.mountRepository.save(mount);
     }
 
+    /**
+     * Delete mount by its id.
+     * @param mountId Mount's id
+     * @returns DeleteResult
+     */
     public async delete(mountId: string): Promise<DeleteResult> {
         return this.mountRepository.delete({ id: mountId })
     }
@@ -188,6 +253,12 @@ export class MountService {
         
     }
 
+    /**
+     * Update the status of a mount. This updated the database entry and sends status update to clients on the websocket.
+     * @param mount Mount to update
+     * @param status Updated status
+     * @returns Mount
+     */
     public async setStatus(mount: Mount, status: MountStatus): Promise<Mount> {
         mount.status = status;
         await this.mountRepository.save(mount);

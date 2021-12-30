@@ -39,11 +39,21 @@ export class SongService {
         private songRepository: SongRepository
     ){}
 
-    public async create(createSongDto: CreateSongDTO): Promise<Song> {
+    /**
+     * Create new song entry in database.
+     * @param createSongDto Song data to be saved
+     * @returns Song
+     */
+    private async create(createSongDto: CreateSongDTO): Promise<Song> {
         return this.songRepository.save(createSongDto);
     }
 
-    public async createFromIndex(index: Index): Promise<Index> {
+    /**
+     * Create song metadata entry in database extracted from an indexed file.
+     * @param index Indexed file to get metadata from
+     * @returns Index
+     */
+    public async createFromIndex(index: Index): Promise<Song> {
         const filepath = path.join(index.mount.path, index.filename);
         if(!fs.existsSync(filepath)) throw new NotFoundException("Could not find song file");
 
@@ -93,9 +103,17 @@ export class SongService {
             this.logger.error(error);
             index.status = IndexStatus.ERRORED;
         }
-        return index;
+
+        // Make sure the index is updated to the song for future internal processing.
+        song.index = index;
+        return song;
     }
 
+    /**
+     * Extract ID3-Tags from audio file.
+     * @param filepath Path to the file.
+     * @returns ID3TagsDTO
+     */
     private async readId3Tags(filepath: string): Promise<ID3TagsDTO> {
         const id3Tags = NodeID3.read(fs.readFileSync(filepath));
 
@@ -122,6 +140,13 @@ export class SongService {
         }
     }
 
+    /**
+     * Execute search query for a song. This looks up songs that match the query.
+     * The search includes looking for songs with a specific artist's name.
+     * @param query Query string
+     * @param pageable Page settings
+     * @returns Page<Song>
+     */
     public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Song>> {
         if(!query) query = ""
         query = `%${query.replace(/\s/g, '%')}%`;

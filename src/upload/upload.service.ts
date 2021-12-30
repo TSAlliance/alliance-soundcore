@@ -10,10 +10,20 @@ export class UploadService {
 
     constructor(private storageService: StorageService, private mountService: MountService){}
 
+    /**
+     * Get a list of supported formats for image or audio files
+     * @returns Formats
+     */
     public async findSupportedFormats(): Promise<Formats> {
         return new Formats()
     }
 
+    /**
+     * Process an uploaded file by specific uploader.
+     * @param file Uploaded file
+     * @param uploader User that uploaded the file.
+     * @returns Index
+     */
     public async uploadAudio(file: Express.Multer.File, uploader: SSOUser): Promise<Index> {
         const mount = await this.mountService.findDefaultMount();
         if(!mount) throw new NotFoundException("Could not find default mount.");
