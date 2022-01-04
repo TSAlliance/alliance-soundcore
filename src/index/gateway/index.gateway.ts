@@ -7,7 +7,7 @@ import { Index } from "../entities/index.entity";
 export const INDEX_STATUS_EVENT = "onIndexStatusUpdate"
 
 @WebSocketGateway({ 
-    namespace: "index-status",
+    path: "/index-status",
     cors: {
         origin: "*",
         credentials: true
