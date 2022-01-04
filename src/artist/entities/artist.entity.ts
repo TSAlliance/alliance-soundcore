@@ -1,5 +1,5 @@
-import { Column, Entity, ManyToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
-import { Artwork } from "../../artwork/entities/artwork.entity";
+import { Column, CreateDateColumn, Entity, JoinTable, ManyToMany, PrimaryGeneratedColumn } from "typeorm";
+import { Album } from "../../album/entities/album.entity";
 import { Song } from "../../song/entities/song.entity";
 
 @Entity()
@@ -11,10 +11,15 @@ export class Artist {
     @Column({ nullable: false, unique: true })
     public name: string;
 
-    @ManyToMany(() => Song, { onDelete: "CASCADE" })
-    public songs?: Song[]
+    @CreateDateColumn()
+    public registeredAt: Date;
 
-    @OneToOne(() => Artwork, { onDelete: "CASCADE", nullable: true })
-    public artwork?: Artwork;
+    @ManyToMany(() => Song)
+    @JoinTable({ name: "artist2song" })
+    public songs: Song[];
+
+    @ManyToMany(() => Album)
+    @JoinTable({ name: "album2artist" })
+    public albums: Album[];
 
 }

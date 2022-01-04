@@ -3,6 +3,4 @@ import { EntityRepository } from "typeorm";
 import { Artist } from "../entities/artist.entity";
 
 @EntityRepository(Artist)
-export class ArtistRepository extends PageableRepository<Artist> {
-    
-}
+export class ArtistRepository extends PageableRepository<Artist> {}

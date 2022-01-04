@@ -1,17 +1,23 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { SongModule } from './song/song.module';
-import { UploadModule } from './upload/upload.module';
-import { StreamModule } from './stream/stream.module';
 import { MulterModule } from '@nestjs/platform-express';
-import { UPLOAD_TMP_DIR } from './storage/storage.service';
 
 import { SSOModule, SSOUser } from "@tsalliance/sso-nest"
 import { ArtistModule } from './artist/artist.module';
 import { AllianceRestModule } from '@tsalliance/rest';
+import { BucketModule } from './bucket/bucket.module';
+import { IndexModule } from './index/index.module';
+import { AlbumModule } from './album/album.module';
+import { StorageModule } from './storage/storage.module';
+import { SharedModule } from './shared/shared.module';
+import { SongModule } from './song/song.module';
+import { GeniusModule } from './genius/genius.module';
+import { LabelModule } from './label/label.module';
+import { PublisherModule } from './publisher/publisher.module';
+import { UploadModule } from './upload/upload.module';
 import { SearchModule } from './search/search.module';
-import { ArtworkModule } from './artwork/artwork.module';
+import { PlaylistModule } from './playlist/playlist.module';
 
 @Module({
   imports: [
@@ -39,12 +45,7 @@ import { ArtworkModule } from './artwork/artwork.module';
       retryAttempts: Number.MAX_VALUE,
       retryDelay: 10000
     }),
-    MulterModule.register({
-      dest: UPLOAD_TMP_DIR
-    }),
-    SongModule,
-    UploadModule,
-    StreamModule,
+    MulterModule.register(),
     SSOModule.forRoot({
       baseUrl: process.env.SSO_URL,
       clientId: process.env.SSO_CLIENT_ID,
@@ -53,11 +54,23 @@ import { ArtworkModule } from './artwork/artwork.module';
       logging: false
     }),
     AllianceRestModule.forRoot({
-      logging: false
+      logging: false,
+      disableErrorHandling: false,
+      disableValidation: false
     }),
+    SharedModule,
     ArtistModule,
+    BucketModule,
+    IndexModule,
+    AlbumModule,
+    StorageModule,
+    SongModule,
+    GeniusModule,
+    LabelModule,
+    PublisherModule,
+    UploadModule,
     SearchModule,
-    ArtworkModule
+    PlaylistModule
   ],
   controllers: [],
   providers: [],

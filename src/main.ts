@@ -1,4 +1,4 @@
-import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 
@@ -14,8 +14,6 @@ async function bootstrap() {
     defaultVersion: "1"
   })
   
-  //app.useGlobalFilters(new ApiExceptionFilter())
-  app.useGlobalPipes(new ValidationPipe())
   await app.listen(3001);
 }
 

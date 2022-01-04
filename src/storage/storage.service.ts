@@ -1,117 +1,148 @@
-import { Injectable, InternalServerErrorException, Logger } from "@nestjs/common";
-import { createHash } from "crypto";
-import ffprobe from "ffprobe"
-import ffprobeStatic from "ffprobe-static"
-import NodeID3 from 'node-id3';
-import { createReadStream, existsSync, lstatSync, mkdirSync, readFileSync, rmSync, unlinkSync } from "fs";
-import { join } from "path";
-import { Readable } from "stream";
-import { SongMetadataDTO } from "../song/dto/song-metadata.dto";
-import { Artist } from "../artist/entities/artist.entity";
-import sharp from "sharp";
+import os from "os"
+import path from "path";
+import crypto from "crypto"
+import fs, { mkdirSync } from "fs"
 
-export const UPLOAD_TMP_DIR = join(process.cwd(), "tmp-data");
-export const UPLOAD_ROOT_DIR = join(process.cwd(), "uploaded-data");
-export const UPLOAD_SONGS_DIR = join(UPLOAD_ROOT_DIR, "songs");
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Readable } from "stream";
+import { Index } from "../index/entities/index.entity";
+import { Mount } from "../bucket/entities/mount.entity";
+import { BUCKET_ID } from "../shared/shared.module";
+import pathToFfmpeg from "ffmpeg-static";
+import { execSync } from "child_process";
+import { IndexStatus } from "../index/enum/index-status.enum";
 
 @Injectable()
 export class StorageService {
     private logger: Logger = new Logger(StorageService.name)
 
-    constructor(){
-        this.delete(UPLOAD_TMP_DIR).then(() => {
-            if(!existsSync(UPLOAD_ROOT_DIR)) mkdirSync(UPLOAD_ROOT_DIR, { recursive: true });
-            if(!existsSync(UPLOAD_TMP_DIR)) mkdirSync(UPLOAD_TMP_DIR, { recursive: true });
-            if(!existsSync(UPLOAD_SONGS_DIR)) mkdirSync(UPLOAD_SONGS_DIR, { recursive: true });
-        })
-    }
+    constructor(@Inject(BUCKET_ID) private bucketId: string){}
 
     /**
-     * Calculte checksum from file contents.
-     * @param filepath Path to file
-     * @returns String
+     * Calculte checksum from index.
+     * @param index Index to generate checksum for
+     * @returns Index with new checksum
      */
-    public async generateChecksumOfFile(filepath: string | Buffer): Promise<string> {
+    public async generateChecksumOfIndex(index: Index): Promise<Index> {
         return new Promise((resolve, reject) => {
-            const hash = createHash('md5');
-            let stream;
-
-            if(Buffer.isBuffer(filepath)) {
-                stream = Readable.from(filepath.toString())
-            } else {
-                stream = Readable.from(createReadStream(filepath))
-            }
+            const filepath = this.buildFilepath(index.mount, index.filename);
+            const hash = crypto.createHash('md5');
+            const stream = Readable.from(fs.createReadStream(filepath))
 
             stream.on('error', reject);
             stream.on('data', (chunk) => hash.update(chunk));
-            stream.on('close', () => resolve(hash.digest('hex')));
+            stream.on('close', () => {
+                index.checksum = hash.digest('hex');
+                resolve(index)
+            });
         })
     }
 
     /**
-     * Check if an uploaded audio file has supported file format.
-     * @param file Express Multer File
-     * @returns True or False
+     * Write buffer to filesystem in the correct mount.
+     * @param mount Mount to write file in
+     * @param buffer Data to be written
+     * @param filename Resulting filename
      */
-    public async hasSupportedAudioFormat(filepath: string): Promise<boolean> {
-        const metadata = await ffprobe(filepath, { path: ffprobeStatic.path }).catch((error) => { 
-            console.error(error); 
-            return null 
-        });
+    public async writeBufferToMount(mount: Mount, buffer: Buffer, filename: string): Promise<void> {
+        return new Promise((resolve, reject) => {
+            fs.writeFile(this.buildFilepath(mount, filename), buffer, (err) => {
+                if(err) reject(err)
+                else resolve()
+            })
+        })
+    }
 
-        if(!metadata) throw new InternalServerErrorException("Could not read file.")
+    /**
+     * Write an optimized mp3 file.
+     * @param index Index to optimize
+     * @returns Index
+     */
+    public async createOptimizedMp3File(index: Index): Promise<Index> {
+        const srcFilepath: string = path.join(index.mount.path, index.filename);
+        const optimizedDir: string = this.getOptimizedDir(index.mount);
+        const dstFilepath: string = path.join(optimizedDir, index.filename);
 
-        const mimetype = metadata.streams[0].codec_type + "/" + metadata.streams[0].codec_name;
-        const supportedFormats = ["audio/mpeg", "audio/mp4", "audio/mp3", "audio/ogg", "audio/vorbis", "audio/aac", "audio/opus", "audio/wav", "audio/webm", "audio/flac", "audio/x-flac"];
+        if(!fs.existsSync(srcFilepath)) {
+            index.status = IndexStatus.ERRORED;
+            index.size = 0;
+            throw new NotFoundException("Could not find src file to optimize");
+        }
+
+        mkdirSync(optimizedDir, { recursive: true })
         
-        return supportedFormats.includes(mimetype.toLowerCase());
+        try {
+            if(!fs.existsSync(dstFilepath)) {
+                execSync(`${pathToFfmpeg} -i "${srcFilepath}" -vn -filter:a loudnorm -filter:a "volume=4" -ac 2 -b:a 192k "${dstFilepath}"`, { stdio: "pipe" });
+            }
+
+            if(!fs.existsSync(dstFilepath)) {
+                index.status = IndexStatus.ERRORED;
+                index.size = 0;
+            } else {
+                index.status = IndexStatus.PROCESSING;
+                index.size = (await this.getFileStats(dstFilepath)).size;
+            }
+        } catch (error) {
+            this.logger.error(error)
+
+            index.status = IndexStatus.ERRORED;
+            index.size = 0;
+        }
+
+        return index;
     }
 
     /**
-     * Delete file from filesystem
-     * @param filepath Path to delete.
+     * Get the full path to a file within mount.
+     * @param mount Corresponding mount
+     * @param filename Filename
+     * @returns string
      */
-    public async delete(filepath: string): Promise<void> {
-        if(!filepath || !existsSync(filepath)) return;
-
-        const stats = lstatSync(filepath, { throwIfNoEntry: false })
-        if(!stats) return;
-
-        if(stats.isDirectory()) {
-            rmSync(filepath, { recursive: true })
-        } else {
-            unlinkSync(filepath);
-        }
+    public buildFilepath(mount: Mount, filename: string): string {
+        return path.join(mount.path, filename);
     }
 
     /**
-     * Read metadata of audio files.
-     * @param filepath 
-     * @returns 
+     * Get the main config directory of the application.
+     * @returns string
      */
-    public async readMetadataFromAudioFile(filepath: string): Promise<SongMetadataDTO> {
-        const id3Tags = NodeID3.read(readFileSync(filepath));
+    public getSoundcoreDir(): string {
+        return path.join(os.homedir(), ".soundcore");
+    }
 
-        // Get duration in seconds
-        const probe = await ffprobe(filepath, { path: ffprobeStatic.path })
-        const durationInSeconds = Math.round(probe.streams[0].duration || 0);
+    /**
+     * Get optimized directory of a mount that contains all optimized mp3 files
+     * @returns string
+     */
+    public getOptimizedDir(mount?: Mount): string {
+        if(!mount) return path.join(this.getSoundcoreDir(), this.bucketId, "optimized");
+        return path.join(mount.path, "optimized");
+    }
 
-        // Get artists
-        const artists = id3Tags.artist.split("/")
-        for(const index in artists) {
-            artists.push(...artists[index].split(","))
-            artists.splice(parseInt(index), 1)
-        }
+    /**
+     * Get artworks directory of a mount that contains all cover images
+     * @returns string
+     */
+     public getArtworksDir(mount?: Mount): string {
+        if(!mount) return path.join(this.getSoundcoreDir(), this.bucketId, "artworks");
+        return path.join(mount.path, "artworks");
+    }
 
-        // Get artwork buffer
-        const artworkBuffer: Buffer = id3Tags.image["imageBuffer"];
+    /**
+     * Get file stats of a file
+     * @param filepath Path to the file
+     * @returns fs.Stats
+     */
+    public async getFileStats(filepath: string): Promise<fs.Stats> {
+        return new Promise((resolve) => {
+            fs.stat(filepath, (err, stats) => {
+                if(err) resolve(null)
+                else resolve(stats)
+            })
+        })
+    }
+
     
-        return {
-            title: id3Tags.title,
-            artists: artists.map((name) => ({ name }) as Artist),
-            durationInSeconds,
-            artworkBuffer: sharp(artworkBuffer).jpeg({ quality: 90 }).toBuffer()
-        }
-    }
 
 }

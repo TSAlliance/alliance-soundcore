@@ -1,82 +1,76 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { createReadStream, existsSync, mkdirSync, readFileSync, ReadStream, writeFileSync } from 'fs';
-import NodeID3 from 'node-id3';
-import { join } from 'path';
+import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { Response } from 'express';
+import { createReadStream, existsSync, mkdirSync } from 'fs';
+import path from 'path';
 import sharp from 'sharp';
+import { Index } from '../index/entities/index.entity';
 import { StorageService } from '../storage/storage.service';
 import { Artwork } from './entities/artwork.entity';
-import { ArtworkType } from './enums/artwork-type.enum';
 import { ArtworkRepository } from './repositories/artwork.repository';
-
-const ARTWORK_ROOT_DIR = join(process.cwd(), "artwork-data");
-const ARTWORK_SONGS_DIR = join(ARTWORK_ROOT_DIR, ArtworkType.SONG_COVER);
-const ARTWORK_ALBUM_DIR = join(ARTWORK_ROOT_DIR, ArtworkType.ALBUM_COVER);
-const ARTWORK_PLAYLIST_DIR = join(ARTWORK_ROOT_DIR, ArtworkType.PLAYLIST_COVER);
-const ARTWORK_ARTIST_DIR = join(ARTWORK_ROOT_DIR, ArtworkType.ARTIST_COVER);
 
 @Injectable()
 export class ArtworkService {
 
-    constructor(private artworkRepository: ArtworkRepository, private storageService: StorageService) {
-        mkdirSync(ARTWORK_SONGS_DIR, { recursive: true })
-        mkdirSync(ARTWORK_ALBUM_DIR, { recursive: true })
-        mkdirSync(ARTWORK_PLAYLIST_DIR, { recursive: true })
-        mkdirSync(ARTWORK_ARTIST_DIR, { recursive: true })
-    }
+    constructor(
+        private storageService: StorageService,
+        private artworkRepository: ArtworkRepository
+    ){}
 
-    public async streamById(artworkId: string): Promise<ReadStream> {
-        const artwork = await this.findById(artworkId);
-        if(!artwork) throw new NotFoundException("Artwork not found.");
-
-        const path = await this.getPath(artwork);
-
-        if(!existsSync(path)) {
-            this.deleteById(artworkId);
-            throw new NotFoundException("File not found.");
-        }
-
-        return createReadStream(path)
-    }
-
-    private async getPath(artwork: Artwork): Promise<string> {
-        return join(ARTWORK_ROOT_DIR, artwork.type, `${artwork.id}.jpeg`);
-    }
-
+    /**
+     * Find artwork metadata by its id.
+     * @param artworkId Artwork's id.
+     * @returns Artwork
+     */
     public async findById(artworkId: string): Promise<Artwork> {
-        return this.artworkRepository.findOne({ where: { id: artworkId }})
+        return this.artworkRepository.findOne({ where: { id:artworkId }, relations: ["index"]})
     }
 
     /**
-     * Delete an artwork by its id.
-     * @param artworkId Id to delete
+     * Build artwork directory that fits to an indexed file. This takes the mount of the index
+     * and uses that path to build the path to a fitting artwork directory.
+     * @param index Index to build directory for
+     * @returns string
      */
-    public async deleteById(artworkId: string): Promise<void> {
-        const artwork: Artwork = await this.artworkRepository.findOne({ where: { id: artworkId }});
-        if(!artwork) throw new NotFoundException("Artwork not found.");
-
-        const filepath = await this.getPath(artwork);
-        return this.storageService.delete(filepath);
+    public buildArtworksDirForIndex(index: Index): string {
+        return path.join(this.storageService.getArtworksDir(index.mount), `${index.filename}.jpeg`)
     }
 
-    public async createArtworkFromAudioFile(filepath: string): Promise<Artwork> {
-        if(!existsSync(filepath)) {
-            return null;
-        }
+    /**
+     * Write the extracted image of an indexed file to the disk.
+     * @param index Indexed file the artwork belongs to.
+     * @param buffer Image data to be written.
+     * @returns Artwork
+     */
+    public async createFromIndexAndBuffer(index: Index, buffer: Buffer): Promise<Artwork> {
+        const dstDirectory = this.storageService.getArtworksDir(index.mount);
+        mkdirSync(dstDirectory, { recursive: true });
 
-        const id3Tags = NodeID3.read(readFileSync(filepath));
-        if(!id3Tags || !id3Tags.image || !id3Tags.image["imageBuffer"]) {
-            return null;
-        }
+        if(!buffer) return null;
 
-        let artwork = new Artwork();
-        artwork.type = ArtworkType.SONG_COVER;
-        artwork = await this.artworkRepository.save(artwork);
+        const artwork = await this.artworkRepository.save({ index });
+        const dstFilepath = this.buildArtworksDirForIndex(index);
 
-        const destOutputfile: string = await this.getPath(artwork);
-        const buffer = id3Tags.image["imageBuffer"];
+        sharp(buffer).jpeg({ quality: 80 }).toFile(dstFilepath).catch((error) => {
+            console.error(error);
+            this.artworkRepository.delete(artwork);
+            throw new InternalServerErrorException("Could not create artwork from index: " + index.filename);
+        });
 
-        writeFileSync(destOutputfile, await sharp(buffer).jpeg({ quality: 90 }).resize(256, 256, { fit: "cover" }).toBuffer())
-        return this.artworkRepository.save(artwork)
+        return artwork;
+    }
+
+    /**
+     * Create a readstream for an artwork and pipe it directly to the response.
+     * @param artworkId Requested artwork's id.
+     * @param response Response to pipe stream to.
+     */
+    public async streamArtwork(artworkId: string, response: Response) {
+        const artwork = await this.findById(artworkId);
+        if(!artwork) throw new NotFoundException("Could not find artwork.");
+
+        const filepath = this.buildArtworksDirForIndex(artwork.index);
+        if(!existsSync(filepath)) throw new NotFoundException("Could not find artwork file.");
+        createReadStream(filepath).pipe(response);        
     }
 
 }

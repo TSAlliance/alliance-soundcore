@@ -1,6 +1,5 @@
-import { CanRead } from "@tsalliance/rest";
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
-import { ArtworkType } from "../enums/artwork-type.enum";
+import { Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Index } from "../../index/entities/index.entity";
 
 @Entity()
 export class Artwork {
@@ -8,8 +7,8 @@ export class Artwork {
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
-    @CanRead(false)
-    @Column({ nullable: false, default: ArtworkType.SONG_COVER })
-    public type: ArtworkType    
+    @OneToOne(() => Index, { onDelete: "CASCADE" })
+    @JoinColumn()
+    public index: Index;
 
 }

@@ -7,11 +7,8 @@ export class ArtworkController {
   constructor(private readonly artworkService: ArtworkService) {}
 
   @Get(":artworkId")
-  public async streamArtworkById(@Param("artworkId") artworkId: string, @Res() response: Response): Promise<void> {
-    const stream = await this.artworkService.streamById(artworkId);
-    stream.pipe(response)
-    /*return new StreamableFile(await this.artworkService.streamById(artworkId), {
-      type: "image/jpeg"
-    })*/
+  // @IsAuthenticated()
+  public async streamArtwork(@Param("artworkId") artworkId: string, @Res() response: Response) {
+    return this.artworkService.streamArtwork(artworkId, response);
   }
 }
