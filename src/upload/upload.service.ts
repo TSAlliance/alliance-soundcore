@@ -30,10 +30,8 @@ export class UploadService {
 
         if(!await (await this.findSupportedFormats()).audio.includes(file.mimetype)) throw new BadRequestException("Unsupported file format.")
 
-        return this.storageService.writeBufferToMount(mount, file.buffer, file.originalname).catch((error) => error).then((value) => {
-            console.log(value)
-            if(value) throw new InternalServerErrorException("Could not upload file: Unexpected error.");
-
+        return this.storageService.writeBufferToMount(mount, file.buffer, file.originalname).catch((error) => error).then((error) => {
+            if(error) throw new InternalServerErrorException("Could not upload file: Unexpected error.");
             return this.mountService.mountFile(mount, file.originalname, uploader)
         });
     }

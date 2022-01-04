@@ -1,5 +1,5 @@
 import path from 'path';
-import fs from 'fs';
+import fs, { mkdirSync } from 'fs';
 
 import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
@@ -219,8 +219,8 @@ export class MountService {
         const mountDir = path.join(mount.path);
 
         if(!fs.existsSync(mountDir)) {
-            this.logger.warn(`Directory for mount '${mount.name}' not found. Was looking for: ${mountDir}`);
-            return;
+            this.logger.warn(`Directory for mount '${mount.name}' not found. Was looking for: ${mountDir}. Creating it...`);
+            mkdirSync(mountDir, { recursive: true })
         }
 
         const indices: string[] = (await this.indexService.findAllByMount(mount.id)).filter((index) => index.status != IndexStatus.ERRORED).map((index) => index.filename);

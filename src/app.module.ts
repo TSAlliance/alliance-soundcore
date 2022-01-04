@@ -18,6 +18,7 @@ import { PublisherModule } from './publisher/publisher.module';
 import { UploadModule } from './upload/upload.module';
 import { SearchModule } from './search/search.module';
 import { PlaylistModule } from './playlist/playlist.module';
+import { StreamModule } from './stream/stream.module';
 
 @Module({
   imports: [
@@ -51,7 +52,8 @@ import { PlaylistModule } from './playlist/playlist.module';
       clientId: process.env.SSO_CLIENT_ID,
       clientSecret: process.env.SSO_CLIENT_SECRET,
       redirectUri: process.env.SSO_REDIRECT_URI,
-      logging: false
+      logging: false,
+      disableGuard: false
     }),
     AllianceRestModule.forRoot({
       logging: false,
@@ -70,9 +72,10 @@ import { PlaylistModule } from './playlist/playlist.module';
     PublisherModule,
     UploadModule,
     SearchModule,
-    PlaylistModule
+    PlaylistModule,
+    StreamModule
   ],
   controllers: [],
-  providers: [],
+  providers: []
 })
 export class AppModule {}

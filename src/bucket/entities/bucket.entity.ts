@@ -10,9 +10,6 @@ export class Bucket {
     @Column({ nullable: false })
     public name: string;
 
-    @Column({ nullable: false, default: 0})
-    public isolated: boolean;
-
     @OneToMany(() => Mount, (mount) => mount.bucket)
     public mounts: Mount[];
 
