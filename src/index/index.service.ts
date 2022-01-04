@@ -8,6 +8,7 @@ import { SongService } from '../song/song.service';
 import { StorageService } from '../storage/storage.service';
 import { Index } from './entities/index.entity';
 import { IndexStatus } from './enum/index-status.enum';
+import { IndexGateway } from './gateway/index.gateway';
 import { IndexRepository } from './repositories/index.repository';
 
 @Injectable()
@@ -18,6 +19,7 @@ export class IndexService {
         private storageService: StorageService,
         private songService: SongService,
         private indexRepository: IndexRepository,
+        private indexGateway: IndexGateway,
         @Inject(BUCKET_ID) private bucketId: string
     ){}
 
@@ -126,8 +128,8 @@ export class IndexService {
      * @returns Index
      */
     private async setStatus(index: Index, status: IndexStatus): Promise<Index> {
-        // TODO: Send index update via websocket
         index.status = status;
+        this.indexGateway.sendUpdateToUploader(index)
         return this.indexRepository.save(index);
     }
 

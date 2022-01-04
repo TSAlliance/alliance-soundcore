@@ -6,10 +6,11 @@ import { IndexRepository } from './repositories/index.repository';
 import { StorageModule } from '../storage/storage.module';
 import { SongModule } from '../song/song.module';
 import { SharedModule } from '../shared/shared.module';
+import { IndexGateway } from './gateway/index.gateway';
 
 @Module({
   controllers: [IndexController],
-  providers: [IndexService],
+  providers: [IndexService, IndexGateway],
   imports: [
     SharedModule,
     StorageModule,
