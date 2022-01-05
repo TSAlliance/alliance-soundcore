@@ -1,3 +1,4 @@
+import { CanRead } from "@tsalliance/sso-nest";
 import { Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Album } from "../../album/entities/album.entity";
 import { Artist } from "../../artist/entities/artist.entity";
@@ -33,6 +34,7 @@ export class Song {
     @CreateDateColumn()
     public createdAt: Date;
 
+    @CanRead(false)
     @OneToOne(() => Index, { onDelete: "CASCADE" })
     @JoinColumn()
     public index: Index;
