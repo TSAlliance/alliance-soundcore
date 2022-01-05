@@ -6,7 +6,10 @@ import { StreamService } from './stream.service';
 export class StreamController {
   constructor(private readonly streamService: StreamService) {}
 
+  // TODO: Implement authorization, but this requires additional adjustments in FE
+
   @Get("/songs/:songId")
+  // @IsAuthenticated()
   public async streamSongById(@Param("songId") songId: string, @Req() request: Request, @Res() response: Response) {
     return this.streamService.findStreamableSongById(songId, request, response);
   }
