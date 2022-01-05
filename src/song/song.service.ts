@@ -76,6 +76,19 @@ export class SongService {
         return this.songRepository.findOne({ where: { id: songId }, relations: ["index", "index.mount"]})
     }
 
+    public async findByUploaderId(uploaderId: string, pageable: Pageable): Promise<Page<Song>> {
+        return this.songRepository.findAll(pageable, {
+            relations: ["index", "index.uploader", "artwork", "artists"],
+            where: {
+                index: {
+                    uploader: {
+                        id: uploaderId
+                    }
+                }
+            }
+        })
+    }
+
     /**
      * Create new song entry in database.
      * @param createSongDto Song data to be saved
