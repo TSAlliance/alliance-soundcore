@@ -172,14 +172,20 @@ export class SongService {
         const durationInSeconds = Math.round(probe.streams[0].duration || 0);
 
         // Get artists
-        const artists = id3Tags.artist.split("/") || []
-        for(const index in artists) {
-            artists.push(...artists[index].split(","))
-            artists.splice(parseInt(index), 1)
+        const artists: string[] = [];
+        if(id3Tags.artist) {
+            artists.push(...(id3Tags.artist.split("/") || []))
+            for(const index in artists) {
+                artists.push(...artists[index].split(","))
+                artists.splice(parseInt(index), 1)
+            }
         }
-
+        
         // Get artwork buffer
-        const artworkBuffer: Buffer = id3Tags?.image?.["imageBuffer"];
+        let artworkBuffer: Buffer = undefined;
+        if(id3Tags?.image && id3Tags.image["imageBuffer"]) {
+            artworkBuffer = id3Tags.image["imageBuffer"]
+        }
     
         return {
             title: id3Tags.title,
@@ -206,19 +212,25 @@ export class SongService {
 
         // Find song by title or if the artist has similar name
         const result = await this.songRepository.find({
-            relations: ["artists", "artwork"],
+            relations: ["artists", "artwork", "publisher", "label"],
             join: {
                 alias: "song",
                 innerJoin: {
-                    artists: "song.artists"
+                    artists: "song.artists",
+                    label: "song.label",
+                    publisher: "song.publisher"
                 }
             },
             where: qb => {
                 qb.where({
                     title: ILike(query)
-                }).orWhere("artists.name LIKE :query", { query })
+                })
+                .orWhere("artists.name LIKE :query", { query })
+                .orWhere("label.name LIKE :query", { query })
+                .orWhere("publisher.name LIKE :query", { query })
             },
-            
+            skip: (pageable?.page || 0) * (pageable?.size || 10),
+            take: (pageable.size || 10)
         })
 
         return Page.of(result, result.length, pageable.page);
