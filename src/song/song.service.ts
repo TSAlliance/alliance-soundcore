@@ -119,12 +119,14 @@ export class SongService {
         song.artists = artists;
 
         // Getting album info
-        const album: Album = await this.albumService.createIfNotExists(id3tags.album, artists);
-        song.albums = [ album ];
+        if(id3tags.album) {
+            const album: Album = await this.albumService.createIfNotExists(id3tags.album, artists);
+            song.albums = [ album ];
+        }
 
         // Create artwork
         const artwork = await this.artworkService.createFromIndexAndBuffer(index, id3tags.artwork);
-        song.artwork = artwork;
+        if(artwork) song.artwork = artwork;
 
         // Save relations
         index.song = song;
@@ -133,8 +135,13 @@ export class SongService {
 
         try {
             // Request song info on Genius.com
-            const result = await this.geniusService.findSongInfo(song);
-            if(result) {
+            await this.geniusService.findAndApplySongInfo(song);
+
+            // TODO: Add label and publisher
+            // TODO: Add tags (genres)
+            // console.log(song);
+
+            /*if(result) {
                 if(result.label) song.label = await this.labelService.createIfNotExists(result.label.name, result.label.id)
                 if(result.publisher) song.publisher = await this.publisherService.createIfNotExists(result.publisher.name, result.publisher.id)
 
@@ -142,7 +149,9 @@ export class SongService {
                 song.youtubeUrl = result.youtubeUrl;
                 song.released = result.releaseDate;
                 song.geniusId = result.geniusId;
-            }
+                
+                // TODO
+            }*/
 
             // Save song metadata
             await this.songRepository.save(song);

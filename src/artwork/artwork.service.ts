@@ -1,15 +1,19 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import axios from 'axios';
 import { Response } from 'express';
 import { createReadStream, existsSync, mkdirSync } from 'fs';
 import path from 'path';
 import sharp from 'sharp';
+import { ArtistService } from '../artist/artist.service';
 import { Index } from '../index/entities/index.entity';
 import { StorageService } from '../storage/storage.service';
+import { CreateExternalArtworkDTO } from './dtos/create-external.dto';
 import { Artwork } from './entities/artwork.entity';
 import { ArtworkRepository } from './repositories/artwork.repository';
 
 @Injectable()
 export class ArtworkService {
+    private logger: Logger = new Logger(ArtistService.name);
 
     constructor(
         private storageService: StorageService,
@@ -50,13 +54,40 @@ export class ArtworkService {
         const artwork = await this.artworkRepository.save({ index });
         const dstFilepath = this.buildArtworksDirForIndex(index);
 
-        sharp(buffer).jpeg({ quality: 80 }).toFile(dstFilepath).catch((error) => {
-            console.error(error);
+        return this.writeArtwork(buffer, dstFilepath).then(() => {
+            return artwork;
+        }).catch((error) => {
+            this.logger.warn("Could not create artwork for index " + index.filename);
+            this.logger.error(error)
             this.artworkRepository.delete(artwork);
-            throw new InternalServerErrorException("Could not create artwork from index: " + index.filename);
+            return null;
         });
+    }
 
-        return artwork;
+    private writeArtwork(buffer: Buffer, dstFilepath: string) {
+        return sharp(buffer).jpeg({ quality: 80 }).resize(256, 256, { fit: "cover" }).toFile(dstFilepath)
+    }
+
+    /**
+     * Create external artwork (url).
+     * @param index Index for the relation
+     * @param createExternalArtworkDto Additional data like the url
+     * @returns Artwork
+     */
+    public async createExternalForIndex(index: Index, createExternalArtworkDto: CreateExternalArtworkDTO): Promise<Artwork> {
+        axios.get(createExternalArtworkDto.url, { responseType: "arraybuffer" }).then((response) => {
+            if(response.status == 200 && response.data) {
+                response.data as Buffer;
+                const dstFilepath = this.buildArtworksDirForIndex(index);
+                this.writeArtwork(Buffer.from(response.data), dstFilepath)
+            }
+        })
+
+        return this.artworkRepository.save({
+            index,
+            external: true,
+            externalUrl: createExternalArtworkDto.url
+        })
     }
 
     /**

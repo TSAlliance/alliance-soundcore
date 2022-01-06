@@ -13,6 +13,7 @@ export class Song {
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
+    @CanRead(false)
     @Column({ nullable: true })
     public geniusId: string;
 
@@ -33,6 +34,25 @@ export class Song {
 
     @CreateDateColumn()
     public createdAt: Date;
+
+    @Column({ default: false })
+    public explicit: boolean;
+
+    @Column({ nullable: true, type: "text" })
+    public description: string;
+
+    @Column({ nullable: true, default: '0' })
+    public youtubeUrlStart: string;
+
+    @CanRead(false)
+    @Column({ nullable: true })
+    public api_path: string;
+
+    @Column({ nullable: true })
+    public header_image_url: string;
+
+    @Column({ nullable: true })
+    public geniusUrl: string;
 
     @CanRead(false)
     @OneToOne(() => Index, { onDelete: "CASCADE" })
@@ -58,5 +78,7 @@ export class Song {
     @ManyToMany(() => Album)
     @JoinTable({ name: "song2album" })
     public albums: Album[];
+
+    
 
 }
