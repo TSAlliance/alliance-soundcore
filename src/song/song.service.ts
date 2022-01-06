@@ -76,6 +76,12 @@ export class SongService {
         return this.songRepository.findOne({ where: { id: songId }, relations: ["index", "index.mount"]})
     }
 
+    /**
+     * Find all songs uploaded by specific user.
+     * @param uploaderId Uploader's id
+     * @param pageable Page settings
+     * @returns Page<Song>
+     */
     public async findByUploaderId(uploaderId: string, pageable: Pageable): Promise<Page<Song>> {
         return this.songRepository.findAll(pageable, {
             relations: ["index", "index.uploader", "artwork", "artists"],
@@ -87,6 +93,10 @@ export class SongService {
                 }
             }
         })
+    }
+
+    public async findByIdInfoWithRelations(songId: string): Promise<Song> {
+        return this.songRepository.findOne({ where: { id: songId }, relations: ["label", "publisher", "artists", "artwork", "banner", "distributor", "albums"]})
     }
 
     /**
@@ -208,13 +218,14 @@ export class SongService {
 
         // Find song by title or if the artist has similar name
         const result = await this.songRepository.find({
-            relations: ["artists", "artwork", "publisher", "label"],
+            relations: ["artists", "artwork", "publisher", "label", "distributor"],
             join: {
                 alias: "song",
                 innerJoin: {
                     artists: "song.artists",
                     label: "song.label",
-                    publisher: "song.publisher"
+                    publisher: "song.publisher",
+                    distributor: "song.distributor"
                 }
             },
             where: qb => {
@@ -224,6 +235,7 @@ export class SongService {
                 .orWhere("artists.name LIKE :query", { query })
                 .orWhere("label.name LIKE :query", { query })
                 .orWhere("publisher.name LIKE :query", { query })
+                .orWhere("distributor.name LIKE :query", { query })
             },
             skip: (pageable?.page || 0) * (pageable?.size || 10),
             take: (pageable.size || 10)
