@@ -27,8 +27,8 @@ export class ArtworkService {
      * @param artworkId Artwork's id.
      * @returns Artwork
      */
-    public async findById(artworkId: string): Promise<Artwork> {
-        return this.artworkRepository.findOne({ where: { id:artworkId }, relations: ["index"]})
+    public async findByIdWithMount(artworkId: string): Promise<Artwork> {
+        return this.artworkRepository.findOne({ where: { id:artworkId }, relations: ["mount"]})
     }
 
     /**
@@ -136,7 +136,7 @@ export class ArtworkService {
      * @param response Response to pipe stream to.
      */
     public async streamArtwork(artworkId: string, response: Response) {
-        const artwork = await this.findById(artworkId);
+        const artwork = await this.findByIdWithMount(artworkId);
         if(!artwork) throw new NotFoundException("Could not find artwork.");
 
         const filepath = this.buildArtworkFile(artwork);
