@@ -1,26 +1,46 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, InternalServerErrorException } from '@nestjs/common';
+import { ArtworkService } from '../artwork/artwork.service';
+import { MOUNT_ID } from '../shared/shared.module';
+import { CreateLabelDTO } from './dtos/create-label.dto';
 import { Label } from './entities/label.entity';
 import { LabelRepository } from './repositories/label.repository';
 
 @Injectable()
 export class LabelService {
 
-    constructor(private lableRepository: LabelRepository){}
+    constructor(
+        private artworkService: ArtworkService,
+        private lableRepository: LabelRepository,
+        @Inject(MOUNT_ID) private mountId: string
+    ){}
 
     /**
      * Create new label by name if it does not already exist in the database.
-     * @param name Name of the label
-     * @param geniusId Id to the GENIUS entry (handled by genius as "artist") (optional)
+     * @param createLabelDto Label data to create
      * @returns Label
      */
-    public async createIfNotExists(name: string, geniusId?: string): Promise<Label> {
-        const label: Label = await this.lableRepository.findOne({ where: { name }})
+     public async createIfNotExists(createLabelDto: CreateLabelDTO): Promise<Label> {
+        const label: Label = await this.lableRepository.findOne({ where: { name: createLabelDto.name }})
         if(label) return label;
 
-        return this.lableRepository.save({
-            name,
-            geniusId
+        const labelResult = await this.lableRepository.save({
+            name: createLabelDto.name,
+            geniusId: createLabelDto.geniusId
         })
+
+        if(!labelResult) throw new InternalServerErrorException("Could not create label.")
+
+        if(createLabelDto.externalImgUrl) {
+            const artwork = await this.artworkService.create({ 
+                type: "label",
+                url: createLabelDto.externalImgUrl ,
+                autoDownload: true,
+                mountId: createLabelDto.artworkMountId || this.mountId
+            })
+            if(artwork) labelResult.artwork = artwork
+        }
+
+        return this.lableRepository.save(labelResult)
     }
 
 }

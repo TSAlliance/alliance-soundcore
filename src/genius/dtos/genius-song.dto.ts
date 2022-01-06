@@ -16,7 +16,7 @@ import { GeniusType } from "../enums/genius-type.enum";
 import { GeniusArtistDTO } from "./genius-artist.dto";
 import { GeniusTagDTO } from "./genius-tag.dto";
 
-export type GeniusCustomPerformance = { label: string, artists: GeniusArtistDTO[] }
+export type GeniusCustomPerformance = { label: "Distributor" | "Label", artists: GeniusArtistDTO[] }
 
 export class GeniusSongDTO {
 

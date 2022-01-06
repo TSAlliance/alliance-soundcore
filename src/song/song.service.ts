@@ -128,6 +128,9 @@ export class SongService {
         const artwork = await this.artworkService.createFromIndexAndBuffer(index, id3tags.artwork);
         if(artwork) song.artwork = artwork;
 
+        console.log(song.title)
+        console.log("artwork: ", song.artwork)
+
         // Save relations
         index.song = song;
         song.index = index;
@@ -139,19 +142,6 @@ export class SongService {
 
             // TODO: Add label and publisher
             // TODO: Add tags (genres)
-            // console.log(song);
-
-            /*if(result) {
-                if(result.label) song.label = await this.labelService.createIfNotExists(result.label.name, result.label.id)
-                if(result.publisher) song.publisher = await this.publisherService.createIfNotExists(result.publisher.name, result.publisher.id)
-
-                song.location = result.recordingLocation;
-                song.youtubeUrl = result.youtubeUrl;
-                song.released = result.releaseDate;
-                song.geniusId = result.geniusId;
-                
-                // TODO
-            }*/
 
             // Save song metadata
             await this.songRepository.save(song);

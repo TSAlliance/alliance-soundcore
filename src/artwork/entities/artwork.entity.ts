@@ -1,6 +1,6 @@
-import { CanRead } from "@tsalliance/sso-nest";
-import { Column, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn } from "typeorm";
-import { Index } from "../../index/entities/index.entity";
+import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Mount } from "../../bucket/entities/mount.entity";
+import { ArtworkType } from "../types/artwork-type.enum";
 
 @Entity()
 export class Artwork {
@@ -8,15 +8,14 @@ export class Artwork {
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
-    @Column({ default: false })
-    public external: boolean;
+    @Column({ default: "song" })
+    public type: ArtworkType;
 
     @Column({ nullable: true })
     public externalUrl: string;
 
-    @CanRead(false)
-    @OneToOne(() => Index, { onDelete: "CASCADE", nullable: true })
+    @ManyToOne(() => Mount, { onDelete: "CASCADE" })
     @JoinColumn()
-    public index: Index;
+    public mount: Mount;
 
 }

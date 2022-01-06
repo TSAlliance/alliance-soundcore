@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios, { AxiosResponse } from 'axios';
 import { ArtworkService } from '../../artwork/artwork.service';
+import { LabelService } from '../../label/label.service';
+import { PublisherService } from '../../publisher/publisher.service';
 import { Song } from '../../song/entities/song.entity';
 import { GeniusReponseDTO, GeniusSearchResponse, GeniusSongResponse } from '../dtos/genius-response.dto';
 import { GeniusSongDTO } from '../dtos/genius-song.dto';
@@ -12,6 +14,8 @@ export class GeniusService {
     private logger: Logger = new Logger(GeniusService.name);
 
     constructor(
+        private publisherService: PublisherService,
+        private labelService: LabelService,
         private artworkService: ArtworkService
     ) {}
 
@@ -56,6 +60,20 @@ export class GeniusService {
                 const result = response.data.response.song;
                 if(!result) return song;
 
+                // Create publisher if not exists
+                const distributorResult = result.custom_performances.find((perf) => perf.label == "Distributor");
+                if(distributorResult) {
+                    const publisher = await this.publisherService.createIfNotExists({ name: distributorResult.artists[0].name, geniusId: distributorResult.artists[0].id, externalImgUrl: distributorResult.artists[0].image_url })
+                    if(publisher) song.publisher = publisher;
+                }
+
+                // Create label if not exists
+                const labelResult = result.custom_performances.find((perf) => perf.label == "Label");
+                if(labelResult) {
+                    const label = await this.labelService.createIfNotExists({ name: labelResult.artists[0].name, geniusId: labelResult.artists[0].id, externalImgUrl: labelResult.artists[0].image_url })
+                    if(label) song.label = label;
+                }
+
                 song.api_path = result.api_path;
                 song.geniusId = result.id;
                 song.geniusUrl = result.url;
@@ -70,7 +88,13 @@ export class GeniusService {
                 // take the url (if exists) from Genius.com and apply
                 // as the new artwork
                 if(!song.artwork && result.song_art_image_thumbnail_url) {
-                    song.artwork = await this.artworkService.createExternalForIndex(song.index, { url: result.song_art_image_thumbnail_url })
+                    const artwork = await this.artworkService.create({ 
+                        type: "song",
+                        autoDownload: true,
+                        mountId: song.index.mount.id,
+                        url: result.song_art_image_thumbnail_url 
+                    });
+                    if(artwork) song.artwork = artwork
                 }
 
                 song.description = result.description_preview;

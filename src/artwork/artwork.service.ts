@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import axios from 'axios';
 import { Response } from 'express';
 import { createReadStream, existsSync, mkdirSync } from 'fs';
@@ -6,8 +6,9 @@ import path from 'path';
 import sharp from 'sharp';
 import { ArtistService } from '../artist/artist.service';
 import { Index } from '../index/entities/index.entity';
+import { MOUNT_ID } from '../shared/shared.module';
 import { StorageService } from '../storage/storage.service';
-import { CreateExternalArtworkDTO } from './dtos/create-external.dto';
+import { CreateArtworkDTO } from './dtos/create-artwork.dto';
 import { Artwork } from './entities/artwork.entity';
 import { ArtworkRepository } from './repositories/artwork.repository';
 
@@ -17,7 +18,8 @@ export class ArtworkService {
 
     constructor(
         private storageService: StorageService,
-        private artworkRepository: ArtworkRepository
+        private artworkRepository: ArtworkRepository,
+        @Inject(MOUNT_ID) private mountId: string
     ){}
 
     /**
@@ -30,13 +32,13 @@ export class ArtworkService {
     }
 
     /**
-     * Build artwork directory that fits to an indexed file. This takes the mount of the index
+     * Build artwork directory that fits to an artwork file. This takes the mount
      * and uses that path to build the path to a fitting artwork directory.
-     * @param index Index to build directory for
+     * @param mount Mount of the dest artwork file
      * @returns string
      */
-    public buildArtworksDirForIndex(index: Index): string {
-        return path.join(this.storageService.getArtworksDir(index.mount), `${index.filename}.jpeg`)
+    public buildArtworkFile(artwork: Artwork): string {
+        return path.join(this.storageService.getArtworksDir(artwork.mount), (artwork.type || "song").toString() , `${artwork.id}.jpeg`)
     }
 
     /**
@@ -51,42 +53,80 @@ export class ArtworkService {
 
         if(!buffer) return null;
 
-        const artwork = await this.artworkRepository.save({ index });
-        const dstFilepath = this.buildArtworksDirForIndex(index);
+        // Create new artwork instance in database
+        const artwork = await this.create({
+            type: "song",
+            mountId: index.mount.id,
+            autoDownload: false // There is nothing that could be downloaded
+        })
 
-        return this.writeArtwork(buffer, dstFilepath).then(() => {
+        // Write artwork to file
+        return this.writeArtwork(buffer, artwork).then(() => {
             return artwork;
-        }).catch((error) => {
-            this.logger.warn("Could not create artwork for index " + index.filename);
-            this.logger.error(error)
-            this.artworkRepository.delete(artwork);
+        }).catch(() => {
             return null;
-        });
+        })
     }
 
-    private writeArtwork(buffer: Buffer, dstFilepath: string) {
-        return sharp(buffer).jpeg({ quality: 80 }).resize(256, 256, { fit: "cover" }).toFile(dstFilepath)
+    private async writeArtwork(buffer: Buffer, artwork: Artwork) {
+        const dstFilepath = this.buildArtworkFile(artwork);
+        const directory = path.dirname(dstFilepath);
+        mkdirSync(directory, { recursive: true });
+
+        let sharpProcess = sharp(buffer).jpeg({ quality: 80 });
+
+        // Only resize image if its not of type banner
+        if(artwork.type != "banner") {
+            sharpProcess = sharpProcess.resize(256, 256, { fit: "cover" })
+        }
+
+        return await sharpProcess.toFile(dstFilepath).catch((reason) => {
+            this.logger.error(reason)
+            this.artworkRepository.delete(artwork)
+            throw reason;
+        })
     }
 
     /**
      * Create external artwork (url).
-     * @param index Index for the relation
      * @param createExternalArtworkDto Additional data like the url
      * @returns Artwork
      */
-    public async createExternalForIndex(index: Index, createExternalArtworkDto: CreateExternalArtworkDTO): Promise<Artwork> {
-        axios.get(createExternalArtworkDto.url, { responseType: "arraybuffer" }).then((response) => {
-            if(response.status == 200 && response.data) {
-                response.data as Buffer;
-                const dstFilepath = this.buildArtworksDirForIndex(index);
-                this.writeArtwork(Buffer.from(response.data), dstFilepath)
-            }
-        })
-
-        return this.artworkRepository.save({
-            index,
-            external: true,
+     public async create(createExternalArtworkDto: CreateArtworkDTO): Promise<Artwork> {
+        const artworkCreatResult = await this.artworkRepository.save({
+            mount: { id: createExternalArtworkDto.mountId || this.mountId },
+            type: createExternalArtworkDto.type,
             externalUrl: createExternalArtworkDto.url
+        });
+        const artwork = await this.artworkRepository.findOne({ where: { id: artworkCreatResult.id }, relations: ["mount"]})
+
+        // Check if a url was specified and the image should be
+        // downloaded automatically.
+        if(artwork.externalUrl && createExternalArtworkDto.autoDownload) {
+            // Download the image from the url.
+            return await this.downloadArtworkByUrl(artwork).then((artwork) => {
+                artwork.externalUrl = null;
+                this.artworkRepository.save(artwork);
+                return artwork;
+            }).catch(() => {
+                this.artworkRepository.delete(artwork);
+                return null;
+            })
+        }
+        
+        return artwork;
+    }
+
+    private async downloadArtworkByUrl(artwork: Artwork) {
+        return axios.get(artwork.externalUrl, { responseType: "arraybuffer" }).then((response) => {
+            if(response.status == 200 && response.data) {
+                return this.writeArtwork(Buffer.from(response.data), artwork).then(() => {
+                    return artwork
+                })
+            }
+        }).catch((error) => {
+            this.logger.error(error)
+            throw error;
         })
     }
 
@@ -99,7 +139,7 @@ export class ArtworkService {
         const artwork = await this.findById(artworkId);
         if(!artwork) throw new NotFoundException("Could not find artwork.");
 
-        const filepath = this.buildArtworksDirForIndex(artwork.index);
+        const filepath = this.buildArtworkFile(artwork);
         if(!existsSync(filepath)) throw new NotFoundException("Could not find artwork file.");
         createReadStream(filepath).pipe(response);        
     }
