@@ -128,9 +128,6 @@ export class SongService {
         const artwork = await this.artworkService.createFromIndexAndBuffer(index, id3tags.artwork);
         if(artwork) song.artwork = artwork;
 
-        console.log(song.title)
-        console.log("artwork: ", song.artwork)
-
         // Save relations
         index.song = song;
         song.index = index;

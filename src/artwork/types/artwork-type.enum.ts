@@ -1,2 +1,2 @@
 
-export type ArtworkType = "song" | "playlist" | "album" | "artist" | "banner" | "publisher" | "label";
+export type ArtworkType = "song" | "playlist" | "album" | "artist" | "banner" | "publisher" | "label" | "distributor";

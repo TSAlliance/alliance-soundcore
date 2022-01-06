@@ -18,6 +18,7 @@ import { PublisherModule } from './publisher/publisher.module';
 import { UploadModule } from './upload/upload.module';
 import { SearchModule } from './search/search.module';
 import { StreamModule } from './stream/stream.module';
+import { DistributorModule } from './distributor/distributor.module';
 
 @Module({
   imports: [
@@ -71,7 +72,8 @@ import { StreamModule } from './stream/stream.module';
     PublisherModule,
     UploadModule,
     SearchModule,
-    StreamModule
+    StreamModule,
+    DistributorModule
   ],
   controllers: [],
   providers: []

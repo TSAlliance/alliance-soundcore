@@ -1,4 +1,4 @@
-import { Inject, Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ArtworkService } from '../artwork/artwork.service';
 import { MOUNT_ID } from '../shared/shared.module';
 import { CreatePublisherDTO } from './dtos/create-publisher.dto';
@@ -7,6 +7,7 @@ import { PublisherRepository } from './repositories/publisher.repository';
 
 @Injectable()
 export class PublisherService {
+    private logger: Logger = new Logger(PublisherService.name)
 
     constructor(
         private artworkService: ArtworkService,
@@ -28,7 +29,10 @@ export class PublisherService {
             geniusId: createPublisherDto.geniusId
         })
 
-        if(!publisherResult) throw new InternalServerErrorException("Could not create publisher.")
+        if(!publisherResult) {
+            this.logger.error("Could not create publisher.")
+            return null;
+        }
 
         if(createPublisherDto.externalImgUrl) {
             const artwork = await this.artworkService.create({ 

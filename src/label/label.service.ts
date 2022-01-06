@@ -1,4 +1,4 @@
-import { Inject, Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ArtworkService } from '../artwork/artwork.service';
 import { MOUNT_ID } from '../shared/shared.module';
 import { CreateLabelDTO } from './dtos/create-label.dto';
@@ -7,6 +7,7 @@ import { LabelRepository } from './repositories/label.repository';
 
 @Injectable()
 export class LabelService {
+    private logger: Logger = new Logger(LabelService.name);
 
     constructor(
         private artworkService: ArtworkService,
@@ -28,7 +29,10 @@ export class LabelService {
             geniusId: createLabelDto.geniusId
         })
 
-        if(!labelResult) throw new InternalServerErrorException("Could not create label.")
+        if(!labelResult) {
+            this.logger.error("Could not create label.")
+            return null;
+        }
 
         if(createLabelDto.externalImgUrl) {
             const artwork = await this.artworkService.create({ 

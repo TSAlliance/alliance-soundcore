@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import axios, { AxiosResponse } from 'axios';
 import { ArtworkService } from '../../artwork/artwork.service';
+import { DistributorService } from '../../distributor/distributor.service';
 import { LabelService } from '../../label/label.service';
 import { PublisherService } from '../../publisher/publisher.service';
 import { Song } from '../../song/entities/song.entity';
@@ -15,6 +16,7 @@ export class GeniusService {
 
     constructor(
         private publisherService: PublisherService,
+        private distributorService: DistributorService,
         private labelService: LabelService,
         private artworkService: ArtworkService
     ) {}
@@ -29,8 +31,6 @@ export class GeniusService {
         } else {
             params.append("q", song.title)
         }
-
-        this.logger.debug("Searching song on Genius.com using query: " + params)
 
         return axios.get<GeniusReponseDTO<GeniusSearchResponse>>(`${GENIUS_BASE_URL}/search/song?${params}`).then(async(response: AxiosResponse<GeniusReponseDTO<GeniusSearchResponse>>) => {
             if(!response || response.data.meta.status != 200 || !response.data.response.sections) return song;
@@ -60,10 +60,17 @@ export class GeniusService {
                 const result = response.data.response.song;
                 if(!result) return song;
 
-                // Create publisher if not exists
+                // Create distributor if not exists
                 const distributorResult = result.custom_performances.find((perf) => perf.label == "Distributor");
                 if(distributorResult) {
-                    const publisher = await this.publisherService.createIfNotExists({ name: distributorResult.artists[0].name, geniusId: distributorResult.artists[0].id, externalImgUrl: distributorResult.artists[0].image_url })
+                    const distributor = await this.distributorService.createIfNotExists({ name: distributorResult.artists[0].name, geniusId: distributorResult.artists[0].id, externalImgUrl: distributorResult.artists[0].image_url })
+                    if(distributor) song.distributor = distributor;
+                }
+
+                // Create publisher if not exists
+                const publisherResult = result.custom_performances.find((perf) => perf.label == "Publisher");
+                if(publisherResult) {
+                    const publisher = await this.publisherService.createIfNotExists({ name: publisherResult.artists[0].name, geniusId: publisherResult.artists[0].id, externalImgUrl: publisherResult.artists[0].image_url })
                     if(publisher) song.publisher = publisher;
                 }
 
@@ -77,7 +84,7 @@ export class GeniusService {
                 song.api_path = result.api_path;
                 song.geniusId = result.id;
                 song.geniusUrl = result.url;
-                song.header_image_url = result.header_image_url;
+                song.banner = await this.artworkService.create({ autoDownload: true, type: "banner", mountId: song.index.mount.id, url: result.header_image_url });
                 song.location = result.recording_location;
                 song.released = result.release_date;
                 song.youtubeUrl = result.youtube_url;
