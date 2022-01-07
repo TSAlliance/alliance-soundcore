@@ -23,4 +23,9 @@ export class SongController {
   public async findByUploader(@Param("uploaderId") uploaderId: string, @Pageable() pageable: Pageable): Promise<Page<Song>> {
     return this.songService.findByUploaderId(uploaderId, pageable);
   }
+
+  @Get(":songId")
+  public async findById(@Param("songId") songId: string): Promise<Song> {
+    return this.songService.findByIdInfoWithRelations(songId);
+  }
 }
