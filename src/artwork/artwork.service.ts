@@ -11,6 +11,7 @@ import { StorageService } from '../storage/storage.service';
 import { CreateArtworkDTO } from './dtos/create-artwork.dto';
 import { Artwork } from './entities/artwork.entity';
 import { ArtworkRepository } from './repositories/artwork.repository';
+import { ArtworkType } from './types/artwork-type.enum';
 
 @Injectable()
 export class ArtworkService {
@@ -32,13 +33,23 @@ export class ArtworkService {
     }
 
     /**
+     * Find an artwork by its type and filename.
+     * @param type Type
+     * @param filename Filename
+     * @returns Artwork
+     */
+    public async findByTypeAndFilename(type: ArtworkType, filename: string): Promise<Artwork> {
+        return await this.artworkRepository.findOne({ where: { type, dstFilename: filename }})
+    }
+
+    /**
      * Build artwork directory that fits to an artwork file. This takes the mount
      * and uses that path to build the path to a fitting artwork directory.
      * @param mount Mount of the dest artwork file
      * @returns string
      */
     public buildArtworkFile(artwork: Artwork): string {
-        return path.join(this.storageService.getArtworksDir(artwork.mount), (artwork.type || "song").toString() , `${artwork.id}.jpeg`)
+        return path.join(this.storageService.getArtworksDir(artwork.mount), (artwork.type || "song").toString() , `${artwork.dstFilename}.jpeg`)
     }
 
     /**
@@ -57,6 +68,7 @@ export class ArtworkService {
         const artwork = await this.create({
             type: "song",
             mountId: index.mount.id,
+            dstFilename: index.filename,
             autoDownload: false // There is nothing that could be downloaded
         })
 
@@ -73,11 +85,14 @@ export class ArtworkService {
         const directory = path.dirname(dstFilepath);
         mkdirSync(directory, { recursive: true });
 
-        let sharpProcess = sharp(buffer).jpeg({ quality: 80 });
+        let sharpProcess = sharp(buffer);
 
         // Only resize image if its not of type banner
-        if(artwork.type != "banner") {
-            sharpProcess = sharpProcess.resize(256, 256, { fit: "cover" })
+        if(!artwork.type.toString().includes("banner")) {
+            sharpProcess = sharpProcess.jpeg({ quality: 80 }).resize(256, 256, { fit: "cover" })
+        } else {
+            // Make lower quality for banner images
+            sharpProcess = sharpProcess.jpeg({ quality: 70 })
         }
 
         return await sharpProcess.toFile(dstFilepath).catch((reason) => {
@@ -89,20 +104,26 @@ export class ArtworkService {
 
     /**
      * Create external artwork (url).
-     * @param createExternalArtworkDto Additional data like the url
+     * @param createArtworkDto Additional data like the url
      * @returns Artwork
      */
-     public async create(createExternalArtworkDto: CreateArtworkDTO): Promise<Artwork> {
+     public async create(createArtworkDto: CreateArtworkDTO): Promise<Artwork> {
+        if(createArtworkDto.url && createArtworkDto.url.includes("default_avatar")) return;
+
+        const existsResult = await this.findByTypeAndFilename(createArtworkDto.type, createArtworkDto.dstFilename);
+        if(existsResult) return existsResult;
+
         const artworkCreatResult = await this.artworkRepository.save({
-            mount: { id: createExternalArtworkDto.mountId || this.mountId },
-            type: createExternalArtworkDto.type,
-            externalUrl: createExternalArtworkDto.url
+            mount: { id: createArtworkDto.mountId || this.mountId },
+            type: createArtworkDto.type,
+            externalUrl: createArtworkDto.url,
+            dstFilename: createArtworkDto.dstFilename
         });
         const artwork = await this.artworkRepository.findOne({ where: { id: artworkCreatResult.id }, relations: ["mount"]})
 
         // Check if a url was specified and the image should be
         // downloaded automatically.
-        if(artwork.externalUrl && createExternalArtworkDto.autoDownload) {
+        if(artwork.externalUrl && createArtworkDto.autoDownload) {
             // Download the image from the url.
             return await this.downloadArtworkByUrl(artwork).then((artwork) => {
                 artwork.externalUrl = null;

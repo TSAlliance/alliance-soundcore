@@ -10,4 +10,9 @@ export class GeniusArtistDTO {
     public name: string;
     public url: string;
 
+    // All properties below this line are only available if the song was requested on /song/ endpoint and not by 
+    // performing a search:
+
+    public description_preview: string;
+
 }

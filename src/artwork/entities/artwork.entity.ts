@@ -16,6 +16,12 @@ export class Artwork {
     @Column({ nullable: true })
     public externalUrl: string;
 
+    // Prevent duplicate files by specifying filename
+    // This also applies to externalImages even if they haven't been downloaded
+    // (because they could be downloaded in future)
+    @Column({ nullable: true })
+    public dstFilename: string;
+
     @CanRead(false)
     @ManyToOne(() => Mount, { onDelete: "CASCADE" })
     @JoinColumn()

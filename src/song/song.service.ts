@@ -130,7 +130,7 @@ export class SongService {
 
         // Add artists to song
         // and song to artists
-        const artists: Artist[] = await Promise.all(id3tags.artists.map(async (id3Artist) => await this.artistService.createIfNotExists(id3Artist.name))) || [];
+        const artists: Artist[] = await Promise.all(id3tags.artists.map(async (id3Artist) => await this.artistService.createIfNotExists(id3Artist.name, index.mount))) || [];
         song.artists = artists;
 
         // Getting album info

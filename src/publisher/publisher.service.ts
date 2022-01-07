@@ -39,6 +39,7 @@ export class PublisherService {
                 type: "publisher",
                 url: createPublisherDto.externalImgUrl,
                 autoDownload: true,
+                dstFilename: publisherResult.name,
                 mountId: createPublisherDto.artworkMountId || this.mountId
             })
             if(artwork) publisherResult.artwork = artwork

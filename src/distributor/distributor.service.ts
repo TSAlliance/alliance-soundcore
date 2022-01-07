@@ -39,7 +39,8 @@ export class DistributorService {
                 type: "distributor",
                 url: createDistributorDto.externalImgUrl,
                 autoDownload: true,
-                mountId: createDistributorDto.artworkMountId || this.mountId
+                mountId: createDistributorDto.artworkMountId || this.mountId,
+                dstFilename: distributorResult.name
             })
             if(artwork) distributorResult.artwork = artwork
         }

@@ -39,7 +39,8 @@ export class LabelService {
                 type: "label",
                 url: createLabelDto.externalImgUrl ,
                 autoDownload: true,
-                mountId: createLabelDto.artworkMountId || this.mountId
+                mountId: createLabelDto.artworkMountId || this.mountId,
+                dstFilename: labelResult.name
             })
             if(artwork) labelResult.artwork = artwork
         }
