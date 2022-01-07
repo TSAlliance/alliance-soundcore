@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
-import { Artist } from '../artist/entities/artist.entity';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { GeniusService } from '../genius/services/genius.service';
+import { MOUNT_ID } from '../shared/shared.module';
 import { CreateAlbumDTO } from './dto/create-album.dto';
 import { Album } from './entities/album.entity';
 import { AlbumRepository } from './repositories/album.repository';
@@ -11,37 +11,23 @@ export class AlbumService {
     // Search on genius and get info: https://genius.com/api/search/album?q=
 
     constructor(
-        private geniusService: GeniusService,
-        private albumRepository: AlbumRepository
+        private albumRepository: AlbumRepository,
+        @Inject(MOUNT_ID) private mountId: string
     ) {}
 
-    public async findByTitle(title: string): Promise<Album> {
-        return this.albumRepository.findOne({ where: { title }});
-    }
-
-    public async create(createAlbumDto: CreateAlbumDTO): Promise<Album> {
-        const album = await this.findByTitle(createAlbumDto.title);
-        let result;
-
-        if(!album) {
-            result = await this.albumRepository.save({ title: createAlbumDto.title });
-        } else {
-            result = album;
-        }
-
-        if(createAlbumDto.artists) {
-            result.artists = createAlbumDto.artists;
-            await this.albumRepository.save(result)
-        }
+    public async createIfNotExists(createAlbumDto: CreateAlbumDTO): Promise<Album> {
+        const existingResult = await this.albumRepository.findOne({ where: { title: createAlbumDto.title }})
+        if(existingResult) return existingResult;
         
-        return result;
-    }
-
-    public async createIfNotExists(title: string, artists: Artist[]): Promise<Album> {
-        if(!title) return;
-        const album = await this.create({ title });
-        // TODO: Find album info
-        // this.geniusService.
+        const album = await this.albumRepository.save({
+            geniusId: createAlbumDto.geniusId,
+            title: createAlbumDto.title,
+            released: createAlbumDto.released,
+            songs: createAlbumDto.songs,
+            distributor: createAlbumDto.distributor,
+            label: createAlbumDto.label,
+            publisher: createAlbumDto.publisher
+        })
         return album;
     }
 

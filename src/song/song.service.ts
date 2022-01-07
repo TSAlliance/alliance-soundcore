@@ -135,7 +135,7 @@ export class SongService {
 
         // Getting album info
         if(id3tags.album) {
-            const album: Album = await this.albumService.createIfNotExists(id3tags.album, artists);
+            const album: Album = await this.albumService.createIfNotExists({ title: id3tags.album });
             song.albums = [ album ];
         }
 

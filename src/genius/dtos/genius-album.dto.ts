@@ -1,13 +1,6 @@
 import { GeniusType } from "../enums/genius-type.enum";
 import { GeniusArtistDTO } from "./genius-artist.dto";
-
-export class GeniusAlbumOld {
-
-    public geniusId?: string;
-    public coverUrl?: string;
-
-
-}
+import { GeniusCustomPerformance } from "./genius-song.dto";
 
 export class GeniusAlbumDTO {
 
@@ -17,5 +10,9 @@ export class GeniusAlbumDTO {
     public _type: GeniusType;
     public cover_art_thumbnail_url: string;
     public artist: GeniusArtistDTO;
+    public header_image_url: string;
+    
+    public release_date: Date;
+    public performance_groups: GeniusCustomPerformance[];
 
 }
