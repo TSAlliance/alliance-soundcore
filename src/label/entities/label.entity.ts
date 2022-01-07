@@ -1,3 +1,4 @@
+import { CanRead } from "@tsalliance/sso-nest";
 import { Column, Entity, JoinColumn, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Song } from "../../song/entities/song.entity";
@@ -8,6 +9,7 @@ export class Label {
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
+    @CanRead(false)
     @Column({ nullable: true })
     public geniusId: string;
 
