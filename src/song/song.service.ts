@@ -95,8 +95,13 @@ export class SongService {
         })
     }
 
+    /**
+     * Find song by its id including all relations that contain information that may be interesting for users.
+     * @param songId Songs' id
+     * @returns Song
+     */
     public async findByIdInfoWithRelations(songId: string): Promise<Song> {
-        return this.songRepository.findOne({ where: { id: songId }, relations: ["label", "publisher", "artists", "artwork", "banner", "distributor", "albums"]})
+        return this.songRepository.findOne({ where: { id: songId }, relations: ["label", "publisher", "artists", "artwork", "banner", "distributor", "albums", "genres"]})
     }
 
     /**

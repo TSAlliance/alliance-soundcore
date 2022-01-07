@@ -4,6 +4,7 @@ import { Album } from "../../album/entities/album.entity";
 import { Artist } from "../../artist/entities/artist.entity";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Distributor } from "../../distributor/entities/distributor.entity";
+import { Genre } from "../../genre/entities/genre.entity";
 import { Index } from "../../index/entities/index.entity";
 import { Label } from "../../label/entities/label.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
@@ -85,6 +86,8 @@ export class Song {
     @JoinTable({ name: "song2album" })
     public albums: Album[];
 
-    
+    @ManyToMany(() => Genre)
+    @JoinTable({ name: "song2genre" })
+    public genres: Genre[];
 
 }

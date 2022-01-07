@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ArtworkModule } from '../artwork/artwork.module';
 import { DistributorModule } from '../distributor/distributor.module';
+import { GenreModule } from '../genre/genre.module';
 import { LabelModule } from '../label/label.module';
 import { PublisherModule } from '../publisher/publisher.module';
 import { GeniusService } from './services/genius.service';
@@ -12,7 +13,8 @@ import { GeniusService } from './services/genius.service';
     ArtworkModule,
     PublisherModule,
     LabelModule,
-    DistributorModule
+    DistributorModule,
+    GenreModule
   ]
 })
 export class GeniusModule {}

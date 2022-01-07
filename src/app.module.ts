@@ -19,6 +19,7 @@ import { UploadModule } from './upload/upload.module';
 import { SearchModule } from './search/search.module';
 import { StreamModule } from './stream/stream.module';
 import { DistributorModule } from './distributor/distributor.module';
+import { GenreModule } from './genre/genre.module';
 
 @Module({
   imports: [
@@ -73,7 +74,8 @@ import { DistributorModule } from './distributor/distributor.module';
     UploadModule,
     SearchModule,
     StreamModule,
-    DistributorModule
+    DistributorModule,
+    GenreModule
   ],
   controllers: [],
   providers: []

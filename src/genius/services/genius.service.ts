@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import axios, { AxiosResponse } from 'axios';
 import { ArtworkService } from '../../artwork/artwork.service';
 import { DistributorService } from '../../distributor/distributor.service';
+import { GenreService } from '../../genre/genre.service';
 import { LabelService } from '../../label/label.service';
 import { PublisherService } from '../../publisher/publisher.service';
 import { Song } from '../../song/entities/song.entity';
@@ -18,7 +19,8 @@ export class GeniusService {
         private publisherService: PublisherService,
         private distributorService: DistributorService,
         private labelService: LabelService,
-        private artworkService: ArtworkService
+        private artworkService: ArtworkService,
+        private genreService: GenreService
     ) {}
 
     public async findAndApplySongInfo(song: Song): Promise<Song> {
@@ -79,6 +81,17 @@ export class GeniusService {
                 if(labelResult) {
                     const label = await this.labelService.createIfNotExists({ name: labelResult.artists[0].name, geniusId: labelResult.artists[0].id, externalImgUrl: labelResult.artists[0].image_url })
                     if(label) song.label = label;
+                }
+
+                // Create genres if not existing
+                const genres = result.tags
+                if(genres) {
+                    song.genres = [];
+
+                    for(const genreDto of genres) {
+                        const result = await this.genreService.createIfNotExists({ name: genreDto.name, geniusId: genreDto.id })
+                        song.genres.push(result);
+                    }
                 }
 
                 song.api_path = result.api_path;
