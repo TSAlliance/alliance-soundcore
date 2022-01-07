@@ -13,6 +13,8 @@ import { Artwork } from './entities/artwork.entity';
 import { ArtworkRepository } from './repositories/artwork.repository';
 import { ArtworkType } from './types/artwork-type.enum';
 
+import Vibrant from "node-vibrant"
+
 @Injectable()
 export class ArtworkService {
     private logger: Logger = new Logger(ArtistService.name);
@@ -53,6 +55,17 @@ export class ArtworkService {
     }
 
     /**
+     * Extract the accent color from an artwork file.
+     * @param artwork Artwork to extract color from
+     * @returns Hex string
+     */
+    public async getAccentColorFromArtwork(artwork: Artwork): Promise<string> {
+        const filepath = this.buildArtworkFile(artwork);
+        if(!existsSync(filepath)) return null;
+        return (await Vibrant.from(filepath).getPalette()).Vibrant.hex
+    }
+
+    /**
      * Write the extracted image of an indexed file to the disk.
      * @param index Indexed file the artwork belongs to.
      * @param buffer Image data to be written.
@@ -73,9 +86,7 @@ export class ArtworkService {
         })
 
         // Write artwork to file
-        return this.writeArtwork(buffer, artwork).then(() => {
-            return artwork;
-        }).catch(() => {
+        return this.writeArtwork(buffer, artwork).catch(() => {
             return null;
         })
     }
@@ -95,7 +106,12 @@ export class ArtworkService {
             sharpProcess = sharpProcess.jpeg({ quality: 70 })
         }
 
-        return await sharpProcess.toFile(dstFilepath).catch((reason) => {
+        return await sharpProcess.toFile(dstFilepath).then(async () => {
+            // Extract accent color and save to database
+            artwork.accentColor = await this.getAccentColorFromArtwork(artwork);
+            await this.artworkRepository.save(artwork)
+            return artwork;
+        }).catch((reason) => {
             this.logger.error(reason)
             this.artworkRepository.delete(artwork)
             throw reason;
@@ -125,7 +141,7 @@ export class ArtworkService {
         // downloaded automatically.
         if(artwork.externalUrl && createArtworkDto.autoDownload) {
             // Download the image from the url.
-            return await this.downloadArtworkByUrl(artwork).then((artwork) => {
+            return await this.downloadArtworkByUrl(artwork).then(async (artwork) => {
                 artwork.externalUrl = null;
                 this.artworkRepository.save(artwork);
                 return artwork;
@@ -141,9 +157,7 @@ export class ArtworkService {
     private async downloadArtworkByUrl(artwork: Artwork) {
         return axios.get(artwork.externalUrl, { responseType: "arraybuffer" }).then((response) => {
             if(response.status == 200 && response.data) {
-                return this.writeArtwork(Buffer.from(response.data), artwork).then(() => {
-                    return artwork
-                })
+                return this.writeArtwork(Buffer.from(response.data), artwork)
             }
         }).catch((error) => {
             this.logger.error(error)
