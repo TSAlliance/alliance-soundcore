@@ -1,20 +1,9 @@
-import { GeniusAlbumDTO, GeniusAlbumOld } from "./genius-album.dto";
-
-export class GeniusSongOldDTO {
-
-    public geniusId?: string;
-    public recordingLocation?: string;
-    public releaseDate?: Date;
-    public youtubeUrl?: string;
-    public publisher?: { name: string, id: string };
-    public label?: { name: string, id: string };
-    public album?: GeniusAlbumOld;
-
-}
+import { GeniusAlbumDTO } from "./genius-album.dto";
 
 import { GeniusType } from "../enums/genius-type.enum";
 import { GeniusArtistDTO } from "./genius-artist.dto";
 import { GeniusTagDTO } from "./genius-tag.dto";
+import { GeniusRelationshipDTO } from "./genius-relationship.dto";
 
 export type GeniusCustomPerformance = { label: "Distributor" | "Label" | "Publisher", artists: GeniusArtistDTO[] }
 
@@ -66,4 +55,6 @@ export class GeniusSongDTO {
     public tags: GeniusTagDTO[];
 
     public featured_artists: GeniusArtistDTO[];
+
+    public song_relationships: GeniusRelationshipDTO[];
 }
