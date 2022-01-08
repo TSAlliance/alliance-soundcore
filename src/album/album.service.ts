@@ -1,8 +1,6 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { ArtworkService } from '../artwork/artwork.service';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import { Mount } from '../bucket/entities/mount.entity';
 import { GeniusService } from '../genius/services/genius.service';
-import { MOUNT_ID } from '../shared/shared.module';
 import { CreateAlbumDTO } from './dto/create-album.dto';
 import { Album } from './entities/album.entity';
 import { AlbumRepository } from './repositories/album.repository';
@@ -13,9 +11,8 @@ export class AlbumService {
     // Search on genius and get info: https://genius.com/api/search/album?q=
 
     constructor(
-        private artworkService: ArtworkService,
-        private geniusService: GeniusService,
-        private albumRepository: AlbumRepository
+        private albumRepository: AlbumRepository,
+        @Inject(forwardRef(() => GeniusService)) private geniusService: GeniusService
     ) {}
 
     public async findByTitle(title: string): Promise<Album> {
@@ -39,7 +36,10 @@ export class AlbumService {
     }
 
     public async createIfNotExists(createAlbumDto: CreateAlbumDTO, primaryArtistName: string, mountForArtwork?: Mount): Promise<Album> {
-        const album = await this.findByTitle(createAlbumDto.title) || await this.create(createAlbumDto)
+        let album = await this.findByTitle(createAlbumDto.title);
+        if(album) return album;
+
+        album = await this.create(createAlbumDto)
 
         return this.geniusService.findAndApplyAlbumInfo(album, primaryArtistName, mountForArtwork).then(() => {
             return this.albumRepository.save(album);
@@ -47,25 +47,5 @@ export class AlbumService {
             return album
         })
     }
-
-    /*public async createIfNotExists(createAlbumDto: CreateAlbumDTO): Promise<Album> {
-        const existingResult = await this.albumRepository.findOne({ where: { title: createAlbumDto.title }})
-        if(existingResult) return existingResult;
-        
-        const album = await this.albumRepository.save({
-            geniusId: createAlbumDto.geniusId,
-            title: createAlbumDto.title,
-            released: createAlbumDto.released,
-            songs: createAlbumDto.songs,
-            artists: createAlbumDto.artists,
-            distributor: createAlbumDto.distributor,
-            label: createAlbumDto.label,
-            publisher: createAlbumDto.publisher
-        })
-
-
-
-        return album;
-    }*/
 
 }

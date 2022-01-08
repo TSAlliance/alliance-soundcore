@@ -1,6 +1,11 @@
 import { CanRead } from "@tsalliance/sso-nest";
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, JoinColumn, ManyToOne, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Album } from "../../album/entities/album.entity";
+import { Artist } from "../../artist/entities/artist.entity";
 import { Mount } from "../../bucket/entities/mount.entity";
+import { Distributor } from "../../distributor/entities/distributor.entity";
+import { Label } from "../../label/entities/label.entity";
+import { Song } from "../../song/entities/song.entity";
 import { ArtworkType } from "../types/artwork-type.enum";
 
 @Entity()
@@ -30,5 +35,20 @@ export class Artwork {
     @ManyToOne(() => Mount, { onDelete: "CASCADE" })
     @JoinColumn()
     public mount: Mount;
+
+    @OneToOne(() => Distributor, { onDelete: "CASCADE" })
+    public distributor?: Distributor;
+
+    @OneToOne(() => Label, { onDelete: "CASCADE" })
+    public label?: Label;
+
+    @OneToOne(() => Song, { onDelete: "CASCADE" })
+    public song?: Song;
+
+    @OneToOne(() => Album, { onDelete: "CASCADE" })
+    public album?: Album;
+
+    @OneToOne(() => Artist, { onDelete: "CASCADE" })
+    public artist?: Artist;
 
 }

@@ -1,5 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import axios, { AxiosResponse } from 'axios';
+import { AlbumService } from '../../album/album.service';
 import { Album } from '../../album/entities/album.entity';
 import { Artist } from '../../artist/entities/artist.entity';
 import { ArtworkService } from '../../artwork/artwork.service';
@@ -25,7 +26,9 @@ export class GeniusService {
         private distributorService: DistributorService,
         private labelService: LabelService,
         private artworkService: ArtworkService,
-        private genreService: GenreService
+        
+        private genreService: GenreService,
+        @Inject(forwardRef(() => AlbumService)) private albumService: AlbumService
     ) {}
 
     public async findAndApplySongInfo(song: Song): Promise<Song> {
@@ -78,6 +81,13 @@ export class GeniusService {
                     }
                 }
 
+                // Create albums if not existing
+                if(!song.albums) song.albums = [];
+
+                for(const album of this.filterAlbumArrayByTitles(songDto.albums?.slice(0, 1))) {
+                    song.albums.push(await this.albumService.createIfNotExists({ title: album.name }, album.artist?.name, song.index.mount))
+                }
+
                 song.api_path = songDto.api_path;
                 song.geniusId = songDto.id;
                 song.geniusUrl = songDto.url;
@@ -120,7 +130,7 @@ export class GeniusService {
      * Search for an album by its name and primary artist's name on genius.com. If found
      * all the information is set to the album object.
      * This will apply info about release data, description, header image, cover image, label,
-     * distributor, publisher, title and the id on genius.com
+     * distributor, publisher and the id on genius.com
      * @param album Album to be searched
      * @param firstArtistName Primary artist's name
      * @param mountForArtwork Mount for possible artworks that could be created during the process
@@ -136,8 +146,19 @@ export class GeniusService {
             params.append("q", `${title}`)
         }
 
-        // First search for the resource id
-        return this.searchResourceIdOfType("album", params).then((resourceId) => {
+        return axios.get<GeniusReponseDTO<GeniusSearchResponse>>(`${GENIUS_BASE_URL}/search/album?${params}`).then((response: AxiosResponse<GeniusReponseDTO<GeniusSearchResponse>>) => {
+            if(!response || response.data.meta.status != 200 || !response.data.response.sections) return null;
+
+            // Get matching section of response
+            const matchingSection = response.data.response.sections.find((section) => section.type == "album");
+            if(!matchingSection) return null;
+
+            // Get best hit from the hits array.
+            // If nothing was found, take the first element from the hits array.
+            const albumHit = matchingSection.hits.find((hit) => hit.type == "top_hit")?.result || this.filterAlbumByArtistName(matchingSection.hits.filter((hit) => hit.type == "album").map((hit) => hit.result as GeniusAlbumDTO), firstArtistName || "")[0];
+            if(!albumHit || albumHit._type != "album") return null;
+
+            const resourceId = albumHit.id
             if(!resourceId) return album;
 
             // Request more detailed song data
@@ -164,7 +185,6 @@ export class GeniusService {
                     if(label) album.label = label;
                 }
 
-                album.title = albumDto.name;
                 album.banner = await this.artworkService.create({ type: "banner_album", autoDownload: true, dstFilename: album.title, url: albumDto.header_image_url, mountId: mountForArtwork?.id })
                 album.artwork = await this.artworkService.create({ type: "album", autoDownload: true, dstFilename: album.title, url: albumDto.cover_art_thumbnail_url, mountId: mountForArtwork?.id })
                 album.geniusId = albumDto.id;
@@ -275,6 +295,16 @@ export class GeniusService {
 
             return response.data.response[type];
         })
+    }
+
+    private filterAlbumArrayByTitles(albums: GeniusAlbumDTO[]): GeniusAlbumDTO[] {
+        if(!albums) return [];
+        return albums.filter((album) => !album.name.includes("NOW That") && !album.name.includes("Bravo Hits"))
+    }
+
+    private filterAlbumByArtistName(albums: GeniusAlbumDTO[], artistName: string): GeniusAlbumDTO[] {
+        if(!albums) return [];
+        return albums.filter((album) => album.artist.name.toLowerCase() == artistName.toLowerCase())
     }
 
 }

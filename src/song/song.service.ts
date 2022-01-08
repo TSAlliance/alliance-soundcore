@@ -129,7 +129,6 @@ export class SongService {
         });
 
         try {
-
             // Create artwork
             const artwork = await this.artworkService.createFromIndexAndBuffer(index, id3tags.artwork);
             if(artwork) song.artwork = artwork;
@@ -146,7 +145,6 @@ export class SongService {
         
             // Request song info on Genius.com
             await this.geniusService.findAndApplySongInfo(song).then(async () => {
-                
                 await this.songRepository.save(song);
             });
 

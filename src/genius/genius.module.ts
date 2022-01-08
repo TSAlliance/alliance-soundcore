@@ -1,4 +1,5 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
+import { AlbumModule } from '../album/album.module';
 import { ArtworkModule } from '../artwork/artwork.module';
 import { DistributorModule } from '../distributor/distributor.module';
 import { GenreModule } from '../genre/genre.module';
@@ -16,7 +17,8 @@ import { GeniusService } from './services/genius.service';
     PublisherModule,
     LabelModule,
     DistributorModule,
-    GenreModule
+    GenreModule,
+    forwardRef(() => AlbumModule)
   ]
 })
 export class GeniusModule {}
