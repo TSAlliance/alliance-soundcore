@@ -23,6 +23,9 @@ export class Album {
     @Column({ nullable: true })
     public released: Date;
 
+    @Column({ nullable: true, type: "text" })
+    public description: string;
+
     @ManyToMany(() => Artist)
     @JoinTable({ name: "album2artist" })
     public artists: Artist[];

@@ -116,17 +116,25 @@ export class GeniusService {
         })
     }
 
-    public async findAndApplyAlbumInfo(album: Album, mountForArtworkId?: string): Promise<Album> {
+    /**
+     * Search for an album by its name and primary artist's name on genius.com. If found
+     * all the information is set to the album object.
+     * This will apply info about release data, description, header image, cover image, label,
+     * distributor, publisher, title and the id on genius.com
+     * @param album Album to be searched
+     * @param firstArtistName Primary artist's name
+     * @param mountForArtwork Mount for possible artworks that could be created during the process
+     * @returns Album
+     */
+    public async findAndApplyAlbumInfo(album: Album, firstArtistName?: string, mountForArtwork?: Mount): Promise<Album> {
         const params = new URLSearchParams();
         const title = album.title.replace(/^(?:\[[^\]]*\]|\([^()]*\))\s*|\s*(?:\[[^\]]*\]|\([^()]*\))/gm, "").split("-")[0];
 
-        if(album.artists && album.artists.length > 0) {
-            params.append("q", `${title} ${album.artists[0].name}`)
+        if(firstArtistName) {
+            params.append("q", `${title} ${firstArtistName}`)
         } else {
             params.append("q", `${title}`)
         }
-
-        console.log(params)
 
         // First search for the resource id
         return this.searchResourceIdOfType("album", params).then((resourceId) => {
@@ -138,29 +146,30 @@ export class GeniusService {
                 // Create distributor if not exists
                 const distributorResult = albumDto.performance_groups.find((perf) => perf.label == "Distributor");
                 if(distributorResult) {
-                    const distributor = await this.distributorService.createIfNotExists({ name: distributorResult.artists[0].name, geniusId: distributorResult.artists[0].id, externalImgUrl: distributorResult.artists[0].image_url })
+                    const distributor = await this.distributorService.createIfNotExists({ name: distributorResult.artists[0].name, geniusId: distributorResult.artists[0].id, externalImgUrl: distributorResult.artists[0].image_url, artworkMountId: mountForArtwork?.id })
                     if(distributor) album.distributor = distributor;
                 }
 
                 // Create publisher if not exists
                 const publisherResult = albumDto.performance_groups.find((perf) => perf.label == "Publisher");
                 if(publisherResult) {
-                    const publisher = await this.publisherService.createIfNotExists({ name: publisherResult.artists[0].name, geniusId: publisherResult.artists[0].id, externalImgUrl: publisherResult.artists[0].image_url })
+                    const publisher = await this.publisherService.createIfNotExists({ name: publisherResult.artists[0].name, geniusId: publisherResult.artists[0].id, externalImgUrl: publisherResult.artists[0].image_url, artworkMountId: mountForArtwork?.id })
                     if(publisher) album.publisher = publisher;
                 }
 
                 // Create label if not exists
                 const labelResult = albumDto.performance_groups.find((perf) => perf.label == "Label");
                 if(labelResult) {
-                    const label = await this.labelService.createIfNotExists({ name: labelResult.artists[0].name, geniusId: labelResult.artists[0].id, externalImgUrl: labelResult.artists[0].image_url })
+                    const label = await this.labelService.createIfNotExists({ name: labelResult.artists[0].name, geniusId: labelResult.artists[0].id, externalImgUrl: labelResult.artists[0].image_url, artworkMountId: mountForArtwork?.id })
                     if(label) album.label = label;
                 }
 
                 album.title = albumDto.name;
-                album.banner = await this.artworkService.create({ type: "banner_album", autoDownload: true, dstFilename: album.title, url: albumDto.header_image_url, mountId: mountForArtworkId })
-                album.artwork = await this.artworkService.create({ type: "album", autoDownload: true, dstFilename: album.title, url: albumDto.cover_art_thumbnail_url, mountId: mountForArtworkId })
+                album.banner = await this.artworkService.create({ type: "banner_album", autoDownload: true, dstFilename: album.title, url: albumDto.header_image_url, mountId: mountForArtwork?.id })
+                album.artwork = await this.artworkService.create({ type: "album", autoDownload: true, dstFilename: album.title, url: albumDto.cover_art_thumbnail_url, mountId: mountForArtwork?.id })
                 album.geniusId = albumDto.id;
                 album.released = albumDto.release_date;
+                album.description = albumDto.description_preview;
 
                 return album;
             }).catch((error) => {

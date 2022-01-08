@@ -11,6 +11,7 @@ export class GeniusAlbumDTO {
     public cover_art_thumbnail_url: string;
     public artist: GeniusArtistDTO;
     public header_image_url: string;
+    public description_preview: string;
     
     public release_date: Date;
     public performance_groups: GeniusCustomPerformance[];

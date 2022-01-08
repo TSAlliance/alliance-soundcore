@@ -16,6 +16,10 @@ export class CreateAlbumDTO {
     public released?: Date;
 
     @IsOptional()
+    @Length(3, 4000)
+    public description?: Date;
+
+    @IsOptional()
     public geniusId?: string;
 
     @IsOptional()

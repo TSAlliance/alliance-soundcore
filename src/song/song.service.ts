@@ -128,41 +128,40 @@ export class SongService {
             title: id3tags.title
         });
 
-        // Add artists to song
-        // and song to artists
-        const artists: Artist[] = await Promise.all(id3tags.artists.map(async (id3Artist) => await this.artistService.createIfNotExists(id3Artist.name, index.mount))) || [];
-        song.artists = artists;
-
-        // Getting album info
-        if(id3tags.album) {
-            const album: Album = await this.albumService.createIfNotExists({ title: id3tags.album });
-            song.albums = [ album ];
-        }
-
-        // Create artwork
-        const artwork = await this.artworkService.createFromIndexAndBuffer(index, id3tags.artwork);
-        if(artwork) song.artwork = artwork;
-
-        // Save relations
-        index.song = song;
-        song.index = index;
-        await this.songRepository.save(song);
-
         try {
-            // Request song info on Genius.com
-            await this.geniusService.findAndApplySongInfo(song);
 
-            // TODO: Add label and publisher
-            // TODO: Add tags (genres)
+            // Create artwork
+            const artwork = await this.artworkService.createFromIndexAndBuffer(index, id3tags.artwork);
+            if(artwork) song.artwork = artwork;
 
-            // Save song metadata
+            // Add artists to song
+            // and song to artists
+            const artists: Artist[] = await Promise.all(id3tags.artists.map(async (id3Artist) => await this.artistService.createIfNotExists(id3Artist.name, index.mount))) || [];
+            song.artists = artists;
+
+            // Save relations
+            index.song = song;
+            song.index = index;
             await this.songRepository.save(song);
+        
+            // Request song info on Genius.com
+            await this.geniusService.findAndApplySongInfo(song).then(async () => {
+                
+                await this.songRepository.save(song);
+            });
+
+            // Getting album info
+            if(id3tags.album) {
+                const album: Album = await this.albumService.createIfNotExists({ title: id3tags.album }, song.artists[0]?.name, song.index.mount);
+                song.albums = [ album ];
+            }
 
             // Set status to OK, as this is the last step of the indexing process
             index.status = IndexStatus.OK;
         } catch (error) {
             this.logger.error(error);
             index.status = IndexStatus.ERRORED;
+            await this.songRepository.delete({ id: song.id });
         }
 
         // Make sure the index is updated to the song for future internal processing.
