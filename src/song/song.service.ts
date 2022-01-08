@@ -212,22 +212,22 @@ export class SongService {
      * @returns Page<Song>
      */
     public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Song>> {
-        if(!query) query = ""
-        query = `%${query.replace(/\s/g, '%')}%`;
+        if(!query || query == "") {
+            query = "%"
+        } else {
+            query = `%${query.replace(/\s/g, '%')}%`;
+        }
 
         // TODO: Sort by "views"?
         // TODO: Add playlists featuring the song / artist
 
         // Find song by title or if the artist has similar name
         const result = await this.songRepository.find({
-            relations: ["artists", "artwork", "publisher", "label", "distributor"],
+            relations: ["artists", "artwork"],
             join: {
                 alias: "song",
-                innerJoin: {
-                    artists: "song.artists",
-                    label: "song.label",
-                    publisher: "song.publisher",
-                    distributor: "song.distributor"
+                leftJoin: {
+                    artists: "song.artists"
                 }
             },
             where: qb => {
@@ -235,9 +235,6 @@ export class SongService {
                     title: ILike(query)
                 })
                 .orWhere("artists.name LIKE :query", { query })
-                .orWhere("label.name LIKE :query", { query })
-                .orWhere("publisher.name LIKE :query", { query })
-                .orWhere("distributor.name LIKE :query", { query })
             },
             skip: (pageable?.page || 0) * (pageable?.size || 10),
             take: (pageable.size || 10)
