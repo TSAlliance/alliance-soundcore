@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { Page, Pageable } from 'nestjs-pager';
+import { ILike } from 'typeorm';
 import { Mount } from '../bucket/entities/mount.entity';
 import { GeniusService } from '../genius/services/genius.service';
 import { Artist } from './entities/artist.entity';
@@ -6,6 +8,7 @@ import { ArtistRepository } from './repositories/artist.repository';
 
 @Injectable()
 export class ArtistService {
+    
 
     constructor(
         private geniusService: GeniusService,
@@ -28,6 +31,16 @@ export class ArtistService {
         }).catch(() => {
             return artist
         })
+    }
+
+    public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Artist>> {
+        if(!query || query == "") {
+            query = "%"
+        } else {
+            query = `%${query.replace(/\s/g, '%')}%`;
+        }
+
+        return this.artistRepository.findAll(pageable, { where: { name: ILike(query) }, relations: ["artwork"]})
     }
 
 }

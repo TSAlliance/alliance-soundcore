@@ -17,8 +17,6 @@ import { ArtistService } from '../artist/artist.service';
 import { Artist } from '../artist/entities/artist.entity';
 import { IndexStatus } from '../index/enum/index-status.enum';
 import { GeniusService } from '../genius/services/genius.service';
-import { LabelService } from '../label/label.service';
-import { PublisherService } from '../publisher/publisher.service';
 import { Page, Pageable } from 'nestjs-pager';
 import { ILike } from 'typeorm';
 import { Album } from '../album/entities/album.entity';
@@ -32,9 +30,7 @@ export class SongService {
     constructor(
         private geniusService: GeniusService,
         private albumService: AlbumService,
-        private labelService: LabelService,
         private artworkService: ArtworkService,
-        private publisherService: PublisherService,
         private artistService: ArtistService,
         private songRepository: SongRepository
     ){}
@@ -219,7 +215,6 @@ export class SongService {
         }
 
         // TODO: Sort by "views"?
-        // TODO: Add playlists featuring the song / artist
 
         // Find song by title or if the artist has similar name
         const result = await this.songRepository.find({
