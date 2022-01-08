@@ -1,4 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Page, Pageable } from 'nestjs-pager';
+import { ILike } from 'typeorm';
 import { CreateGenreDTO } from './dtos/create-genre.dto';
 import { Genre } from './entities/genre.entity';
 import { GenreRepository } from './repositories/genre.repository';
@@ -26,6 +28,16 @@ export class GenreService {
         }
 
         return this.genreRepository.save(genreResult)
+    }
+
+    public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Genre>> {
+        if(!query || query == "") {
+            query = "%"
+        } else {
+            query = `%${query.replace(/\s/g, '%')}%`;
+        }
+
+        return this.genreRepository.findAll(pageable, { where: { name: ILike(query) }})
     }
 
 }
