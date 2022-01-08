@@ -17,8 +17,6 @@ import { ArtistService } from '../artist/artist.service';
 import { Artist } from '../artist/entities/artist.entity';
 import { IndexStatus } from '../index/enum/index-status.enum';
 import { GeniusService } from '../genius/services/genius.service';
-import { LabelService } from '../label/label.service';
-import { PublisherService } from '../publisher/publisher.service';
 import { Page, Pageable } from 'nestjs-pager';
 import { ILike } from 'typeorm';
 import { Album } from '../album/entities/album.entity';
@@ -32,9 +30,7 @@ export class SongService {
     constructor(
         private geniusService: GeniusService,
         private albumService: AlbumService,
-        private labelService: LabelService,
         private artworkService: ArtworkService,
-        private publisherService: PublisherService,
         private artistService: ArtistService,
         private songRepository: SongRepository
     ){}
@@ -76,6 +72,12 @@ export class SongService {
         return this.songRepository.findOne({ where: { id: songId }, relations: ["index", "index.mount"]})
     }
 
+    /**
+     * Find all songs uploaded by specific user.
+     * @param uploaderId Uploader's id
+     * @param pageable Page settings
+     * @returns Page<Song>
+     */
     public async findByUploaderId(uploaderId: string, pageable: Pageable): Promise<Page<Song>> {
         return this.songRepository.findAll(pageable, {
             relations: ["index", "index.uploader", "artwork", "artists"],
@@ -87,6 +89,15 @@ export class SongService {
                 }
             }
         })
+    }
+
+    /**
+     * Find song by its id including all relations that contain information that may be interesting for users.
+     * @param songId Songs' id
+     * @returns Song
+     */
+    public async findByIdInfoWithRelations(songId: string): Promise<Song> {
+        return this.songRepository.findOne({ where: { id: songId }, relations: ["label", "publisher", "artists", "artwork", "banner", "distributor", "albums", "genres"]})
     }
 
     /**
@@ -113,45 +124,38 @@ export class SongService {
             title: id3tags.title
         });
 
-        // Add artists to song
-        // and song to artists
-        const artists: Artist[] = await Promise.all(id3tags.artists.map(async (id3Artist) => await this.artistService.createIfNotExists(id3Artist.name))) || [];
-        song.artists = artists;
-
-        // Getting album info
-        const album: Album = await this.albumService.createIfNotExists(id3tags.album, artists);
-        song.albums = [ album ];
-
-        // Create artwork
-        const artwork = await this.artworkService.createFromIndexAndBuffer(index, id3tags.artwork);
-        song.artwork = artwork;
-
-        // Save relations
-        index.song = song;
-        song.index = index;
-        await this.songRepository.save(song);
-
         try {
-            // Request song info on Genius.com
-            const result = await this.geniusService.findSongInfo(song);
-            if(result) {
-                if(result.label) song.label = await this.labelService.createIfNotExists(result.label.name, result.label.id)
-                if(result.publisher) song.publisher = await this.publisherService.createIfNotExists(result.publisher.name, result.publisher.id)
+            // Create artwork
+            const artwork = await this.artworkService.createFromIndexAndBuffer(index, id3tags.artwork);
+            if(artwork) song.artwork = artwork;
 
-                song.location = result.recordingLocation;
-                song.youtubeUrl = result.youtubeUrl;
-                song.released = result.releaseDate;
-                song.geniusId = result.geniusId;
-            }
+            // Add artists to song
+            // and song to artists
+            const artists: Artist[] = await Promise.all(id3tags.artists.map(async (id3Artist) => await this.artistService.createIfNotExists(id3Artist.name, index.mount))) || [];
+            song.artists = artists;
 
-            // Save song metadata
+            // Save relations
+            index.song = song;
+            song.index = index;
             await this.songRepository.save(song);
+        
+            // Request song info on Genius.com
+            await this.geniusService.findAndApplySongInfo(song).then(async () => {
+                await this.songRepository.save(song);
+            });
+
+            // Getting album info
+            if(id3tags.album) {
+                const album: Album = await this.albumService.createIfNotExists({ title: id3tags.album }, song.artists[0]?.name, song.index.mount);
+                song.albums = [ album ];
+            }
 
             // Set status to OK, as this is the last step of the indexing process
             index.status = IndexStatus.OK;
         } catch (error) {
             this.logger.error(error);
             index.status = IndexStatus.ERRORED;
+            await this.songRepository.delete({ id: song.id });
         }
 
         // Make sure the index is updated to the song for future internal processing.
@@ -172,14 +176,20 @@ export class SongService {
         const durationInSeconds = Math.round(probe.streams[0].duration || 0);
 
         // Get artists
-        const artists = id3Tags.artist.split("/") || []
-        for(const index in artists) {
-            artists.push(...artists[index].split(","))
-            artists.splice(parseInt(index), 1)
+        const artists: string[] = [];
+        if(id3Tags.artist) {
+            artists.push(...(id3Tags.artist.split("/") || []))
+            for(const index in artists) {
+                artists.push(...artists[index].split(","))
+                artists.splice(parseInt(index), 1)
+            }
         }
-
+        
         // Get artwork buffer
-        const artworkBuffer: Buffer = id3Tags?.image?.["imageBuffer"];
+        let artworkBuffer: Buffer = undefined;
+        if(id3Tags?.image && id3Tags.image["imageBuffer"]) {
+            artworkBuffer = id3Tags.image["imageBuffer"]
+        }
     
         return {
             title: id3Tags.title,
@@ -198,27 +208,31 @@ export class SongService {
      * @returns Page<Song>
      */
     public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Song>> {
-        if(!query) query = ""
-        query = `%${query.replace(/\s/g, '%')}%`;
+        if(!query || query == "") {
+            query = "%"
+        } else {
+            query = `%${query.replace(/\s/g, '%')}%`;
+        }
 
         // TODO: Sort by "views"?
-        // TODO: Add playlists featuring the song / artist
 
         // Find song by title or if the artist has similar name
         const result = await this.songRepository.find({
             relations: ["artists", "artwork"],
             join: {
                 alias: "song",
-                innerJoin: {
+                leftJoin: {
                     artists: "song.artists"
                 }
             },
             where: qb => {
                 qb.where({
                     title: ILike(query)
-                }).orWhere("artists.name LIKE :query", { query })
+                })
+                .orWhere("artists.name LIKE :query", { query })
             },
-            
+            skip: (pageable?.page || 0) * (pageable?.size || 10),
+            take: (pageable.size || 10)
         })
 
         return Page.of(result, result.length, pageable.page);

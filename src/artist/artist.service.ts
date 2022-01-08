@@ -1,12 +1,19 @@
 import { Injectable } from '@nestjs/common';
-import { Song } from '../song/entities/song.entity';
+import { Page, Pageable } from 'nestjs-pager';
+import { ILike } from 'typeorm';
+import { Mount } from '../bucket/entities/mount.entity';
+import { GeniusService } from '../genius/services/genius.service';
 import { Artist } from './entities/artist.entity';
 import { ArtistRepository } from './repositories/artist.repository';
 
 @Injectable()
 export class ArtistService {
+    
 
-    constructor(private artistRepository: ArtistRepository){}
+    constructor(
+        private geniusService: GeniusService,
+        private artistRepository: ArtistRepository
+    ){}
 
     public async findByName(name: string): Promise<Artist> {
         return await this.artistRepository.findOne({ where: { name }});
@@ -16,14 +23,24 @@ export class ArtistService {
         return !!(await this.artistRepository.findOne({ where: { name }}));
     }
 
-    public async createIfNotExists(name: string): Promise<Artist> {
+    public async createIfNotExists(name: string, mountForArtwork?: Mount): Promise<Artist> {
         const artist = await this.findByName(name) || await this.artistRepository.save({ name })
-        // TODO: Create artwork for artist.
-        // Search on genius and get info: https://genius.com/api/search/artist?q=
 
-        return artist;
+        return this.geniusService.findAndApplyArtistInfo(artist, mountForArtwork).then(() => {
+            return this.artistRepository.save(artist);
+        }).catch(() => {
+            return artist
+        })
     }
 
-    
+    public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Artist>> {
+        if(!query || query == "") {
+            query = "%"
+        } else {
+            query = `%${query.replace(/\s/g, '%')}%`;
+        }
+
+        return this.artistRepository.findAll(pageable, { where: { name: ILike(query) }, relations: ["artwork"]})
+    }
 
 }

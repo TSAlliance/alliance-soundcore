@@ -3,6 +3,8 @@ import { Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, Ma
 import { Album } from "../../album/entities/album.entity";
 import { Artist } from "../../artist/entities/artist.entity";
 import { Artwork } from "../../artwork/entities/artwork.entity";
+import { Distributor } from "../../distributor/entities/distributor.entity";
+import { Genre } from "../../genre/entities/genre.entity";
 import { Index } from "../../index/entities/index.entity";
 import { Label } from "../../label/entities/label.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
@@ -13,6 +15,7 @@ export class Song {
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
+    @CanRead(false)
     @Column({ nullable: true })
     public geniusId: string;
 
@@ -34,10 +37,30 @@ export class Song {
     @CreateDateColumn()
     public createdAt: Date;
 
+    @Column({ default: false })
+    public explicit: boolean;
+
+    @Column({ nullable: true, type: "text" })
+    public description: string;
+
+    @Column({ nullable: true, default: '0' })
+    public youtubeUrlStart: string;
+
+    @CanRead(false)
+    @Column({ nullable: true })
+    public api_path: string;
+
+    @Column({ nullable: true })
+    public geniusUrl: string;
+
     @CanRead(false)
     @OneToOne(() => Index, { onDelete: "CASCADE" })
     @JoinColumn()
     public index: Index;
+
+    @OneToOne(() => Artwork, { onDelete: "SET NULL" })
+    @JoinColumn()
+    public banner: Artwork;
 
     @OneToOne(() => Artwork, { onDelete: "SET NULL" })
     @JoinColumn()
@@ -51,6 +74,10 @@ export class Song {
     @JoinColumn()
     public publisher: Publisher;
 
+    @ManyToOne(() => Distributor, { onDelete: "SET NULL" })
+    @JoinColumn()
+    public distributor: Distributor;
+
     @ManyToOne(() => Label, { onDelete: "SET NULL" })
     @JoinColumn()
     public label: Label;
@@ -58,5 +85,9 @@ export class Song {
     @ManyToMany(() => Album)
     @JoinTable({ name: "song2album" })
     public albums: Album[];
+
+    @ManyToMany(() => Genre)
+    @JoinTable({ name: "song2genre" })
+    public genres: Genre[];
 
 }

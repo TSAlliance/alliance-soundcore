@@ -17,8 +17,9 @@ import { LabelModule } from './label/label.module';
 import { PublisherModule } from './publisher/publisher.module';
 import { UploadModule } from './upload/upload.module';
 import { SearchModule } from './search/search.module';
-import { PlaylistModule } from './playlist/playlist.module';
 import { StreamModule } from './stream/stream.module';
+import { DistributorModule } from './distributor/distributor.module';
+import { GenreModule } from './genre/genre.module';
 
 @Module({
   imports: [
@@ -72,8 +73,9 @@ import { StreamModule } from './stream/stream.module';
     PublisherModule,
     UploadModule,
     SearchModule,
-    PlaylistModule,
-    StreamModule
+    StreamModule,
+    DistributorModule,
+    GenreModule
   ],
   controllers: [],
   providers: []

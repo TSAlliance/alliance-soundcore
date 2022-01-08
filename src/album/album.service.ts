@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { Artist } from '../artist/entities/artist.entity';
+import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import { Mount } from '../bucket/entities/mount.entity';
 import { GeniusService } from '../genius/services/genius.service';
 import { CreateAlbumDTO } from './dto/create-album.dto';
 import { Album } from './entities/album.entity';
@@ -11,38 +11,41 @@ export class AlbumService {
     // Search on genius and get info: https://genius.com/api/search/album?q=
 
     constructor(
-        private geniusService: GeniusService,
-        private albumRepository: AlbumRepository
+        private albumRepository: AlbumRepository,
+        @Inject(forwardRef(() => GeniusService)) private geniusService: GeniusService
     ) {}
 
     public async findByTitle(title: string): Promise<Album> {
-        return this.albumRepository.findOne({ where: { title }});
+        return await this.albumRepository.findOne({ where: { title }});
     }
 
-    public async create(createAlbumDto: CreateAlbumDTO): Promise<Album> {
-        const album = await this.findByTitle(createAlbumDto.title);
-        let result;
-
-        if(!album) {
-            result = await this.albumRepository.save({ title: createAlbumDto.title });
-        } else {
-            result = album;
-        }
-
-        if(createAlbumDto.artists) {
-            result.artists = createAlbumDto.artists;
-            await this.albumRepository.save(result)
-        }
-        
-        return result;
+    public async existsByTitle(title: string): Promise<boolean> {
+        return !!(await this.findByTitle(title));
     }
 
-    public async createIfNotExists(title: string, artists: Artist[]): Promise<Album> {
-        if(!title) return;
-        const album = await this.create({ title });
-        // TODO: Find album info
-        // this.geniusService.
-        return album;
+    private async create(createAlbumDto: CreateAlbumDTO): Promise<Album> {
+        return this.albumRepository.save({
+            geniusId: createAlbumDto.geniusId,
+            title: createAlbumDto.title,
+            released: createAlbumDto.released,
+            artists: createAlbumDto.artists,
+            distributor: createAlbumDto.distributor,
+            label: createAlbumDto.label,
+            publisher: createAlbumDto.publisher
+        })
+    }
+
+    public async createIfNotExists(createAlbumDto: CreateAlbumDTO, primaryArtistName: string, mountForArtwork?: Mount): Promise<Album> {
+        let album = await this.findByTitle(createAlbumDto.title);
+        if(album) return album;
+
+        album = await this.create(createAlbumDto)
+
+        return this.geniusService.findAndApplyAlbumInfo(album, primaryArtistName, mountForArtwork).then(() => {
+            return this.albumRepository.save(album);
+        }).catch(() => {
+            return album
+        })
     }
 
 }

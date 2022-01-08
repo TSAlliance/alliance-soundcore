@@ -1,4 +1,6 @@
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import { CanRead } from "@tsalliance/sso-nest";
+import { Column, Entity, JoinColumn, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Song } from "../../song/entities/song.entity";
 
 @Entity()
@@ -7,6 +9,7 @@ export class Label {
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
+    @CanRead(false)
     @Column({ nullable: true })
     public geniusId: string;
 
@@ -15,5 +18,9 @@ export class Label {
 
     @OneToMany(() => Song, (song) => song.label)
     public songs: Song[]
+
+    @OneToOne(() => Artwork, { onDelete: "SET NULL", nullable: true })
+    @JoinColumn()
+    public artwork: Artwork;
 
 }

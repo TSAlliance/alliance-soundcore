@@ -1,6 +1,12 @@
 import { CanRead } from "@tsalliance/sso-nest";
-import { Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn } from "typeorm";
-import { Index } from "../../index/entities/index.entity";
+import { Column, Entity, JoinColumn, ManyToOne, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Album } from "../../album/entities/album.entity";
+import { Artist } from "../../artist/entities/artist.entity";
+import { Mount } from "../../bucket/entities/mount.entity";
+import { Distributor } from "../../distributor/entities/distributor.entity";
+import { Label } from "../../label/entities/label.entity";
+import { Song } from "../../song/entities/song.entity";
+import { ArtworkType } from "../types/artwork-type.enum";
 
 @Entity()
 export class Artwork {
@@ -9,8 +15,40 @@ export class Artwork {
     public id: string;
 
     @CanRead(false)
-    @OneToOne(() => Index, { onDelete: "CASCADE" })
+    @Column({ default: "song" })
+    public type: ArtworkType;
+
+    @Column({ nullable: true })
+    public externalUrl: string;
+
+    @Column({ nullable: true })
+    public accentColor: string;
+
+    // Prevent duplicate files by specifying filename
+    // This also applies to externalImages even if they haven't been downloaded
+    // (because they could be downloaded in future)
+    @CanRead(false)
+    @Column({ nullable: true })
+    public dstFilename: string;
+
+    @CanRead(false)
+    @ManyToOne(() => Mount, { onDelete: "CASCADE" })
     @JoinColumn()
-    public index: Index;
+    public mount: Mount;
+
+    @OneToOne(() => Distributor, { onDelete: "CASCADE" })
+    public distributor?: Distributor;
+
+    @OneToOne(() => Label, { onDelete: "CASCADE" })
+    public label?: Label;
+
+    @OneToOne(() => Song, { onDelete: "CASCADE" })
+    public song?: Song;
+
+    @OneToOne(() => Album, { onDelete: "CASCADE" })
+    public album?: Album;
+
+    @OneToOne(() => Artist, { onDelete: "CASCADE" })
+    public artist?: Artist;
 
 }

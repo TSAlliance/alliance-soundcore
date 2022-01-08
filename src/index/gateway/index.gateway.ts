@@ -38,7 +38,7 @@ export class IndexGateway implements OnGatewayConnection, OnGatewayDisconnect {
         try {
             const indexCopy = index;
             delete indexCopy?.song?.artists;
-            delete indexCopy?.song?.artwork?.index;
+            delete indexCopy?.song?.artwork?.mount;
             delete indexCopy?.song?.index;
 
             if(indexCopy?.uploader?.id) {
