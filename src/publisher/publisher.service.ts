@@ -1,5 +1,8 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Page, Pageable } from 'nestjs-pager';
+import { ILike } from 'typeorm';
 import { ArtworkService } from '../artwork/artwork.service';
+import { Genre } from '../genre/entities/genre.entity';
 import { MOUNT_ID } from '../shared/shared.module';
 import { CreatePublisherDTO } from './dtos/create-publisher.dto';
 import { Publisher } from './entities/publisher.entity';
@@ -46,6 +49,16 @@ export class PublisherService {
         }
 
         return this.publisherRepository.save(publisherResult)
+    }
+
+    public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Publisher>> {
+        if(!query || query == "") {
+            query = "%"
+        } else {
+            query = `%${query.replace(/\s/g, '%')}%`;
+        }
+
+        return this.publisherRepository.findAll(pageable, { where: { name: ILike(query) }})
     }
 
 }

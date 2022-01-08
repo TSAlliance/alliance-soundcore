@@ -1,4 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Page, Pageable } from 'nestjs-pager';
+import { ILike } from 'typeorm';
 import { ArtworkService } from '../artwork/artwork.service';
 import { MOUNT_ID } from '../shared/shared.module';
 import { CreateLabelDTO } from './dtos/create-label.dto';
@@ -46,6 +48,16 @@ export class LabelService {
         }
 
         return this.lableRepository.save(labelResult)
+    }
+
+    public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Label>> {
+        if(!query || query == "") {
+            query = "%"
+        } else {
+            query = `%${query.replace(/\s/g, '%')}%`;
+        }
+
+        return this.lableRepository.findAll(pageable, { where: { name: ILike(query) }})
     }
 
 }

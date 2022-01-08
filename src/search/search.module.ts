@@ -4,6 +4,9 @@ import { SearchController } from './search.controller';
 import { SongModule } from '../song/song.module';
 import { ArtistModule } from '../artist/artist.module';
 import { GenreModule } from '../genre/genre.module';
+import { PublisherModule } from '../publisher/publisher.module';
+import { LabelModule } from '../label/label.module';
+import { DistributorModule } from '../distributor/distributor.module';
 
 @Module({
   controllers: [SearchController],
@@ -11,7 +14,10 @@ import { GenreModule } from '../genre/genre.module';
   imports: [
     SongModule,
     ArtistModule,
-    GenreModule
+    GenreModule,
+    PublisherModule,
+    LabelModule,
+    DistributorModule
   ]
 })
 export class SearchModule {}

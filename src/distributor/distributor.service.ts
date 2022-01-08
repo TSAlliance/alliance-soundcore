@@ -1,4 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Page, Pageable } from 'nestjs-pager';
+import { ILike } from 'typeorm';
 import { ArtworkService } from '../artwork/artwork.service';
 import { MOUNT_ID } from '../shared/shared.module';
 import { CreateDistributorDTO } from './dtos/create-distributor.dto';
@@ -46,6 +48,16 @@ export class DistributorService {
         }
 
         return this.distributorRepository.save(distributorResult)
+    }
+
+    public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Distributor>> {
+        if(!query || query == "") {
+            query = "%"
+        } else {
+            query = `%${query.replace(/\s/g, '%')}%`;
+        }
+
+        return this.distributorRepository.findAll(pageable, { where: { name: ILike(query) }})
     }
 
 }
