@@ -1,5 +1,6 @@
 import { SSOUser } from "@tsalliance/sso-nest";
-import { Column, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Song } from "../../song/entities/song.entity";
 import { PlaylistPrivacy } from "../enums/playlist-privacy.enum";
 
@@ -21,6 +22,9 @@ export class Playlist {
     @Column({ nullable: false, default: false })
     public collaborative: boolean;
 
+    @CreateDateColumn()
+    public createdAt: Date;
+
     @ManyToMany(() => SSOUser)
     @JoinTable({ name: "collaborators2playlist" })
     public collaborators: SSOUser[];
@@ -32,5 +36,9 @@ export class Playlist {
     @ManyToMany(() => Song)
     @JoinTable({ name: "song2playlist" })
     public songs: Song[]
+
+    @OneToOne(() => Artwork, { onDelete: "SET NULL", nullable: true })
+    @JoinColumn()
+    public artwork: Artwork;
 
 }
