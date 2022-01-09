@@ -18,7 +18,7 @@ import { Artist } from '../artist/entities/artist.entity';
 import { IndexStatus } from '../index/enum/index-status.enum';
 import { GeniusService } from '../genius/services/genius.service';
 import { Page, Pageable } from 'nestjs-pager';
-import { ILike } from 'typeorm';
+import { ILike, In } from 'typeorm';
 import { Album } from '../album/entities/album.entity';
 import { AlbumService } from '../album/album.service';
 import { ArtworkService } from '../artwork/artwork.service';
@@ -70,6 +70,32 @@ export class SongService {
      */
     public async findByIdWithIndex(songId: string): Promise<Song> {
         return this.songRepository.findOne({ where: { id: songId }, relations: ["index", "index.mount"]})
+    }
+
+    public async findByGenre(genreId: string, pageable: Pageable): Promise<Page<Song>> {
+        console.log(genreId)
+
+        // TODO: Count all available items for pagination
+
+        const result = await this.songRepository.find({
+            relations: ["genres", "artwork", "artists"],
+            join: {
+                alias: "song",
+                leftJoin: {
+                    genres: "song.genres"
+                }
+            },
+            where: qb => {
+                qb.where("genres.id = :genreId", { genreId })
+            },
+            skip: (pageable?.page || 0) * (pageable?.size || 10),
+            take: (pageable.size || 10)
+        })
+
+        return Page.of(result, result.length, pageable.page);
+
+        //console.log(genreId)
+        //return this.songRepository.findAll(pageable, { where: { genres: { id: In([ genreId ]) }}})
     }
 
     /**

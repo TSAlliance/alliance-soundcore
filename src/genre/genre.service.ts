@@ -11,6 +11,10 @@ export class GenreService {
 
     constructor(private genreRepository: GenreRepository) {}
 
+    public async findGenreById(genreId: string): Promise<Genre> {
+        return this.genreRepository.findOne({ where: { id: genreId }})
+    }
+
     /**
      * Create new genre by name if it does not already exist in the database.
      * @param createGenreDto Genre data to create
