@@ -59,7 +59,7 @@ import { PlaylistModule } from './playlist/playlist.module';
     }),
     AllianceRestModule.forRoot({
       logging: false,
-      disableErrorHandling: false,
+      disableErrorHandling: true,
       disableValidation: false
     }),
     SharedModule,

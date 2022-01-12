@@ -64,6 +64,15 @@ export class SongService {
     }
 
     /**
+     * Find song by its id.
+     * @param songId Song's id
+     * @returns Song
+     */
+     public async findById(songId: string): Promise<Song> {
+        return this.songRepository.findOne({ where: { id: songId }})
+    }
+
+    /**
      * Find song by its id including its indexed file info.
      * @param songId Song's id
      * @returns Song
@@ -93,9 +102,22 @@ export class SongService {
         })
 
         return Page.of(result, result.length, pageable.page);
+    }
 
-        //console.log(genreId)
-        //return this.songRepository.findAll(pageable, { where: { genres: { id: In([ genreId ]) }}})
+    public async findByPlaylist(playlistId: string, pageable: Pageable): Promise<Page<Song>> {
+        const result = await this.songRepository.createQueryBuilder("songs")
+            .leftJoin("songs.playlists", "playlist")
+            .leftJoinAndSelect("songs.artwork", "artwork")
+            .leftJoinAndSelect("songs.artists", "artist")
+            .limit(pageable.size || 30)
+            .offset(pageable.page * pageable.size)
+            .where("playlist.id = :playlistId", { playlistId })
+            .getManyAndCount();
+
+        const elements = result[0];
+        const totalElements = result[1];
+
+        return Page.of(elements, totalElements, pageable.page);
     }
 
     /**

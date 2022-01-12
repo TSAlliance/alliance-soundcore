@@ -7,6 +7,7 @@ import { Distributor } from "../../distributor/entities/distributor.entity";
 import { Genre } from "../../genre/entities/genre.entity";
 import { Index } from "../../index/entities/index.entity";
 import { Label } from "../../label/entities/label.entity";
+import { Playlist } from "../../playlist/entities/playlist.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
 
 @Entity()
@@ -89,5 +90,9 @@ export class Song {
     @ManyToMany(() => Genre)
     @JoinTable({ name: "song2genre" })
     public genres: Genre[];
+
+    @ManyToMany(() => Playlist)
+    @JoinTable({ name: "song2playlist" })
+    public playlists: Playlist[];
 
 }

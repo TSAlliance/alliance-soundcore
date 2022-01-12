@@ -33,4 +33,5 @@ export class SongController {
   public async findByGenre(@Param("genreId") genreId: string, @Pageable() pageable: Pageable): Promise<Page<Song>> {
     return this.songService.findByGenre(genreId, pageable)
   }
+
 }

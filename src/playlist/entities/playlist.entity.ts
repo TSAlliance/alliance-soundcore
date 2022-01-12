@@ -41,4 +41,9 @@ export class Playlist {
     @JoinColumn()
     public artwork: Artwork;
 
+
+    public songsCount?: number = 0;
+    public collaboratorsCount?: number = 0;
+    public totalDuration?: number = 0;
+
 }

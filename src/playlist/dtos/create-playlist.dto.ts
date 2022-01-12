@@ -18,10 +18,4 @@ export class CreatePlaylistDTO {
     @IsOptional()
     public collaborative?: boolean;
 
-    @IsOptional()
-    public collaborators?: { id: string }[];
-
-    @IsOptional()
-    public songs?: { id: string }[];
-
 }
