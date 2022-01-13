@@ -82,8 +82,6 @@ export class SongService {
     }
 
     public async findByGenre(genreId: string, pageable: Pageable): Promise<Page<Song>> {
-        console.log(genreId)
-
         // TODO: Count all available items for pagination
 
         const result = await this.songRepository.find({

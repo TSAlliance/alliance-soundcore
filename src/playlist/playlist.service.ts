@@ -126,23 +126,21 @@ export class PlaylistService {
                 const song = await this.songService.findById(obj.id);
                 if(!song) continue;
 
-                let relation = new Song2Playlist()
+                const relation = new Song2Playlist()
                 relation.song = song;
                 relation.playlist = playlist;
 
-                relation = await this.song2playlistRepository.save(relation)
-
-                console.log(relation)
-    
-                playlist.song2playlist.push(relation);
+                await this.song2playlistRepository.save(relation)
             }
+
+            return playlist;
         } else if(updateSongsDto.action == "remove") {
             // Remove songs
             const songs = updateSongsDto.songs.map((song) => song.id);
             playlist.song2playlist = playlist.song2playlist.filter((song2playlist) => !songs.includes(song2playlist.songId));
-        }
 
-        return this.playlistRepository.save(playlist)
+            return this.playlistRepository.save(playlist)
+        }
     }
 
     private async hasUserAccessToPlaylist(playlist: Playlist, user: SSOUser): Promise<boolean> {
