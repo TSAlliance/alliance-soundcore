@@ -1,5 +1,5 @@
 import { SSOUser } from "@tsalliance/sso-nest";
-import { Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Song } from "../../song/entities/song.entity";
 import { PlaylistPrivacy } from "../enums/playlist-privacy.enum";

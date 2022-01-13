@@ -109,6 +109,7 @@ export class SongService {
             .leftJoin("songs.playlists", "playlist")
             .leftJoinAndSelect("songs.artwork", "artwork")
             .leftJoinAndSelect("songs.artists", "artist")
+            .leftJoinAndSelect("songs.albums", "albums")
             .limit(pageable.size || 30)
             .offset(pageable.page * pageable.size)
             .where("playlist.id = :playlistId", { playlistId })

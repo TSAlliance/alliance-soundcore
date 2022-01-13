@@ -19,25 +19,25 @@ export class PlaylistService {
     ) {}
 
     public async findPlaylistProfileById(playlistId: string, requester?: SSOUser): Promise<Playlist> {
-
         const result = await this.playlistRepository.createQueryBuilder("playlist")
-            .where("playlist.id = :playlistId", { playlistId })
-            .leftJoinAndSelect("playlist.author", "author")
-            .leftJoinAndSelect("playlist.artwork", "artwork")
-            .leftJoinAndSelect("playlist.collaborators", "collaborators")
-            .leftJoin("playlist.songs", "songs")
+                .where("playlist.id = :playlistId", { playlistId })
 
-            .loadRelationCountAndMap("playlist.songsCount", "playlist.songs")
-            .loadRelationCountAndMap("playlist.collaboratorsCount", "playlist.collaborators")
+                // This is for relations
+                .leftJoin("playlist.songs", "songs")
+                .leftJoinAndSelect("playlist.artwork", "artwork")
+                .leftJoinAndSelect("playlist.author", "author")
 
-            .addSelect('SUM(songs.duration)', 'totalDuration')
-            .groupBy("playlist.id")
-            .getRawAndEntities();
+                // Counting the songs
+                .addSelect('COUNT(songs.id)', 'songsCount')
+
+                // SUM up the duration of every song to get total duration of the playlist
+                .addSelect('SUM(songs.duration)', 'totalDuration')
+                .getRawAndEntities()
 
         const playlist = result.entities[0];
-
         if(!playlist) throw new NotFoundException("Playlist not found.")
-        playlist.totalDuration = parseInt(result.raw[0].totalDuration)
+        playlist.totalDuration = parseInt(result.raw[0].totalDuration);
+        playlist.songsCount = parseInt(result.raw[0].songsCount)
 
         if(!await this.hasUserAccessToPlaylist(playlist, requester)) {
             return null;
@@ -131,7 +131,6 @@ export class PlaylistService {
 
         return this.playlistRepository.save(playlist)
     }
-
 
     private async hasUserAccessToPlaylist(playlist: Playlist, user: SSOUser): Promise<boolean> {
         if(!playlist || !user) return false;
