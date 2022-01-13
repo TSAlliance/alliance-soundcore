@@ -57,7 +57,7 @@ export class DistributorService {
             query = `%${query.replace(/\s/g, '%')}%`;
         }
 
-        return this.distributorRepository.findAll(pageable, { where: { name: ILike(query) }})
+        return this.distributorRepository.findAll(pageable, { where: { name: ILike(query) }, relations: ["artwork"]})
     }
 
 }
