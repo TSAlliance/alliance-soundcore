@@ -25,6 +25,7 @@ import { ArtworkService } from '../artwork/artwork.service';
 
 @Injectable()
 export class SongService {
+  
     private logger: Logger = new Logger(SongService.name)
 
     constructor(
@@ -79,6 +80,18 @@ export class SongService {
      */
     public async findByIdWithIndex(songId: string): Promise<Song> {
         return this.songRepository.findOne({ where: { id: songId }, relations: ["index", "index.mount"]})
+    }
+
+    public async findTopSongsByArtist(artistId: string): Promise<Song[]> {
+        const result = await this.songRepository.createQueryBuilder("songs")
+            .leftJoinAndSelect("songs.artwork", "artwork")
+            .leftJoin("songs.artists", "artists")
+            .limit(5)
+            .orderBy("songs.id") // TODO: Order by views?
+            .where("artists.id = :artistId", { artistId })
+            .getMany()
+
+        return result;
     }
 
     public async findByGenre(genreId: string, pageable: Pageable): Promise<Page<Song>> {

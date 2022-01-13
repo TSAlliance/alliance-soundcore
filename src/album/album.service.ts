@@ -17,6 +17,22 @@ export class AlbumService {
         @Inject(forwardRef(() => GeniusService)) private geniusService: GeniusService
     ) {}
 
+    public async findProfilesByArtist(artistId: string, pageable: Pageable): Promise<Page<Album>> {
+        const result = await this.albumRepository.createQueryBuilder("albums")
+            .leftJoinAndSelect("albums.artwork", "artwork")
+            .leftJoinAndSelect("albums.banner", "banner")
+            .leftJoinAndSelect("albums.artists", "artists")
+
+
+            .where("artists.id = :artistId", { artistId })
+            .offset(pageable.page * pageable.size)
+            .limit(pageable.size)
+            .getManyAndCount();
+
+        return Page.of(result[0], result[1], pageable.page);
+
+    }
+
     public async findByTitle(title: string): Promise<Album> {
         return await this.albumRepository.findOne({ where: { title }});
     }

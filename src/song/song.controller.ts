@@ -34,4 +34,9 @@ export class SongController {
     return this.songService.findByGenre(genreId, pageable)
   }
 
+  @Get("/byArtist/:artistId/top")
+  public async findTopSongsByArtist(@Param("artistId") artistId: string): Promise<Song[]> {
+    return this.songService.findTopSongsByArtist(artistId)
+  }
+
 }

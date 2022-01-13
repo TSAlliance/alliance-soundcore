@@ -15,6 +15,10 @@ export class ArtistService {
         private artistRepository: ArtistRepository
     ){}
 
+    public async findProfileById(artistId: string): Promise<Artist> {
+        return this.artistRepository.findOne({ where: { id: artistId }, relations: ["artwork", "banner"]})
+    }
+
     public async findByName(name: string): Promise<Artist> {
         return await this.artistRepository.findOne({ where: { name }});
     }
