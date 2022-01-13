@@ -106,17 +106,27 @@ export class SongService {
 
     public async findByPlaylist(playlistId: string, pageable: Pageable): Promise<Page<Song>> {
         const result = await this.songRepository.createQueryBuilder("songs")
-            .leftJoin("songs.playlists", "playlist")
+            .leftJoin("songs.song2playlist", "song2playlist")
+            .leftJoin("song2playlist.playlist", "playlist")
             .leftJoinAndSelect("songs.artwork", "artwork")
             .leftJoinAndSelect("songs.artists", "artist")
             .leftJoinAndSelect("songs.albums", "albums")
             .limit(pageable.size || 30)
             .offset(pageable.page * pageable.size)
             .where("playlist.id = :playlistId", { playlistId })
-            .getManyAndCount();
+            .addSelect("song2playlist.createdAt", "song2playlist")
+            .getRawAndEntities();
 
-        const elements = result[0];
-        const totalElements = result[1];
+        const totalElements = (await this.songRepository.createQueryBuilder("songs")
+            .leftJoin("songs.song2playlist", "song2playlist")
+            .leftJoin("song2playlist.playlist", "playlist")
+            .where("playlist.id = :playlistId", { playlistId })
+        .getCount())
+
+        const elements = result.entities.map((song, index) => {
+            song.song2playlist = result.raw[index].song2playlist
+            return song;
+        });
 
         return Page.of(elements, totalElements, pageable.page);
     }

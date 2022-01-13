@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { SSOUser } from '@tsalliance/sso-nest';
 import { Page, Pageable } from 'nestjs-pager';
 import { Song } from '../song/entities/song.entity';
@@ -6,8 +6,10 @@ import { SongService } from '../song/song.service';
 import { CreatePlaylistDTO } from './dtos/create-playlist.dto';
 import { UpdatePlaylistSongsDTO } from './dtos/update-songs.dto';
 import { Playlist } from './entities/playlist.entity';
+import { Song2Playlist } from './entities/song2playlist.entity';
 import { PlaylistPrivacy } from './enums/playlist-privacy.enum';
 import { PlaylistRepository } from './repositories/playlist.repository';
+import { Song2PlaylistRepository } from './repositories/song2playlist.repository';
 
 @Injectable()
 export class PlaylistService {
@@ -15,7 +17,8 @@ export class PlaylistService {
 
     constructor(
         private songService: SongService,
-        private playlistRepository: PlaylistRepository
+        private playlistRepository: PlaylistRepository,
+        private song2playlistRepository: Song2PlaylistRepository
     ) {}
 
     public async findPlaylistProfileById(playlistId: string, requester?: SSOUser): Promise<Playlist> {
@@ -23,15 +26,17 @@ export class PlaylistService {
                 .where("playlist.id = :playlistId", { playlistId })
 
                 // This is for relations
-                .leftJoin("playlist.songs", "songs")
+                .leftJoin("playlist.song2playlist", "song2playlist")
+                .leftJoin("song2playlist.song", "song")
+
                 .leftJoinAndSelect("playlist.artwork", "artwork")
                 .leftJoinAndSelect("playlist.author", "author")
 
                 // Counting the songs
-                .addSelect('COUNT(songs.id)', 'songsCount')
+                .addSelect('COUNT(song2playlist.id)', 'songsCount')
 
                 // SUM up the duration of every song to get total duration of the playlist
-                .addSelect('SUM(songs.duration)', 'totalDuration')
+                .addSelect('SUM(song.duration)', 'totalDuration')
                 .getRawAndEntities()
 
         const playlist = result.entities[0];
@@ -51,7 +56,7 @@ export class PlaylistService {
     }
 
     public async findPlaylistByIdWithRelations(playlistId: string): Promise<Playlist> {
-        return this.playlistRepository.findOne({ where: { id: playlistId }, relations: ["artwork", "author", "collaborators", "songs"]})
+        return this.playlistRepository.findOne({ where: { id: playlistId }, relations: ["artwork", "author", "collaborators", "song2playlist"]})
     }
 
     public async findAllOrPageByAuthor(authorId: string, pageable?: Pageable, requester?: SSOUser): Promise<Page<Playlist>> {
@@ -111,7 +116,7 @@ export class PlaylistService {
             throw new NotFoundException("Playlist not found.")
         }
 
-        if(!playlist.songs) playlist.songs = [];
+        if(!playlist.song2playlist) playlist.song2playlist = [];
 
         if(updateSongsDto.action == "add") {
             // Add songs
@@ -120,13 +125,21 @@ export class PlaylistService {
                 // errors.
                 const song = await this.songService.findById(obj.id);
                 if(!song) continue;
+
+                let relation = new Song2Playlist()
+                relation.song = song;
+                relation.playlist = playlist;
+
+                relation = await this.song2playlistRepository.save(relation)
+
+                console.log(relation)
     
-                playlist.songs.push(song);
+                playlist.song2playlist.push(relation);
             }
         } else if(updateSongsDto.action == "remove") {
             // Remove songs
             const songs = updateSongsDto.songs.map((song) => song.id);
-            playlist.songs = playlist.songs.filter((song) => !songs.includes(song.id));
+            playlist.song2playlist = playlist.song2playlist.filter((song2playlist) => !songs.includes(song2playlist.songId));
         }
 
         return this.playlistRepository.save(playlist)

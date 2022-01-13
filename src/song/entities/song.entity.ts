@@ -1,5 +1,5 @@
 import { CanRead } from "@tsalliance/sso-nest";
-import { Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Album } from "../../album/entities/album.entity";
 import { Artist } from "../../artist/entities/artist.entity";
 import { Artwork } from "../../artwork/entities/artwork.entity";
@@ -8,6 +8,7 @@ import { Genre } from "../../genre/entities/genre.entity";
 import { Index } from "../../index/entities/index.entity";
 import { Label } from "../../label/entities/label.entity";
 import { Playlist } from "../../playlist/entities/playlist.entity";
+import { Song2Playlist } from "../../playlist/entities/song2playlist.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
 
 @Entity()
@@ -91,8 +92,15 @@ export class Song {
     @JoinTable({ name: "song2genre" })
     public genres: Genre[];
 
-    @ManyToMany(() => Playlist)
+    /*@ManyToMany(() => Playlist)
     @JoinTable({ name: "song2playlist" })
-    public playlists: Playlist[];
+    public playlists: Playlist[];*/
+
+    @OneToMany(() => Song2Playlist, song2playlist => song2playlist.song)
+    public song2playlist!: Song2Playlist[];
+
+    // Value that will be set if the songs of a playlist
+    // are fetched
+    public playlistAdded: Date;
 
 }
