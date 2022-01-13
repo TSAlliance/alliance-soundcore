@@ -18,7 +18,7 @@ import { Artist } from '../artist/entities/artist.entity';
 import { IndexStatus } from '../index/enum/index-status.enum';
 import { GeniusService } from '../genius/services/genius.service';
 import { Page, Pageable } from 'nestjs-pager';
-import { ILike } from 'typeorm';
+import { ILike, In } from 'typeorm';
 import { Album } from '../album/entities/album.entity';
 import { AlbumService } from '../album/album.service';
 import { ArtworkService } from '../artwork/artwork.service';
@@ -64,12 +64,69 @@ export class SongService {
     }
 
     /**
+     * Find song by its id.
+     * @param songId Song's id
+     * @returns Song
+     */
+     public async findById(songId: string): Promise<Song> {
+        return this.songRepository.findOne({ where: { id: songId }})
+    }
+
+    /**
      * Find song by its id including its indexed file info.
      * @param songId Song's id
      * @returns Song
      */
     public async findByIdWithIndex(songId: string): Promise<Song> {
         return this.songRepository.findOne({ where: { id: songId }, relations: ["index", "index.mount"]})
+    }
+
+    public async findByGenre(genreId: string, pageable: Pageable): Promise<Page<Song>> {
+        // TODO: Count all available items for pagination
+
+        const result = await this.songRepository.find({
+            relations: ["genres", "artwork", "artists"],
+            join: {
+                alias: "song",
+                leftJoin: {
+                    genres: "song.genres"
+                }
+            },
+            where: qb => {
+                qb.where("genres.id = :genreId", { genreId })
+            },
+            skip: (pageable?.page || 0) * (pageable?.size || 10),
+            take: (pageable.size || 10)
+        })
+
+        return Page.of(result, result.length, pageable.page);
+    }
+
+    public async findByPlaylist(playlistId: string, pageable: Pageable): Promise<Page<Song>> {
+        const result = await this.songRepository.createQueryBuilder("songs")
+            .leftJoin("songs.song2playlist", "song2playlist")
+            .leftJoin("song2playlist.playlist", "playlist")
+            .leftJoinAndSelect("songs.artwork", "artwork")
+            .leftJoinAndSelect("songs.artists", "artist")
+            .leftJoinAndSelect("songs.albums", "albums")
+            .limit(pageable.size || 30)
+            .offset(pageable.page * pageable.size)
+            .where("playlist.id = :playlistId", { playlistId })
+            .addSelect("song2playlist.createdAt", "song2playlist")
+            .getRawAndEntities();
+
+        const totalElements = (await this.songRepository.createQueryBuilder("songs")
+            .leftJoin("songs.song2playlist", "song2playlist")
+            .leftJoin("song2playlist.playlist", "playlist")
+            .where("playlist.id = :playlistId", { playlistId })
+        .getCount())
+
+        const elements = result.entities.map((song, index) => {
+            song.song2playlist = result.raw[index].song2playlist
+            return song;
+        });
+
+        return Page.of(elements, totalElements, pageable.page);
     }
 
     /**

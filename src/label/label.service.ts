@@ -57,7 +57,7 @@ export class LabelService {
             query = `%${query.replace(/\s/g, '%')}%`;
         }
 
-        return this.lableRepository.findAll(pageable, { where: { name: ILike(query) }})
+        return this.lableRepository.findAll(pageable, { where: { name: ILike(query) }, relations: ["artwork"]})
     }
 
 }

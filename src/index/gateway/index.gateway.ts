@@ -69,7 +69,7 @@ export class IndexGateway implements OnGatewayConnection, OnGatewayDisconnect {
             }
 
             // Fetch user data by provided auth header
-            const user = await this.authService.findCurrentUserByHeader(authHeader)
+            const user = await this.authService.findUserUsingHeader("@me", authHeader)
 
             // Fetch user data by provided auth header
             if(!user) {

@@ -8,6 +8,11 @@ import { SongService } from './song.service';
 export class SongController {
   constructor(private readonly songService: SongService) {}
 
+  @Get(":songId")
+  public async findById(@Param("songId") songId: string): Promise<Song> {
+    return this.songService.findByIdInfoWithRelations(songId);
+  }
+
   @Get("latest")
   public async findLatest(): Promise<Page<Song>> {
     return this.songService.findLatestPage();
@@ -24,8 +29,9 @@ export class SongController {
     return this.songService.findByUploaderId(uploaderId, pageable);
   }
 
-  @Get(":songId")
-  public async findById(@Param("songId") songId: string): Promise<Song> {
-    return this.songService.findByIdInfoWithRelations(songId);
+  @Get("/byGenre/:genreId")
+  public async findByGenre(@Param("genreId") genreId: string, @Pageable() pageable: Pageable): Promise<Page<Song>> {
+    return this.songService.findByGenre(genreId, pageable)
   }
+
 }

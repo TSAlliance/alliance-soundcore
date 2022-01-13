@@ -7,6 +7,7 @@ import { GenreModule } from '../genre/genre.module';
 import { PublisherModule } from '../publisher/publisher.module';
 import { LabelModule } from '../label/label.module';
 import { DistributorModule } from '../distributor/distributor.module';
+import { AlbumModule } from '../album/album.module';
 
 @Module({
   controllers: [SearchController],
@@ -17,7 +18,8 @@ import { DistributorModule } from '../distributor/distributor.module';
     GenreModule,
     PublisherModule,
     LabelModule,
-    DistributorModule
+    DistributorModule,
+    AlbumModule
   ]
 })
 export class SearchModule {}

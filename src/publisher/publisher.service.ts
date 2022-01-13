@@ -58,7 +58,7 @@ export class PublisherService {
             query = `%${query.replace(/\s/g, '%')}%`;
         }
 
-        return this.publisherRepository.findAll(pageable, { where: { name: ILike(query) }})
+        return this.publisherRepository.findAll(pageable, { where: { name: ILike(query) }, relations: ["artwork"]})
     }
 
 }

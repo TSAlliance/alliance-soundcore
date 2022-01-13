@@ -1,4 +1,6 @@
 import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import { Page, Pageable } from 'nestjs-pager';
+import { ILike } from 'typeorm';
 import { Mount } from '../bucket/entities/mount.entity';
 import { GeniusService } from '../genius/services/genius.service';
 import { CreateAlbumDTO } from './dto/create-album.dto';
@@ -46,6 +48,16 @@ export class AlbumService {
         }).catch(() => {
             return album
         })
+    }
+
+    public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Album>> {
+        if(!query || query == "") {
+            query = "%"
+        } else {
+            query = `%${query.replace(/\s/g, '%')}%`;
+        }
+
+        return this.albumRepository.findAll(pageable, { where: { title: ILike(query) }, relations: ["artwork"]})
     }
 
 }

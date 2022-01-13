@@ -20,6 +20,7 @@ import { SearchModule } from './search/search.module';
 import { StreamModule } from './stream/stream.module';
 import { DistributorModule } from './distributor/distributor.module';
 import { GenreModule } from './genre/genre.module';
+import { PlaylistModule } from './playlist/playlist.module';
 
 @Module({
   imports: [
@@ -58,7 +59,7 @@ import { GenreModule } from './genre/genre.module';
     }),
     AllianceRestModule.forRoot({
       logging: false,
-      disableErrorHandling: false,
+      disableErrorHandling: true,
       disableValidation: false
     }),
     SharedModule,
@@ -75,7 +76,8 @@ import { GenreModule } from './genre/genre.module';
     SearchModule,
     StreamModule,
     DistributorModule,
-    GenreModule
+    GenreModule,
+    PlaylistModule
   ],
   controllers: [],
   providers: []
