@@ -7,9 +7,9 @@ import { Distributor } from "../../distributor/entities/distributor.entity";
 import { Genre } from "../../genre/entities/genre.entity";
 import { Index } from "../../index/entities/index.entity";
 import { Label } from "../../label/entities/label.entity";
-import { Playlist } from "../../playlist/entities/playlist.entity";
 import { Song2Playlist } from "../../playlist/entities/song2playlist.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
+import { Stream } from "../../stream/entities/stream.entity";
 
 @Entity()
 export class Song {
@@ -92,12 +92,11 @@ export class Song {
     @JoinTable({ name: "song2genre" })
     public genres: Genre[];
 
-    /*@ManyToMany(() => Playlist)
-    @JoinTable({ name: "song2playlist" })
-    public playlists: Playlist[];*/
-
     @OneToMany(() => Song2Playlist, song2playlist => song2playlist.song)
-    public song2playlist!: Song2Playlist[];
+    public song2playlist: Song2Playlist[];
+
+    @OneToMany(() => Stream, stream => stream.song)
+    public streams: Stream[];
 
     // Value that will be set if the songs of a playlist
     // are fetched
