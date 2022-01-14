@@ -83,19 +83,46 @@ export class SongService {
     }
 
     public async findTopSongsByArtist(artistId: string): Promise<Song[]> {
-        const result = await this.songRepository.createQueryBuilder("songs")
-            .leftJoinAndSelect("songs.artwork", "artwork")
-            // Join for relation id
+        const result = await this.songRepository.createQueryBuilder('songs')
+            // Join for relations
             .leftJoin("songs.artists", "artist")
 
             // Join to fetch artists that are featured
-            .leftJoinAndSelect("songs.artists", "allArtists")
-            .limit(5)
-            .orderBy("songs.id") // TODO: Order by views?
-            .where("artist.id = :artistId", { artistId })
-            .getMany()
+            // .leftJoinAndSelect("songs.artists", "allArtists")
+            // .leftJoinAndSelect("songs.artwork", "artwork")
 
-        return result;
+            // Join to get amount all streams
+            .leftJoin('songs.streams', 'streams')
+
+            // Sum up streams and order by highest
+            .addSelect('SUM(streams.streamCount)', 'streamCount')
+            .groupBy('songs.id')
+            .orderBy('streamCount', 'DESC')
+
+            .limit(5)
+            .where("artist.id = :artistId", { artistId })
+            .getRawAndEntities();
+
+        const resultWithRelations = await this.songRepository.createQueryBuilder('songs')
+            // Join to fetch artists that are featured
+            .leftJoinAndSelect("songs.artists", "allArtists")
+            .leftJoinAndSelect("songs.artwork", "artwork")
+
+            .limit(5)
+            .where("songs.id IN(:artistIds)", { artistIds: result.entities.map((s) => s.id) })
+            .getMany();
+
+        const songs = result.entities.map((song, index) => {
+            const songRelations = resultWithRelations.find((s) => s.id == song.id);
+
+            song.artwork = songRelations.artwork
+            song.artists = songRelations.artists;
+            song.streamCount = result.raw[index].streamCount
+
+            return song;
+        });
+
+        return songs;
     }
 
     public async findByGenre(genreId: string, pageable: Pageable): Promise<Page<Song>> {

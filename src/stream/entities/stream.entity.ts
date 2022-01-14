@@ -9,18 +9,18 @@ export class Stream {
     public id!: number;
 
     @Column()
-    public songId!: string;
+    public songId: string;
 
     @Column()
-    public listenerId!: string;
+    public listenerId: string;
 
     @Column({ default: 1 })
     public streamCount: number;
 
     @ManyToOne(() => Song, s => s.song2playlist, { onDelete: "CASCADE" })
-    public song!: Song;
+    public song: Song;
 
     @ManyToOne(() => User, u => u.streams, { onDelete: "CASCADE" })
-    public listener!: User;
+    public listener: User;
 
 }

@@ -4,16 +4,33 @@ import { SongService } from '../song/song.service';
 import { StorageService } from '../storage/storage.service';
 
 import fs from "fs"
+import { StreamRepository } from './repositories/stream.repository';
+import { SSOService } from '@tsalliance/sso-nest';
 
 @Injectable()
 export class StreamService {
 
     constructor(
         private storageService: StorageService,
-        private songService: SongService
+        private songService: SongService,
+        private streamRepository: StreamRepository,
+        private ssoService: SSOService
     ){}
 
-    public async findStreamableSongById(songId: string, request: Request, response: Response) {
+    public async addToSong(songId: string, listenerId: string) {
+      const stream = await this.streamRepository.findOne({ where: { songId, listenerId }});
+      if(!stream) {
+        this.streamRepository.save({ songId, listenerId })
+        return
+      }
+      
+      stream.streamCount++;
+      this.streamRepository.save(stream)
+    }
+
+    public async findStreamableSongById(songId: string, session: string, request: Request, response: Response) {
+        const listener = await this.ssoService.findUserUsingHeader("@me", `Bearer ${session}`);
+
         const song = await this.songService.findByIdWithIndex(songId);
         if(!song) throw new NotFoundException("Song not found.");
 
@@ -41,6 +58,10 @@ export class StreamService {
     
           readStream.pipe(response);
         } else {
+          if(listener) {
+            this.addToSong(songId, listener.id);
+          }
+
           fs.createReadStream(filePath).pipe(response)
         }
     }

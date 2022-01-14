@@ -102,4 +102,6 @@ export class Song {
     // are fetched
     public playlistAdded: Date;
 
+    public streamCount?: number;
+
 }
