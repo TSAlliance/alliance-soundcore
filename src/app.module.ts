@@ -3,7 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MulterModule } from '@nestjs/platform-express';
 
-import { SSOModule, SSOUser } from "@tsalliance/sso-nest"
+import { SSOModule } from "@tsalliance/sso-nest"
 import { ArtistModule } from './artist/artist.module';
 import { AllianceRestModule } from '@tsalliance/rest';
 import { BucketModule } from './bucket/bucket.module';
@@ -21,6 +21,7 @@ import { StreamModule } from './stream/stream.module';
 import { DistributorModule } from './distributor/distributor.module';
 import { GenreModule } from './genre/genre.module';
 import { PlaylistModule } from './playlist/playlist.module';
+import { UserModule } from './user/user.module';
 
 @Module({
   imports: [
@@ -40,8 +41,7 @@ import { PlaylistModule } from './playlist/playlist.module';
       database: process.env.DB_NAME,
       entities: [
         "src/**/*.entity{ .ts,.js}",
-        "dist/**/*.entity{ .ts,.js}",
-        SSOUser
+        "dist/**/*.entity{ .ts,.js}"
       ],
       synchronize: true,
       entityPrefix: process.env.DB_PREFIX,
@@ -77,7 +77,8 @@ import { PlaylistModule } from './playlist/playlist.module';
     StreamModule,
     DistributorModule,
     GenreModule,
-    PlaylistModule
+    PlaylistModule,
+    UserModule
   ],
   controllers: [],
   providers: []

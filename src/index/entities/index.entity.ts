@@ -1,7 +1,7 @@
-import { SSOUser } from "@tsalliance/sso-nest";
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Mount } from "../../bucket/entities/mount.entity";
 import { Song } from "../../song/entities/song.entity";
+import { User } from "../../user/entities/user.entity";
 import { IndexStatus } from "../enum/index-status.enum";
 
 @Entity()
@@ -29,8 +29,8 @@ export class Index {
     @ManyToOne(() => Mount, { onDelete: "CASCADE" })
     public mount: Mount;
 
-    @ManyToOne(() => SSOUser, { onDelete: "SET NULL" })
-    public uploader: SSOUser;
+    @ManyToOne(() => User, { onDelete: "SET NULL" })
+    public uploader: User;
 
     @CreateDateColumn()
     public indexedAt: Date;

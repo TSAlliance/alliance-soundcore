@@ -5,7 +5,7 @@ import { Playlist } from "./playlist.entity";
 @Entity({ name: "song2playlist" })
 export class Song2Playlist {
 
-    @PrimaryGeneratedColumn()
+    @PrimaryGeneratedColumn({ unsigned: true, type: "bigint" })
     public id!: number;
 
     @Column()

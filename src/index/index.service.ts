@@ -1,11 +1,11 @@
 import { Inject, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
-import { SSOUser } from '@tsalliance/sso-nest';
 import { Page, Pageable } from 'nestjs-pager';
 import { DeleteResult, In } from 'typeorm';
 import { Mount } from '../bucket/entities/mount.entity';
 import { BUCKET_ID } from '../shared/shared.module';
 import { SongService } from '../song/song.service';
 import { StorageService } from '../storage/storage.service';
+import { User } from '../user/entities/user.entity';
 import { Index } from './entities/index.entity';
 import { IndexStatus } from './enum/index-status.enum';
 import { IndexGateway } from './gateway/index.gateway';
@@ -59,7 +59,7 @@ export class IndexService {
      * @param uploader User that uploaded the file (optional, only used if this process is triggered by upload)
      * @returns Index
      */
-    public async createIndex(mount: Mount, filename: string, uploader?: SSOUser): Promise<Index> {
+    public async createIndex(mount: Mount, filename: string, uploader?: User): Promise<Index> {
         const filepath = this.storageService.buildFilepath(mount, filename);
         if(!filepath) throw new InternalServerErrorException("Could not find file.");
 

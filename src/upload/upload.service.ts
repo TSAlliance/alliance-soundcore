@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
-import { SSOUser } from '@tsalliance/sso-nest';
 import { MountService } from '../bucket/services/mount.service';
 import { Index } from '../index/entities/index.entity';
 import { StorageService } from '../storage/storage.service';
+import { User } from '../user/entities/user.entity';
 import { Formats } from './dto/formats.dto';
 
 @Injectable()
@@ -24,7 +24,7 @@ export class UploadService {
      * @param uploader User that uploaded the file.
      * @returns Index
      */
-    public async uploadAudio(file: Express.Multer.File, uploader: SSOUser): Promise<Index> {
+    public async uploadAudio(file: Express.Multer.File, uploader: User): Promise<Index> {
         const mount = await this.mountService.findDefaultMount();
         if(!mount) throw new NotFoundException("Could not find default mount.");
 

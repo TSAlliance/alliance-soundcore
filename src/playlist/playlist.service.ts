@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { SSOUser } from '@tsalliance/sso-nest';
 import { Page, Pageable } from 'nestjs-pager';
 import { Song } from '../song/entities/song.entity';
 import { SongService } from '../song/song.service';
+import { User } from '../user/entities/user.entity';
 import { CreatePlaylistDTO } from './dtos/create-playlist.dto';
 import { UpdatePlaylistSongsDTO } from './dtos/update-songs.dto';
 import { Playlist } from './entities/playlist.entity';
@@ -21,7 +21,7 @@ export class PlaylistService {
         private song2playlistRepository: Song2PlaylistRepository
     ) {}
 
-    public async findPlaylistProfileById(playlistId: string, requester?: SSOUser): Promise<Playlist> {
+    public async findPlaylistProfileById(playlistId: string, requester?: User): Promise<Playlist> {
         const result = await this.playlistRepository.createQueryBuilder("playlist")
                 .where("playlist.id = :playlistId", { playlistId })
 
@@ -59,7 +59,7 @@ export class PlaylistService {
         return this.playlistRepository.findOne({ where: { id: playlistId }, relations: ["artwork", "author", "collaborators", "song2playlist"]})
     }
 
-    public async findAllOrPageByAuthor(authorId: string, pageable?: Pageable, requester?: SSOUser): Promise<Page<Playlist>> {
+    public async findAllOrPageByAuthor(authorId: string, pageable?: Pageable, requester?: User): Promise<Page<Playlist>> {
         if(authorId == requester?.id) {
             // Return all playlists if its the author requesting his playlists
             const result = await this.playlistRepository.find({ where: { author: { id: authorId }}, relations: ["artwork", "author", "collaborators"]});
@@ -78,7 +78,7 @@ export class PlaylistService {
         return this.playlistRepository.findAll(pageable, { where: { privacy: PlaylistPrivacy.PUBLIC, author: { id: authorId }}, relations: ["artwork", "author", "collaborators"]})
     }
 
-    public async findSongsInPlaylist(playlistId: string, pageable: Pageable, requester: SSOUser): Promise<Page<Song>> {
+    public async findSongsInPlaylist(playlistId: string, pageable: Pageable, requester: User): Promise<Page<Song>> {
         const playlist = await this.playlistRepository.findOne({ where: { id: playlistId }});
         if(!playlist) throw new NotFoundException("Playlist not found.")
 
@@ -93,7 +93,7 @@ export class PlaylistService {
         return !! (await this.playlistRepository.findOne({ where: { title, author: { id: userId }}}))
     }
 
-    public async create(createPlaylistDto: CreatePlaylistDTO, author: SSOUser): Promise<Playlist> {
+    public async create(createPlaylistDto: CreatePlaylistDTO, author: User): Promise<Playlist> {
         if(await this.existsByTitleInUser(createPlaylistDto.title, author.id)) throw new BadRequestException("Playlist already exists.");
         return this.playlistRepository.save({
             ...createPlaylistDto,
@@ -108,7 +108,7 @@ export class PlaylistService {
      * @param requester The user requesting the operation. Used to check if the user is allowed to add songs
      * @returns 
      */
-    public async updateSongs(playlistId: string, updateSongsDto: UpdatePlaylistSongsDTO, requester: SSOUser): Promise<Playlist> {
+    public async updateSongs(playlistId: string, updateSongsDto: UpdatePlaylistSongsDTO, requester: User): Promise<Playlist> {
         const playlist: Playlist = await this.findPlaylistByIdWithRelations(playlistId);
         if(!playlist) throw new NotFoundException("Playlist does not exist.");
 
@@ -143,7 +143,7 @@ export class PlaylistService {
         }
     }
 
-    private async hasUserAccessToPlaylist(playlist: Playlist, user: SSOUser): Promise<boolean> {
+    private async hasUserAccessToPlaylist(playlist: Playlist, user: User): Promise<boolean> {
         if(!playlist || !user) return false;
         if(playlist.author?.id == user?.id) return true
 

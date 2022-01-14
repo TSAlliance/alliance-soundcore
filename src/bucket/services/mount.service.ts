@@ -13,8 +13,8 @@ import { Index } from "../../index/entities/index.entity";
 import { IndexService } from "../../index/index.service";
 import { BUCKET_ID, MOUNT_ID } from "../../shared/shared.module";
 import { IndexStatus } from '../../index/enum/index-status.enum';
-import { SSOUser } from '@tsalliance/sso-nest';
 import { MountStatus } from '../enums/mount-status.enum';
+import { User } from '../../user/entities/user.entity';
 
 @Injectable()
 export class MountService {
@@ -207,7 +207,7 @@ export class MountService {
      * @param filename File to be indexed
      * @returns Index
      */
-    public async mountFile(mount: Mount, filename: string, uploader?: SSOUser): Promise<Index> {
+    public async mountFile(mount: Mount, filename: string, uploader?: User): Promise<Index> {
         return this.indexService.createIndex(mount, filename, uploader);
     }
 

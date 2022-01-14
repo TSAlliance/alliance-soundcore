@@ -1,6 +1,6 @@
-import { SSOUser } from "@tsalliance/sso-nest";
 import { Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Artwork } from "../../artwork/entities/artwork.entity";
+import { User } from "../../user/entities/user.entity";
 import { PlaylistPrivacy } from "../enums/playlist-privacy.enum";
 import { Song2Playlist } from "./song2playlist.entity";
 
@@ -25,17 +25,13 @@ export class Playlist {
     @CreateDateColumn()
     public createdAt: Date;
 
-    @ManyToMany(() => SSOUser)
+    @ManyToMany(() => User)
     @JoinTable({ name: "collaborators2playlist" })
-    public collaborators: SSOUser[];
+    public collaborators: User[];
 
-    @ManyToOne(() => SSOUser)
+    @ManyToOne(() => User)
     @JoinColumn()
-    public author: SSOUser;
-
-    /*@ManyToMany(() => Song)
-    @JoinTable({ name: "song2playlist" })
-    public songs: Song[]*/
+    public author: User;
 
     @OneToMany(() => Song2Playlist, song2playlist => song2playlist.playlist)
     public song2playlist!: Song2Playlist[];

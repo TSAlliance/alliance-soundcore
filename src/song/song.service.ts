@@ -85,10 +85,14 @@ export class SongService {
     public async findTopSongsByArtist(artistId: string): Promise<Song[]> {
         const result = await this.songRepository.createQueryBuilder("songs")
             .leftJoinAndSelect("songs.artwork", "artwork")
-            .leftJoin("songs.artists", "artists")
+            // Join for relation id
+            .leftJoin("songs.artists", "artist")
+
+            // Join to fetch artists that are featured
+            .leftJoinAndSelect("songs.artists", "allArtists")
             .limit(5)
             .orderBy("songs.id") // TODO: Order by views?
-            .where("artists.id = :artistId", { artistId })
+            .where("artist.id = :artistId", { artistId })
             .getMany()
 
         return result;
