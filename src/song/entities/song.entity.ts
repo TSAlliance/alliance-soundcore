@@ -48,10 +48,6 @@ export class Song {
     @Column({ nullable: true, default: '0' })
     public youtubeUrlStart: string;
 
-    @CanRead(false)
-    @Column({ nullable: true })
-    public api_path: string;
-
     @Column({ nullable: true })
     public geniusUrl: string;
 

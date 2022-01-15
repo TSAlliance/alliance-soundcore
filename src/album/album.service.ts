@@ -55,15 +55,18 @@ export class AlbumService {
 
     public async createIfNotExists(createAlbumDto: CreateAlbumDTO, primaryArtistName: string, mountForArtwork?: Mount): Promise<Album> {
         let album = await this.findByTitle(createAlbumDto.title);
-        if(album) return album;
+        
+        if(!album) {
+            album = await this.create(createAlbumDto);
 
-        album = await this.create(createAlbumDto)
+            return this.geniusService.findAndApplyAlbumInfo(album, primaryArtistName, mountForArtwork).then(() => {
+                return this.albumRepository.save(album);
+            }).catch(() => {
+                return album
+            })
+        }
 
-        return this.geniusService.findAndApplyAlbumInfo(album, primaryArtistName, mountForArtwork).then(() => {
-            return this.albumRepository.save(album);
-        }).catch(() => {
-            return album
-        })
+        return album;
     }
 
     public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Album>> {

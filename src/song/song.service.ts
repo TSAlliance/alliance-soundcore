@@ -18,7 +18,7 @@ import { Artist } from '../artist/entities/artist.entity';
 import { IndexStatus } from '../index/enum/index-status.enum';
 import { GeniusService } from '../genius/services/genius.service';
 import { Page, Pageable } from 'nestjs-pager';
-import { ILike, In } from 'typeorm';
+import { ILike } from 'typeorm';
 import { Album } from '../album/entities/album.entity';
 import { AlbumService } from '../album/album.service';
 import { ArtworkService } from '../artwork/artwork.service';
@@ -87,10 +87,6 @@ export class SongService {
             // Join for relations
             .leftJoin("songs.artists", "artist")
 
-            // Join to fetch artists that are featured
-            // .leftJoinAndSelect("songs.artists", "allArtists")
-            // .leftJoinAndSelect("songs.artwork", "artwork")
-
             // Join to get amount all streams
             .leftJoin('songs.streams', 'streams')
 
@@ -102,6 +98,8 @@ export class SongService {
             .limit(5)
             .where("artist.id = :artistId", { artistId })
             .getRawAndEntities();
+
+        if(result.entities.length <= 0) throw new NotFoundException("Could not find artist");
 
         const resultWithRelations = await this.songRepository.createQueryBuilder('songs')
             // Join to fetch artists that are featured
@@ -230,10 +228,10 @@ export class SongService {
             const artwork = await this.artworkService.createFromIndexAndBuffer(index, id3tags.artwork);
             if(artwork) song.artwork = artwork;
 
-            // Add artists to song
-            // and song to artists
-            const artists: Artist[] = await Promise.all(id3tags.artists.map(async (id3Artist) => await this.artistService.createIfNotExists(id3Artist.name, index.mount))) || [];
-            song.artists = artists;
+            // There are artists on the id3 tags. Search them on genius
+            song.artists = [];
+            const artists: Artist[] = await Promise.all(id3tags.artists.map(async (id3Artist) => await this.artistService.createIfNotExists({ name: id3Artist.name, mountForArtworkId: index.mount.id }))) || [];
+            song.artists.push(...artists)
 
             // Save relations
             index.song = song;
@@ -241,7 +239,20 @@ export class SongService {
             await this.songRepository.save(song);
         
             // Request song info on Genius.com
-            await this.geniusService.findAndApplySongInfo(song).then(async () => {
+            await this.geniusService.findAndApplySongInfo(song).then(async (result) => {
+                // If there are no artists till this point, this means, that
+                // there were no artists on the id3tags found.
+                if(!song.artists) song.artists = [];
+
+                if(song.artists.length <= 0) {
+                    // No artists found, get the ones that were found via the genius song search
+                    const foundArtists = [ ...result.dto.featured_artists, result.dto.primary_artist ]
+                    const artists: Artist[] = await Promise.all(foundArtists.map(async (geniusArtist) => await this.artistService.createIfNotExists({ name: geniusArtist.name, geniusId: geniusArtist.id, geniusUrl: geniusArtist.url, description: geniusArtist.description_preview, mountForArtworkId: index.mount.id }))) || [];
+                    song.artists.push(...artists)
+                }
+
+                // Save updated song metadata together
+                // with artist relations
                 await this.songRepository.save(song);
             });
 
@@ -255,6 +266,7 @@ export class SongService {
             index.status = IndexStatus.OK;
         } catch (error) {
             this.logger.error(error);
+            console.error(error)
             index.status = IndexStatus.ERRORED;
             await this.songRepository.delete({ id: song.id });
         }

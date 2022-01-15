@@ -14,12 +14,8 @@ export class Artist {
     @Column({ nullable: true })
     public geniusId: string;
 
-    @Column({ nullable: true })
+    @Column({ nullable: true, type: "text" })
     public geniusUrl: string;
-
-    @CanRead(false)
-    @Column({ nullable: true })
-    public api_path: string;
 
     @Column({ nullable: true, type: "text" })
     public description: string;
