@@ -8,7 +8,10 @@ import { LabelService } from '../label/label.service';
 import { PublisherService } from '../publisher/publisher.service';
 import { SongService } from '../song/song.service';
 import { Levenshtein } from '../utils/levenshtein';
+import { SearchBestMatch, SearchBestMatchType } from './entities/best-match.entity';
 import { ComplexSearchResult } from './entities/complex-search.entity';
+
+type MatchCandidate = { compareString: string, obj: any, type: SearchBestMatchType };
 
 @Injectable()
 export class SearchService {
@@ -45,46 +48,40 @@ export class SearchService {
         }
 
         if(query && query.length > 0 && query != " ") {
-            searchResult.bestMatch = await this.findBestMatch(query, searchResult) || undefined;
+            const bestMatch = await this.findBestMatch(query, searchResult) || undefined;
+            searchResult.bestMatch = !!bestMatch.match ? bestMatch : undefined;
         }
         
         return searchResult
 
     }
 
-    public async findBestMatch(needle: string, haystack: ComplexSearchResult): Promise<any> {
-        let candidates: { compareString: string, obj: any }[] = [];
+    public async findBestMatch(needle: string, haystack: ComplexSearchResult): Promise<SearchBestMatch> {
+        const candidates: MatchCandidate[] = [];
 
-        if(haystack.albums) candidates.push(...haystack.albums?.elements.map((x) => ({ compareString: x.title, obj: x })))
-        if(haystack.songs) candidates.push(...haystack.songs?.elements.map((x) => ({ compareString: x.title, obj: x })))
-        if(haystack.artists) candidates.push(...haystack.artists?.elements.map((x) => ({ compareString: x.name, obj: x })))
-        if(haystack.genres) candidates.push(...haystack.genres?.elements.map((x) => ({ compareString: x.name, obj: x })))
-        if(haystack.publisher) candidates.push(...haystack.publisher?.elements.map((x) => ({ compareString: x.name, obj: x })))
-        if(haystack.distributors) candidates.push(...haystack.distributors?.elements.map((x) => ({ compareString: x.name, obj: x })))
-        if(haystack.labels) candidates.push(...haystack.labels?.elements.map((x) => ({ compareString: x.name, obj: x })))
+        if(haystack.albums) candidates.push(...haystack.albums?.elements.map((x) => ({ compareString: x.title, obj: x, type: "album" as SearchBestMatchType })))
+        if(haystack.songs) candidates.push(...haystack.songs?.elements.map((x) => ({ compareString: x.title, obj: x, type: "song" as SearchBestMatchType })))
+        if(haystack.artists) candidates.push(...haystack.artists?.elements.map((x) => ({ compareString: x.name, obj: x, type: "artist" as SearchBestMatchType })))
+        if(haystack.genres) candidates.push(...haystack.genres?.elements.map((x) => ({ compareString: x.name, obj: x, type: "genre" as SearchBestMatchType })))
+        if(haystack.publisher) candidates.push(...haystack.publisher?.elements.map((x) => ({ compareString: x.name, obj: x, type: "publisher" as SearchBestMatchType })))
+        if(haystack.distributors) candidates.push(...haystack.distributors?.elements.map((x) => ({ compareString: x.name, obj: x, type: "distributor" as SearchBestMatchType })))
+        if(haystack.labels) candidates.push(...haystack.labels?.elements.map((x) => ({ compareString: x.name, obj: x, type: "label" as SearchBestMatchType })))
 
-        let bestMatch: { score: number, value: any } = { score: 0, value: null};
+        let bestMatch: { score: number, value: MatchCandidate, type: SearchBestMatchType } = { score: 0, value: null, type: "song"};
 
         // Return if its only one or zero entries
-        if(candidates.length <= 1) return candidates[0].obj;
-
-        const strLen = candidates.sort((a, b) => b.compareString.length - a.compareString.length)[0]?.compareString.length;
-
-        candidates = candidates.map((candidate) => {
-            for(let i = candidate.compareString.length; i < strLen; i++) {
-                candidate.compareString += " ";
-            }
-
-            return candidate
-        })
+        if(candidates.length <= 0) return { match: undefined, type: undefined };
+        if(candidates.length == 1) return { match: candidates[0]?.obj, type: candidates[0]?.type };
 
         for(const candidate of candidates) {
             const score = Levenshtein.getEditDistance(candidate.compareString.toLowerCase(), needle.toLowerCase());
-            console.log([score, candidate.compareString])
-            if(score < bestMatch.score || bestMatch.value == null) bestMatch = { score, value: candidate};
+            if(score < bestMatch.score || bestMatch.value == null) bestMatch = { score, value: candidate, type: candidate.type };
         }
 
-        return bestMatch.value;
+        return {
+            type: bestMatch.type,
+            match: bestMatch.value.obj
+        };
     }
 
 
