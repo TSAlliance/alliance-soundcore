@@ -9,6 +9,8 @@ import { Song } from "../../song/entities/song.entity";
 
 export class ComplexSearchResult {
 
+    public bestMatch?: any;
+
     public songs?: Page<Song>;
     public artists?: Page<Artist>;
     public albums?: Page<Album>;
