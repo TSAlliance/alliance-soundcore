@@ -60,6 +60,8 @@ export class IndexService {
      * @returns Index
      */
     public async createIndex(mount: Mount, filename: string, uploader?: User): Promise<Index> {
+        // TODO: Check if filename together with mount exists as index and has status ERRORED
+        // Errored Indexes should be triggered to reindex manually
         const filepath = this.storageService.buildFilepath(mount, filename);
         if(!filepath) throw new InternalServerErrorException("Could not find file.");
 
@@ -74,6 +76,9 @@ export class IndexService {
             status: IndexStatus.PREPARING,
             uploader
         })
+
+        // TODO: Implement index queue to only have one file at a time be indexed.
+        // This slows down indexing process, but prevents duplication errors on album / artists and so on
 
         // Do indexing tasks in background
         this.storageService.generateChecksumOfIndex(index).then(async (index) => {
