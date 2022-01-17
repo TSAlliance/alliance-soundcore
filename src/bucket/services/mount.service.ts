@@ -228,15 +228,14 @@ export class MountService {
         const notIndexedFiles: string[] = files.filter((file) => !indices.includes(file));
             
         if(notIndexedFiles.length > 0) {
-            this.setStatus(mount, MountStatus.INDEXING)
+            // TODO: this.setStatus(mount, MountStatus.INDEXING)
             this.logger.warn(`Found ${notIndexedFiles.length} files that require indexing. Indexing mount '${mount.name}'...`);
                 
             for(const filename of notIndexedFiles) {
-                // TODO: Maybe build queuing system? Currently awaiting finish of one process at a time.
-                await this.indexService.createIndex(mount, filename)
+                this.indexService.createIndex(mount, filename)
             }
 
-            this.setStatus(mount, MountStatus.OK)
+            // TODO: this.setStatus(mount, MountStatus.OK)
         }
     }
 

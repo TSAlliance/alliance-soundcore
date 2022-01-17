@@ -7,10 +7,11 @@ import { StorageModule } from '../storage/storage.module';
 import { SongModule } from '../song/song.module';
 import { SharedModule } from '../shared/shared.module';
 import { IndexGateway } from './gateway/index.gateway';
+import { QueueService } from './services/queue.service';
 
 @Module({
   controllers: [IndexController],
-  providers: [IndexService, IndexGateway],
+  providers: [IndexService, IndexGateway, QueueService],
   imports: [
     SharedModule,
     StorageModule,
@@ -26,7 +27,7 @@ export class IndexModule implements OnModuleInit {
   constructor(private indexService: IndexService){}
   
   public async onModuleInit() {
-    await this.indexService.clearProcessingOrPreparing();
+    await this.indexService.clearOrResumeProcessing();
   }
 
 }

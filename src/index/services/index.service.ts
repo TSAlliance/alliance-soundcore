@@ -1,6 +1,6 @@
-import { Inject, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
-import { DeleteResult, In } from 'typeorm';
+import { In } from 'typeorm';
 import { Mount } from '../../bucket/entities/mount.entity';
 import { BUCKET_ID } from '../../shared/shared.module';
 import { SongService } from '../../song/song.service';
@@ -10,6 +10,7 @@ import { Index } from '../entities/index.entity';
 import { IndexStatus } from '../enum/index-status.enum';
 import { IndexGateway } from '../gateway/index.gateway';
 import { IndexRepository } from '../repositories/index.repository';
+import { QueueService } from './queue.service';
 
 @Injectable()
 export class IndexService {
@@ -20,7 +21,8 @@ export class IndexService {
         private songService: SongService,
         private indexRepository: IndexRepository,
         private indexGateway: IndexGateway,
-        @Inject(BUCKET_ID) private bucketId: string
+        @Inject(BUCKET_ID) private bucketId: string,
+        @Inject(forwardRef(() => QueueService)) private queueService: QueueService
     ){}
 
     /**
@@ -64,8 +66,6 @@ export class IndexService {
      * @returns Index
      */
     public async createIndex(mount: Mount, filename: string, uploader?: User): Promise<Index> {
-        // TODO: Check if filename together with mount exists as index and has status ERRORED
-        // Errored Indexes should be triggered to reindex manually
         const filepath = this.storageService.buildFilepath(mount, filename);
         if(!filepath) throw new InternalServerErrorException("Could not find file.");
 
@@ -79,36 +79,61 @@ export class IndexService {
                 mount,
                 filename,
                 size: fileStats.size,
-                status: IndexStatus.PREPARING,
                 uploader
             })
+        } else {
+            console.log("index exists")
         }
 
+        index.status = IndexStatus.PREPARING;
+        await this.indexRepository.save(index);
+        await this.queueService.enqueue(index);
+        return index;
+    }
+
+    /**
+     * Create index from a file inside a mount.
+     * @param mount Mount
+     * @param filename Filename in that mount
+     * @param uploader User that uploaded the file (optional, only used if this process is triggered by upload)
+     * @returns Index
+     */
+    public async processIndex(index: Index): Promise<Index> {
         // TODO: Implement index queue to only have one file at a time be indexed.
         // This slows down indexing process, but prevents duplication errors on album / artists and so on
+        this.queueService.onIndexStart(index)
 
         // Do indexing tasks in background
-        this.storageService.generateChecksumOfIndex(index).then(async (index) => {
+        return this.storageService.generateChecksumOfIndex(index).then(async (index) => {
             this.setStatus(index, index.status);
-            if(index.status == IndexStatus.ERRORED) return;
+            if(index.status == IndexStatus.ERRORED) {
+                this.queueService.onIndexEnded(index, "errored");
+                return index;
+            }
 
             // Check for duplicate files and abort if so
             if(await this.existsByChecksum(index.checksum)) {
                 this.setStatus(index, IndexStatus.DUPLICATE);
-                return;
+                this.queueService.onIndexEnded(index, "errored");
+                return index;
             }
 
             // Continue with next step: Create optimized mp3 files
             this.storageService.createOptimizedMp3File(index).then(async (index) => {
                 index = await this.setStatus(index, index.status)
-                if(index.status == IndexStatus.ERRORED) return;
+                if(index.status == IndexStatus.ERRORED){
+                    this.queueService.onIndexEnded(index, "errored");
+                    return;
+                }
 
                 // Continue with next step: Create song metadata from index
                 this.songService.createFromIndex(index).then(async (song) => {
-                    await this.setStatus(song.index, song.index.status)
+                    index = await this.setStatus(song.index, song.index.status)
 
                     // Done at this point. The createFromIndex() in song service handles all required
                     // steps to gather information like artists, album and cover artwork
+                    this.queueService.onIndexEnded(index, "done");
+                    return index;
                 });
             })
         }).catch((error) => {
@@ -116,10 +141,10 @@ export class IndexService {
 
             index.status = IndexStatus.ERRORED;
             this.setStatus(index, IndexStatus.ERRORED);
-        })
 
-        // Return index object.
-        return index;
+            this.queueService.onIndexEnded(index, "errored");
+            return index;
+        })
     }
 
     /**
@@ -151,9 +176,22 @@ export class IndexService {
      * inside bucket of the current machine.
      * @returns DeleteResult
      */
-    public async clearProcessingOrPreparing(): Promise<DeleteResult> {
-        const indices = await this.findAllByStatusInBucket(this.bucketId, [ IndexStatus.PREPARING, IndexStatus.PROCESSING ]);
-        return this.indexRepository.delete({ id: In(indices.map((index) => index.id)) });
+    public async clearOrResumeProcessing(): Promise<void> {
+        const indices = await this.findAllByStatusInBucket(this.bucketId, [ IndexStatus.PROCESSING, IndexStatus.PREPARING ]);
+
+        const preparing = [];
+        const processing = [];
+
+        indices.forEach((i) => {
+            if(i.status == IndexStatus.PREPARING) preparing.push(i)
+            else processing.push(i)
+        })
+
+        for(const index of preparing) {
+            await this.queueService.enqueue(index);
+        }
+        
+        await this.indexRepository.delete({ id: In(processing.map((index) => index.id)) });
     }
 
 }
