@@ -10,7 +10,7 @@ import { BucketRepository } from '../repositories/bucket.repository';
 import { DeleteResult } from 'typeorm';
 import { UpdateMountDTO } from '../dto/update-mount.dto';
 import { Index } from "../../index/entities/index.entity";
-import { IndexService } from "../../index/index.service";
+import { IndexService } from "../../index/services/index.service";
 import { BUCKET_ID, MOUNT_ID } from "../../shared/shared.module";
 import { IndexStatus } from '../../index/enum/index-status.enum';
 import { MountStatus } from '../enums/mount-status.enum';

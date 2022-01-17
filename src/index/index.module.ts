@@ -1,5 +1,5 @@
 import { Module, OnModuleInit } from '@nestjs/common';
-import { IndexService } from './index.service';
+import { IndexService } from './services/index.service';
 import { IndexController } from './index.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { IndexRepository } from './repositories/index.repository';

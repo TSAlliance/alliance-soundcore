@@ -1,15 +1,15 @@
 import { Inject, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
 import { DeleteResult, In } from 'typeorm';
-import { Mount } from '../bucket/entities/mount.entity';
-import { BUCKET_ID } from '../shared/shared.module';
-import { SongService } from '../song/song.service';
-import { StorageService } from '../storage/storage.service';
-import { User } from '../user/entities/user.entity';
-import { Index } from './entities/index.entity';
-import { IndexStatus } from './enum/index-status.enum';
-import { IndexGateway } from './gateway/index.gateway';
-import { IndexRepository } from './repositories/index.repository';
+import { Mount } from '../../bucket/entities/mount.entity';
+import { BUCKET_ID } from '../../shared/shared.module';
+import { SongService } from '../../song/song.service';
+import { StorageService } from '../../storage/storage.service';
+import { User } from '../../user/entities/user.entity';
+import { Index } from '../entities/index.entity';
+import { IndexStatus } from '../enum/index-status.enum';
+import { IndexGateway } from '../gateway/index.gateway';
+import { IndexRepository } from '../repositories/index.repository';
 
 @Injectable()
 export class IndexService {

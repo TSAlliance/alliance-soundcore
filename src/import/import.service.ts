@@ -10,7 +10,7 @@ import sanitize from 'sanitize-filename';
 import ytdl from "ytdl-core";
 import ytpl from 'ytpl';
 import { Mount } from '../bucket/entities/mount.entity';
-import { IndexService } from '../index/index.service';
+import { IndexService } from '../index/services/index.service';
 import { info } from 'console';
 
 import NodeID3 from 'node-id3';

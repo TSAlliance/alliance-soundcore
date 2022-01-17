@@ -2,7 +2,7 @@ import { Controller, Get, Param } from '@nestjs/common';
 import { IsAuthenticated } from '@tsalliance/sso-nest';
 import { Page, Pageable } from 'nestjs-pager';
 import { Index } from './entities/index.entity';
-import { IndexService } from './index.service';
+import { IndexService } from './services/index.service';
 
 @Controller('index')
 export class IndexController {
