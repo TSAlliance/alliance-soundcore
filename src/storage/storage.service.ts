@@ -9,6 +9,9 @@ import { Index } from "../index/entities/index.entity";
 import { Mount } from "../bucket/entities/mount.entity";
 import { BUCKET_ID } from "../shared/shared.module";
 import { IndexStatus } from "../index/enum/index-status.enum";
+import sanitize from "sanitize-filename";
+
+import { v4 as uuidv4 } from "uuid"
 
 @Injectable()
 export class StorageService {
@@ -101,7 +104,7 @@ export class StorageService {
      * @returns string
      */
     public buildFilepath(mount: Mount, filename: string): string {
-        return path.join(mount.path, filename);
+        return path.join(mount.path, sanitize(filename));
     }
 
     /**
@@ -123,6 +126,22 @@ export class StorageService {
     }
 
     /**
+     * Get temporary directory of the application.
+     * @returns string
+     */
+    public getTmpDir(): string {
+        return path.join(os.tmpdir());
+    }
+
+    /**
+     * Get temporary filepath for a file.
+     * @returns string
+     */
+     public buildTmpFilepath(): string {
+        return path.join(os.tmpdir(), uuidv4());
+    }
+
+    /**
      * Get optimized directory of a mount that contains all optimized mp3 files
      * @returns string
      */
@@ -135,7 +154,7 @@ export class StorageService {
      * Get artworks directory of a mount that contains all cover images
      * @returns string
      */
-     public getArtworksDir(mount?: Mount): string {
+    public getArtworksDir(mount?: Mount): string {
         if(!mount) return path.join(this.getSoundcoreDir(), this.bucketId, "artworks");
         return path.join(mount.path, "artworks");
     }

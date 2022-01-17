@@ -4,6 +4,7 @@ import { Response } from 'express';
 import { createReadStream, existsSync, mkdirSync } from 'fs';
 import path from 'path';
 import sharp from 'sharp';
+import fs from "fs"
 import { ArtistService } from '../artist/artist.service';
 import { Index } from '../index/entities/index.entity';
 import { MOUNT_ID } from '../shared/shared.module';
@@ -14,6 +15,7 @@ import { ArtworkRepository } from './repositories/artwork.repository';
 import { ArtworkType } from './types/artwork-type.enum';
 
 import Vibrant from "node-vibrant"
+import { v4 as uuidv4 } from "uuid"
 
 @Injectable()
 export class ArtworkService {
@@ -91,33 +93,6 @@ export class ArtworkService {
         })
     }
 
-    private async writeArtwork(buffer: Buffer, artwork: Artwork) {
-        const dstFilepath = this.buildArtworkFile(artwork);
-        const directory = path.dirname(dstFilepath);
-        mkdirSync(directory, { recursive: true });
-
-        let sharpProcess = sharp(buffer);
-
-        // Only resize image if its not of type banner
-        if(!artwork.type.toString().includes("banner")) {
-            sharpProcess = sharpProcess.jpeg({ quality: 80 }).resize(256, 256, { fit: "cover" })
-        } else {
-            // Make lower quality for banner images
-            sharpProcess = sharpProcess.jpeg({ quality: 70 })
-        }
-
-        return await sharpProcess.toFile(dstFilepath).then(async () => {
-            // Extract accent color and save to database
-            artwork.accentColor = await this.getAccentColorFromArtwork(artwork);
-            await this.artworkRepository.save(artwork)
-            return artwork;
-        }).catch((reason) => {
-            this.logger.error(reason)
-            this.artworkRepository.delete(artwork)
-            throw reason;
-        })
-    }
-
     /**
      * Create external artwork (url).
      * @param createArtworkDto Additional data like the url
@@ -141,7 +116,7 @@ export class ArtworkService {
         // downloaded automatically.
         if(artwork.externalUrl && createArtworkDto.autoDownload) {
             // Download the image from the url.
-            return await this.downloadArtworkByUrl(artwork).then(async (artwork) => {
+            return await this.downloadAndWriteArtworkByUrl(artwork).then(async (artwork) => {
                 artwork.externalUrl = null;
                 this.artworkRepository.save(artwork);
                 return artwork;
@@ -154,7 +129,101 @@ export class ArtworkService {
         return artwork;
     }
 
-    private async downloadArtworkByUrl(artwork: Artwork) {
+    /**
+     * Download an image from the provided url.
+     * @param url Url to the image
+     * @returns Buffer
+     */
+    public async downloadImageUrl(url: string): Promise<Buffer> {
+        return axios.get(url, { responseType: "arraybuffer" }).then((response) => {
+            if(response.status == 200 && response.data) {
+                return Buffer.from(response.data)
+            }
+        }).catch((error) => {
+            this.logger.error(error)
+            return null;
+        })
+    }
+
+    /**
+     * Create a readstream for an artwork and pipe it directly to the response.
+     * @param artworkId Requested artwork's id.
+     * @param response Response to pipe stream to.
+     */
+     public async streamArtwork(artworkId: string, response: Response) {
+        const artwork = await this.findByIdWithMount(artworkId);
+        if(!artwork) throw new NotFoundException("Could not find artwork.");
+
+        const filepath = this.buildArtworkFile(artwork);
+        if(!existsSync(filepath)) throw new NotFoundException("Could not find artwork file.");
+        createReadStream(filepath).pipe(response);        
+    }
+
+    /**
+     * Write a buffer to a temporary file. This generates a filepath, writes the data and returns the filepath as string
+     * @param buffer Buffer data to be written
+     * @returns string
+     */
+    public async writeBufferToTmp(buffer: Buffer): Promise<string> {
+        if(!buffer) return null;
+        const dstFilepath = path.join(this.storageService.getTmpDir(), `${uuidv4()}.jpg`);
+        return this.writeBufferToFile(buffer, dstFilepath);
+    }
+
+    /**
+     * Write a buffer to a file
+     * @param buffer Buffer data to be written
+     * @returns string
+     */
+    private async writeBufferToFile(buffer: Buffer, filepath: string): Promise<string> {
+        if(!buffer) return null;
+
+        return new Promise((resolve) => {
+            const directory = path.dirname(filepath);
+            mkdirSync(directory, { recursive: true });
+
+            fs.writeFile(filepath, buffer, (err) => {
+                if(!err) {
+                    resolve(filepath)
+                    return
+                } else {
+                    console.error(err)
+                    resolve(null)
+                }
+            })
+        })
+    }
+
+    /**
+     * Write artwork buffer to filesystem.
+     * @param buffer Data to be written
+     * @param artwork Artwork data used to build the filepath
+     * @returns Artwork
+     */
+     private async writeArtwork(buffer: Buffer, artwork: Artwork): Promise<Artwork> {
+        if(!buffer) return null;
+        const dstFilepath = this.buildArtworkFile(artwork);
+
+        return this.optimizeImageBuffer(buffer, artwork.type).then(async () => {
+            await this.writeBufferToFile(buffer, dstFilepath)
+
+            // Extract accent color and save to database
+            artwork.accentColor = await this.getAccentColorFromArtwork(artwork);
+            await this.artworkRepository.save(artwork)
+            return artwork;
+        }).catch((reason) => {
+            this.logger.error(reason)
+            this.artworkRepository.delete(artwork)
+            throw reason;
+        })
+    }
+
+    /**
+     * Download image of an artwork by the provided url. This also writes the result to disk.
+     * @param artwork Artwork data including the externalUrl used for downloading
+     * @returns 
+     */
+    private async downloadAndWriteArtworkByUrl(artwork: Artwork) {
         return axios.get(artwork.externalUrl, { responseType: "arraybuffer" }).then((response) => {
             if(response.status == 200 && response.data) {
                 return this.writeArtwork(Buffer.from(response.data), artwork)
@@ -166,17 +235,25 @@ export class ArtworkService {
     }
 
     /**
-     * Create a readstream for an artwork and pipe it directly to the response.
-     * @param artworkId Requested artwork's id.
-     * @param response Response to pipe stream to.
+     * Transform an image buffer to jpeg and apply resize options by provided type.
+     * @param buffer Image Buffer
+     * @param type Type of the result. Banner, if the original measures should be kept. Otherwise a squared image is the outcome
+     * @returns Buffer
      */
-    public async streamArtwork(artworkId: string, response: Response) {
-        const artwork = await this.findByIdWithMount(artworkId);
-        if(!artwork) throw new NotFoundException("Could not find artwork.");
+    public async optimizeImageBuffer(buffer: Buffer, type: ArtworkType): Promise<Buffer> {
+        if(!buffer) return null;
 
-        const filepath = this.buildArtworkFile(artwork);
-        if(!existsSync(filepath)) throw new NotFoundException("Could not find artwork file.");
-        createReadStream(filepath).pipe(response);        
+        let sharpProcess = sharp(buffer);
+
+        // Only resize image if its not of type banner
+        if(!type.toString().includes("banner")) {
+            sharpProcess = sharpProcess.jpeg({ quality: 85 }).resize(256, 256, { fit: "cover" })
+        } else {
+            // Make lower quality for banner images
+            sharpProcess = sharpProcess.jpeg({ quality: 85 })
+        }
+
+        return sharpProcess.toBuffer();
     }
 
 }

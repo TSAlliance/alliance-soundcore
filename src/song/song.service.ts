@@ -205,6 +205,9 @@ export class SongService {
      * @returns Song
      */
     private async create(createSongDto: CreateSongDTO): Promise<Song> {
+        const song = await this.songRepository.findOne({ where: { title: createSongDto.title }, relations: ["artwork", "index"]})
+        if(song) return song;
+
         return this.songRepository.save(createSongDto);
     }
 
@@ -240,14 +243,20 @@ export class SongService {
         
             // Request song info on Genius.com
             await this.geniusService.findAndApplySongInfo(song).then(async (result) => {
+                if(!result) return;
+
                 // If there are no artists till this point, this means, that
                 // there were no artists on the id3tags found.
                 if(!song.artists) song.artists = [];
 
                 if(song.artists.length <= 0) {
                     // No artists found, get the ones that were found via the genius song search
-                    const foundArtists = [ ...result.dto.featured_artists, result.dto.primary_artist ]
-                    const artists: Artist[] = await Promise.all(foundArtists.map(async (geniusArtist) => await this.artistService.createIfNotExists({ name: geniusArtist.name, geniusId: geniusArtist.id, geniusUrl: geniusArtist.url, description: geniusArtist.description_preview, mountForArtworkId: index.mount.id }))) || [];
+                    const foundArtists = []
+
+                    if(result.dto?.featured_artists) foundArtists.push(...result.dto.featured_artists)
+                    if(result.dto?.primary_artist) foundArtists.push(result.dto.primary_artist)
+
+                    const artists: Artist[] = await Promise.all(foundArtists.filter((artist) => !!artist).map(async (geniusArtist) => await this.artistService.createIfNotExists({ name: geniusArtist.name, geniusId: geniusArtist.id, geniusUrl: geniusArtist.url, description: geniusArtist.description_preview, mountForArtworkId: index.mount.id }))) || [];
                     song.artists.push(...artists)
                 }
 
