@@ -23,6 +23,7 @@ import { GenreModule } from './genre/genre.module';
 import { PlaylistModule } from './playlist/playlist.module';
 import { UserModule } from './user/user.module';
 import { ImportModule } from './import/import.module';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { ImportModule } from './import/import.module';
       disableErrorHandling: true,
       disableValidation: false
     }),
+    EventEmitterModule.forRoot({ global: true, ignoreErrors: true }),
     SharedModule,
     ArtistModule,
     BucketModule,
