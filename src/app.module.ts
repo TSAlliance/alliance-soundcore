@@ -22,6 +22,7 @@ import { DistributorModule } from './distributor/distributor.module';
 import { GenreModule } from './genre/genre.module';
 import { PlaylistModule } from './playlist/playlist.module';
 import { UserModule } from './user/user.module';
+import { ImportModule } from './import/import.module';
 
 @Module({
   imports: [
@@ -78,7 +79,8 @@ import { UserModule } from './user/user.module';
     DistributorModule,
     GenreModule,
     PlaylistModule,
-    UserModule
+    UserModule,
+    ImportModule
   ],
   controllers: [],
   providers: []

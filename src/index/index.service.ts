@@ -52,6 +52,10 @@ export class IndexService {
         return this.indexRepository.findAll(pageable, { where: { uploader: { id: uploaderId}}, relations: ["song", "song.artists", "song.artwork"]})
     }
 
+    public async findByMountAndFilenameWithRelations(mountId: string, filename: string): Promise<Index> {
+        return this.indexRepository.findOne({ where: { filename, mount: { id: mountId }}, relations: ["mount", "song", "uploader"]})
+    }
+
     /**
      * Create index from a file inside a mount.
      * @param mount Mount
@@ -68,14 +72,17 @@ export class IndexService {
         const fileStats = await this.storageService.getFileStats(filepath)
         if(!fileStats) throw new InternalServerErrorException("Could not read file stats.");
 
-        // Create index in database
-        const index: Index = await this.indexRepository.save({
-            mount,
-            filename,
-            size: fileStats.size,
-            status: IndexStatus.PREPARING,
-            uploader
-        })
+        // Create index in database or fetch existing
+        let index = await this.findByMountAndFilenameWithRelations(mount.id, filename);
+        if(!index) {
+            index = await this.indexRepository.save({
+                mount,
+                filename,
+                size: fileStats.size,
+                status: IndexStatus.PREPARING,
+                uploader
+            })
+        }
 
         // TODO: Implement index queue to only have one file at a time be indexed.
         // This slows down indexing process, but prevents duplication errors on album / artists and so on

@@ -99,6 +99,7 @@ export class GeniusService {
                 song.youtubeUrlStart = songDto.youtube_start;
                 song.explicit = songDto.explicit;
                 song.description = songDto.description_preview;
+                if(songDto.title) song.title = songDto.title;
 
                 // If there is no existing artwork on the song, then
                 // take the url (if exists) from Genius.com and apply
@@ -147,7 +148,7 @@ export class GeniusService {
             params.append("q", `${title}`)
         }
 
-        return axios.get<GeniusReponseDTO<GeniusSearchResponse>>(`${GENIUS_BASE_URL}/search/album?${params}`, { headers: { "Authorization": "Bearer " + process.env.GENIUS_TOKEN }}).then((response: AxiosResponse<GeniusReponseDTO<GeniusSearchResponse>>) => {
+        return axios.get<GeniusReponseDTO<GeniusSearchResponse>>(`${GENIUS_BASE_URL}/search/album?${params}`).then((response: AxiosResponse<GeniusReponseDTO<GeniusSearchResponse>>) => {
             if(!response || response.data.meta.status != 200 || !response.data.response.sections) return null;
 
             // Get matching section of response
@@ -268,7 +269,7 @@ export class GeniusService {
      * @returns string
      */
     private searchResourceIdOfType(type: "song" | "album" | "artist", searchQuery: string): Promise<string> {
-        return axios.get<GeniusReponseDTO<GeniusSearchResponse>>(`${GENIUS_BASE_URL}/search/${type}?q=${searchQuery}`, { headers: { "Authorization": "Bearer " + process.env.GENIUS_TOKEN }}).then((response: AxiosResponse<GeniusReponseDTO<GeniusSearchResponse>>) => {
+        return axios.get<GeniusReponseDTO<GeniusSearchResponse>>(`${GENIUS_BASE_URL}/search/${type}?q=${searchQuery}`).then((response: AxiosResponse<GeniusReponseDTO<GeniusSearchResponse>>) => {
             if(!response || response.data.meta.status != 200 || !response.data.response.sections) return null;
 
             // Get matching section of response
@@ -302,7 +303,7 @@ export class GeniusService {
      * @returns <T>
      */
     private async fetchResourceByIdAndType<T>(type: "song" | "album" | "artist", id: string): Promise<T> {
-        return axios.get<GeniusReponseDTO<GeniusArtistResponse>>(`${GENIUS_BASE_URL}/${type}s/${id}`, { headers: { "Authorization": "Bearer " + process.env.GENIUS_TOKEN }}).then(async (response) => {
+        return axios.get<GeniusReponseDTO<GeniusArtistResponse>>(`${GENIUS_BASE_URL}/${type}s/${id}`).then(async (response) => {
             // If there is an invalid response (e.g.: errors etc.) then returned unmodified song.
             if(!response || response.data.meta.status != 200 || !response.data.response[type]) return null;
 
