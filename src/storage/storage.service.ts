@@ -1,7 +1,7 @@
 import os from "os"
 import path from "path";
 import crypto from "crypto"
-import fs, { mkdirSync } from "fs"
+import fs from "fs"
 
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Readable } from "stream";
@@ -61,8 +61,8 @@ export class StorageService {
      */
     public async createOptimizedMp3File(index: Index): Promise<Index> {
         const srcFilepath: string = path.join(index.mount.path, index.filename);
-        const optimizedDir: string = this.getOptimizedDir(index.mount);
-        const dstFilepath: string = path.join(optimizedDir, index.filename);
+        // const optimizedDir: string = this.getOptimizedDir(index.mount);
+        // const dstFilepath: string = path.join(optimizedDir, index.filename);
 
         if(!fs.existsSync(srcFilepath)) {
             index.status = IndexStatus.ERRORED;
@@ -70,13 +70,13 @@ export class StorageService {
             throw new NotFoundException("Could not find src file to optimize");
         }
 
-        mkdirSync(optimizedDir, { recursive: true })
+        // mkdirSync(optimizedDir, { recursive: true })
         
         try {
-            if(!fs.existsSync(dstFilepath)) {
+            // if(!fs.existsSync(dstFilepath)) {
                 // The following ffmpeg command causes overdriven bass.
                 // execSync(`${pathToFfmpeg} -i "${srcFilepath}" "${dstFilepath}"`, { stdio: "pipe" });
-            }
+            // }
 
             // Only needed if above is not commented out
             /*if(!fs.existsSync(dstFilepath)) {
@@ -85,7 +85,7 @@ export class StorageService {
             } else {*/
                 index.status = IndexStatus.PROCESSING;
                 // index.size = (await this.getFileStats(dstFilepath)).size;
-                index.size = (await this.getFileStats(srcFilepath)).size;
+                index.size = (await this.getFileStats(srcFilepath))?.size || 0;
             // }
         } catch (error) {
             this.logger.error(error)
