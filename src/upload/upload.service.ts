@@ -32,7 +32,7 @@ export class UploadService {
 
         return this.storageService.writeBufferToMount(mount, file.buffer, file.originalname).catch((error) => error).then((error) => {
             if(error) throw new InternalServerErrorException("Could not upload file: Unexpected error.");
-            return this.mountService.mountFile(mount, file.originalname, uploader)
+            return this.mountService.indexFile({ mount, filename: file.originalname }, uploader)
         });
     }
 

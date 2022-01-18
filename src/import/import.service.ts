@@ -11,15 +11,13 @@ import ytdl from "ytdl-core";
 import ytpl from 'ytpl';
 import { Mount } from '../bucket/entities/mount.entity';
 import { IndexService } from '../index/services/index.service';
-import { info } from 'console';
 
 import NodeID3 from 'node-id3';
 
 import { ImportEntity } from './entities/import.entity';
 import { ArtworkService } from '../artwork/artwork.service';
-import path from 'path';
 import { User } from '../user/entities/user.entity';
-import { exec, execSync } from 'child_process';
+import { exec } from 'child_process';
 import pathToFfmpeg from 'ffmpeg-static';
 
 
@@ -46,7 +44,7 @@ export class ImportService {
         })
 
         const title = createImportDto.title || info.videoDetails.title;
-        const dstFilepath = this.storageService.buildFilepath(mount, title + ".mp3");
+        const dstFilepath = this.storageService.buildFilepathNonIndex({ mount, filename: title + ".mp3", directory: "yt-import" });
 
         const importEntity = new ImportEntity();
         importEntity.status = "preparing";
@@ -101,7 +99,7 @@ export class ImportService {
 
                     setTimeout(() => {
                         // trigger indexing
-                        this.indexService.createIndex(mount, importEntity.dstFilename, importer).then((index) => {
+                        this.indexService.createIndex({ mount, filename: importEntity.dstFilename }, importer).then((index) => {
                             // TODO: Send upgrade to index to socket
                             importEntity.upgradeIndex = index
                             importEntity.status = "upgradeIndex"

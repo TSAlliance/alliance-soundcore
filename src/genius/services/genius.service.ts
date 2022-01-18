@@ -99,7 +99,7 @@ export class GeniusService {
                 song.youtubeUrlStart = songDto.youtube_start;
                 song.explicit = songDto.explicit;
                 song.description = songDto.description_preview;
-                if(songDto.title) song.title = songDto.title;
+                // if(songDto.title) song.title = songDto.title;
 
                 // If there is no existing artwork on the song, then
                 // take the url (if exists) from Genius.com and apply

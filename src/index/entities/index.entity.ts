@@ -10,6 +10,9 @@ export class Index {
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
+    @Column({ nullable: false, default: '.' })
+    public directory: string;
+
     @Column({ nullable: false })
     public filename: string;
 

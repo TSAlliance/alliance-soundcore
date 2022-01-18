@@ -22,6 +22,7 @@ import { ILike } from 'typeorm';
 import { Album } from '../album/entities/album.entity';
 import { AlbumService } from '../album/album.service';
 import { ArtworkService } from '../artwork/artwork.service';
+import { StorageService } from '../storage/storage.service';
 
 @Injectable()
 export class SongService {
@@ -33,6 +34,7 @@ export class SongService {
         private albumService: AlbumService,
         private artworkService: ArtworkService,
         private artistService: ArtistService,
+        private storageServie: StorageService,
         private songRepository: SongRepository
     ){}
 
@@ -217,8 +219,10 @@ export class SongService {
      * @returns Index
      */
     public async createFromIndex(index: Index): Promise<Song> {
-        const filepath = path.join(index.mount.path, index.filename);
+        const filepath = this.storageServie.buildFilepath(index);
         if(!fs.existsSync(filepath)) throw new NotFoundException("Could not find song file");
+
+        console.log(filepath)
 
         const id3tags = await this.readId3Tags(filepath);
         const song: Song = await this.create({

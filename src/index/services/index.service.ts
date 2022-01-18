@@ -1,7 +1,7 @@
 import { BadRequestException, forwardRef, Inject, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
 import { In } from 'typeorm';
-import { Mount } from '../../bucket/entities/mount.entity';
+import { MountedFile } from '../../bucket/entities/mounted-file.entity';
 import { BUCKET_ID } from '../../shared/shared.module';
 import { SongService } from '../../song/song.service';
 import { StorageService } from '../../storage/storage.service';
@@ -65,24 +65,25 @@ export class IndexService {
      * @param uploader User that uploaded the file (optional, only used if this process is triggered by upload)
      * @returns Index
      */
-    public async createIndex(mount: Mount, filename: string, uploader?: User): Promise<Index> {
-        const filepath = this.storageService.buildFilepath(mount, filename);
+    public async createIndex(file: MountedFile, uploader?: User): Promise<Index> {
+        const filepath = this.storageService.buildFilepathNonIndex(file);
         if(!filepath) throw new InternalServerErrorException("Could not find file.");
 
         const fileStats = await this.storageService.getFileStats(filepath)
         if(!fileStats) throw new InternalServerErrorException("Could not read file stats.");
 
         // Create index in database or fetch existing
-        let index = await this.findByMountAndFilenameWithRelations(mount.id, filename);
+        let index = await this.findByMountAndFilenameWithRelations(file.mount.id, file.filename);
         if(!index) {
             index = await this.indexRepository.save({
-                mount,
-                filename,
+                mount: file.mount,
+                filename: file.filename,
                 size: fileStats.size,
+                directory: file.directory,
                 uploader
             })
         } else {
-            throw new BadRequestException("A similar file already exists.")
+            if(uploader) throw new BadRequestException("A similar file already exists.")
         }
 
         index.status = IndexStatus.PREPARING;
@@ -134,7 +135,23 @@ export class IndexService {
                     // steps to gather information like artists, album and cover artwork
                     this.queueService.onIndexEnded(index, "done");
                     return index;
+                }).catch((reason) => {
+                    this.logger.error(reason)
+    
+                    index.status = IndexStatus.ERRORED;
+                    this.setStatus(index, IndexStatus.ERRORED);
+    
+                    this.queueService.onIndexEnded(index, "errored");
+                    return index;
                 });
+            }).catch((reason) => {
+                this.logger.error(reason)
+
+                index.status = IndexStatus.ERRORED;
+                this.setStatus(index, IndexStatus.ERRORED);
+
+                this.queueService.onIndexEnded(index, "errored");
+                return index;
             })
         }).catch((error) => {
             this.logger.error(error);
@@ -155,7 +172,7 @@ export class IndexService {
      * @returns True or False
      */
     public async existsByChecksum(checksum: string): Promise<boolean> {
-        return !!(await this.indexRepository.findOne({ where: { checksum, status: In([IndexStatus.OK, IndexStatus.PREPARING, IndexStatus.PROCESSING])}}));
+        return !!(await this.indexRepository.findOne({ where: { checksum, status: In([IndexStatus.OK, IndexStatus.PROCESSING])}}));
     }
 
     /**

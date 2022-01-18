@@ -18,6 +18,8 @@ import { User } from '../../user/entities/user.entity';
 import { MountGateway } from '../gateway/mount-status.gateway';
 import { OnEvent } from '@nestjs/event-emitter';
 import { MOUNT_INDEX_END, MOUNT_INDEX_START } from '../../index/services/queue.service';
+import { glob } from 'glob';
+import { MountedFile } from '../entities/mounted-file.entity';
 
 @Injectable()
 export class MountService {
@@ -211,8 +213,8 @@ export class MountService {
      * @param filename File to be indexed
      * @returns Index
      */
-    public async mountFile(mount: Mount, filename: string, uploader?: User): Promise<Index> {
-        return this.indexService.createIndex(mount, filename, uploader);
+    public async indexFile(file: MountedFile, uploader?: User): Promise<Index> {
+        return this.indexService.createIndex(file, uploader);
     }
 
     /**
@@ -227,19 +229,25 @@ export class MountService {
             mkdirSync(mountDir, { recursive: true })
         }
 
+        // Get files inside mount.
+        // This also considers every file in subdirectories.
+        const files: MountedFile[] = glob.sync("**/*.mp3", { cwd: mountDir }).map((filepath) => ({
+            directory: path.dirname(filepath),
+            filename: path.basename(filepath),
+            mount
+        }));
+
         const indices: string[] = (await this.indexService.findAllByMount(mount.id)).filter((index) => index.status != IndexStatus.ERRORED).map((index) => index.filename);
-        const files: string[] = fs.readdirSync(mountDir, { withFileTypes: true }).filter((file) => file.isFile()).map((file) => file.name);
-        const notIndexedFiles: string[] = files.filter((file) => !indices.includes(file));
+        // const files: string[] = fs.readdirSync(mountDir, { withFileTypes: true }).filter((file) => file.isFile()).map((file) => file.name);
+        const notIndexedFiles: MountedFile[] = files.filter((file) => !indices.includes(file.filename));
             
         if(notIndexedFiles.length > 0) {
             this.setStatus(mount, MountStatus.INDEXING)
             this.logger.warn(`Found ${notIndexedFiles.length} files that require indexing. Indexing mount '${mount.name}'...`);
                 
-            for(const filename of notIndexedFiles) {
-                this.indexService.createIndex(mount, filename)
+            for(const file of notIndexedFiles) {
+                this.indexService.createIndex(file)
             }
-
-            // TODO: this.setStatus(mount, MountStatus.OK)
         }
     }
 

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { UserService } from './user.service';
 import { UserController } from './user.controller';
 import { SSOService } from '@tsalliance/sso-nest';
@@ -13,6 +13,7 @@ import { UserRepository } from './repositories/user.repository';
   ]
 })
 export class UserModule {
+  private logger: Logger = new Logger(UserModule.name);
 
   constructor(
     private ssoService: SSOService,
@@ -22,9 +23,11 @@ export class UserModule {
 
       // Do everything in background to not block executions in chain
       this.userRepository.findOne({ where: { id: user.id }}).then((result) => {
-        if(!result) this.userRepository.save(user)
-      }).catch((reason) => {
-        console.error(reason)
+        if(!result) this.userRepository.save(user).catch(() => {
+          this.logger.warn("Could not save user info.")
+        })
+      }).catch(() => {
+        this.logger.warn("Could not save user info.")
       })
       
       return user;

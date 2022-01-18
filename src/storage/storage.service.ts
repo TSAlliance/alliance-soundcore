@@ -12,6 +12,7 @@ import { IndexStatus } from "../index/enum/index-status.enum";
 import sanitize from "sanitize-filename";
 
 import { v4 as uuidv4 } from "uuid"
+import { MountedFile } from "../bucket/entities/mounted-file.entity";
 
 @Injectable()
 export class StorageService {
@@ -26,7 +27,10 @@ export class StorageService {
      */
     public async generateChecksumOfIndex(index: Index): Promise<Index> {
         return new Promise((resolve, reject) => {
-            const filepath = this.buildFilepath(index.mount, index.filename);
+            const filepath = this.buildFilepath(index);
+
+            console.log(filepath)
+
             const hash = crypto.createHash('md5');
             const stream = Readable.from(fs.createReadStream(filepath))
 
@@ -47,7 +51,7 @@ export class StorageService {
      */
     public async writeBufferToMount(mount: Mount, buffer: Buffer, filename: string): Promise<void> {
         return new Promise((resolve, reject) => {
-            fs.writeFile(this.buildFilepath(mount, filename), buffer, (err) => {
+            fs.writeFile(this.buildFilepathNonIndex({ mount, filename }), buffer, (err) => {
                 if(err) reject(err)
                 else resolve()
             })
@@ -60,7 +64,7 @@ export class StorageService {
      * @returns Index
      */
     public async createOptimizedMp3File(index: Index): Promise<Index> {
-        const srcFilepath: string = path.join(index.mount.path, index.filename);
+        const srcFilepath: string = this.buildFilepath(index);
         // const optimizedDir: string = this.getOptimizedDir(index.mount);
         // const dstFilepath: string = path.join(optimizedDir, index.filename);
 
@@ -103,8 +107,18 @@ export class StorageService {
      * @param filename Filename
      * @returns string
      */
-    public buildFilepath(mount: Mount, filename: string): string {
-        return path.join(mount.path, sanitize(filename));
+    public buildFilepath(index: Index): string {
+        return this.buildFilepathNonIndex({ mount: index.mount, directory: index.directory || ".", filename: sanitize(index.filename) })
+    }
+
+    /**
+     * Get the full path to a file within mount.
+     * @param mount Corresponding mount
+     * @param filename Filename
+     * @returns string
+     */
+     public buildFilepathNonIndex(file: MountedFile): string {
+        return path.join(file.mount.path, file.directory || ".", sanitize(file.filename));
     }
 
     /**
