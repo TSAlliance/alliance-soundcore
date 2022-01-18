@@ -22,15 +22,11 @@ export class QueueService {
     ) {}
 
     public async enqueue(index: Index) {
-        const wasEmpty = this.isEmpty();
         // Add to queue
         this._queue.push(index);
         this.logger.log("Enqueued file " + index?.filename + " (" + this._queue.length + ")")
 
-        // Check if queue is empty and nothing is in progress
-        if(wasEmpty && !this._currentlyProcessing) {
-            this.next();
-        }
+        this.next();
     }
 
     public async dequeue(): Promise<Index> {
@@ -48,12 +44,11 @@ export class QueueService {
 
     public async onIndexEnded(index: Index, reason: QueueEndReason) {
         this._currentlyProcessing = null;
-        this._hasCooldown = true;
 
         if(reason == "done") {
             this.logger.log(`Successfully indexed file ${index?.filename}`)
         } else {
-            this.logger.log(`Indexed file ${index?.filename} with errors.`)
+            this.logger.warn(`Indexed file ${index?.filename} with errors.`)
         }
 
         // Mount is ready, if no index is left associated with the mount 
@@ -62,6 +57,7 @@ export class QueueService {
         }
 
         if(!this.isEmpty()) {
+            this._hasCooldown = true;
             this.logger.log("Applied short cooldown to queue. Processing next item in 2s");
             setTimeout(() => {
                 this._hasCooldown = false;

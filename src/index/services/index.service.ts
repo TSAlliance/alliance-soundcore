@@ -1,4 +1,4 @@
-import { forwardRef, Inject, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { BadRequestException, forwardRef, Inject, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
 import { In } from 'typeorm';
 import { Mount } from '../../bucket/entities/mount.entity';
@@ -82,7 +82,7 @@ export class IndexService {
                 uploader
             })
         } else {
-            console.log("index exists")
+            throw new BadRequestException("A similar file already exists.")
         }
 
         index.status = IndexStatus.PREPARING;
