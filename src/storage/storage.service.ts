@@ -29,8 +29,6 @@ export class StorageService {
         return new Promise((resolve, reject) => {
             const filepath = this.buildFilepath(index);
 
-            console.log(filepath)
-
             const hash = crypto.createHash('md5');
             const stream = Readable.from(fs.createReadStream(filepath))
 

@@ -67,10 +67,16 @@ export class IndexService {
      */
     public async createIndex(file: MountedFile, uploader?: User): Promise<Index> {
         const filepath = this.storageService.buildFilepathNonIndex(file);
-        if(!filepath) throw new InternalServerErrorException("Could not find file.");
+        if(!filepath) {
+            if(uploader) throw new InternalServerErrorException("Could not find file.");
+            return null;
+        }
 
         const fileStats = await this.storageService.getFileStats(filepath)
-        if(!fileStats) throw new InternalServerErrorException("Could not read file stats.");
+        if(!fileStats) {
+            if(uploader) throw new InternalServerErrorException("Could not read file stats.");
+            return null;
+        }
 
         // Create index in database or fetch existing
         let index = await this.findByMountAndFilenameWithRelations(file.mount.id, file.filename);

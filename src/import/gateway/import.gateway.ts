@@ -1,35 +1,32 @@
-import { InternalServerErrorException, UnauthorizedException } from '@nestjs/common';
-import { OnGatewayConnection, OnGatewayDisconnect, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
-import { SSOService } from '@tsalliance/sso-nest';
-import { Server, Socket } from 'socket.io';
-import { Mount } from '../entities/mount.entity';
+import { InternalServerErrorException, UnauthorizedException } from "@nestjs/common";
+import { OnGatewayConnection, OnGatewayDisconnect, WebSocketGateway } from "@nestjs/websockets";
+import { SSOService } from "@tsalliance/sso-nest";
+import { Socket } from "socket.io";
+import { ImportEntity } from "../entities/import.entity";
 
-export const INDEX_STATUS_EVENT = "onMountUpdate"
+export const IMPORT_STATUS_EVENT = "onImportStatusUpdate"
 
 @WebSocketGateway({ 
-    path: "/mount-status",
+    path: "/import-status",
     cors: {
         origin: "*",
         credentials: true
     }
 })
-export class MountGateway implements OnGatewayConnection, OnGatewayDisconnect {
-
-    @WebSocketServer()
-    private server: Server;
+export class ImportGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // This map is used, to store the userId that matches a certain accessToken.
     // This is used to get the socket that is owned by a certain accessToken.
-    // private userIdByAccessToken: Record<string, string> = {}
+    private userIdByAccessToken: Record<string, string> = {}
 
     // This map contains the socket for an accessToken.
-    // private socketByAccessToken: Record<string, Socket> = {}
+    private socketByAccessToken: Record<string, Socket> = {}
 
     // This map stores all accessTokens for a userId.
     // This is used to retrieve accessTokens by a userId to then get
     // a matching socket. This allows for multiple connections for 
     // one user, when in different sessions.
-    // private accessTokenByUserId: Record<string, string[]> = {}
+    private accessTokenByUserId: Record<string, string[]> = {}
 
     constructor(private authService: SSOService) {}
 
@@ -37,9 +34,19 @@ export class MountGateway implements OnGatewayConnection, OnGatewayDisconnect {
      * Send updated audiofile to socket room. The room has the name of the uploaded file id.
      * @param index Updated indexed file
      */
-    public sendUpdate(mount: Mount) {
+    public sendUpdateToUploader(importEntity: ImportEntity) {
         try {
-            this.server.emit(INDEX_STATUS_EVENT, mount)
+            const indexCopy = importEntity;
+            delete indexCopy?.dstFilename;
+            delete indexCopy?.dstFilepath;
+
+            if(indexCopy?.importer?.id) {
+                this.findSocketsByUserId(indexCopy.importer.id).then((sockets) => {
+                    for(const socket of sockets) {
+                        socket.emit(IMPORT_STATUS_EVENT, indexCopy)
+                    }
+                });
+            }
         } catch (error) {
             console.error(error)
         }
@@ -50,7 +57,7 @@ export class MountGateway implements OnGatewayConnection, OnGatewayDisconnect {
      */
     public async handleConnection(client: Socket): Promise<void> {
         const authHeader: string = client.handshake.headers.authorization;
-        // const authValue: string = authHeader.slice(7);
+        const authValue: string = authHeader.slice(7);
 
         try {
             // Check for auth header. If none exists
@@ -72,7 +79,7 @@ export class MountGateway implements OnGatewayConnection, OnGatewayDisconnect {
             // Add access token to registry to later be able to get user info
             // just by access token. So on disconnects we dont have to fetch
             // user info again by the provided accessToken.
-            /*if(this.accessTokenByUserId[user.id]) {
+            if(this.accessTokenByUserId[user.id]) {
                 this.accessTokenByUserId[user.id].push(authValue)
             } else {
                 this.accessTokenByUserId[user.id] = [authValue]
@@ -80,7 +87,7 @@ export class MountGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
             // Add socket to map and identify it by this accessToken
             this.socketByAccessToken[authValue] = client;
-            this.userIdByAccessToken[authValue] = user.id;*/
+            this.userIdByAccessToken[authValue] = user.id;
         } catch (error) {
             this.sendError(client, new UnauthorizedException("Authorization Header required."), true)
         }
@@ -90,7 +97,7 @@ export class MountGateway implements OnGatewayConnection, OnGatewayDisconnect {
      * Unregister connection.
      */
     public async handleDisconnect(client: Socket): Promise<void> {
-        /*const token: string = client.handshake.headers.authorization?.slice(7) || "";
+        const token: string = client.handshake.headers.authorization?.slice(7) || "";
         const userId: string = this.userIdByAccessToken[token];
                 
         try {
@@ -104,7 +111,7 @@ export class MountGateway implements OnGatewayConnection, OnGatewayDisconnect {
             delete this.userIdByAccessToken[token];
         } catch (error) {
             this.sendError(client, null, true)
-        }*/
+        }
     }
 
     /**
@@ -112,7 +119,7 @@ export class MountGateway implements OnGatewayConnection, OnGatewayDisconnect {
      * @param userId User id to find sockets for
      * @returns Socket[]
      */
-    /*public async findSocketsByUserId(userId: string): Promise<Socket[]> {
+    public async findSocketsByUserId(userId: string): Promise<Socket[]> {
         const accessTokens = this.accessTokenByUserId[userId] || [];
         if(accessTokens.length <= 0) return [];
 
@@ -123,7 +130,7 @@ export class MountGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
 
         return sockets;
-    }*/
+    }
 
     /**
      * Send an error to a specific socket.

@@ -4,7 +4,7 @@ import { MOUNT_ID } from '../shared/shared.module';
 import { CreateImportDTO } from './dtos/create-import.dto';
 import { StorageService } from '../storage/storage.service';
 
-import fs from "fs";
+import fs, { mkdirSync } from "fs";
 import sanitize from 'sanitize-filename';
 
 import ytdl from "ytdl-core";
@@ -19,6 +19,8 @@ import { ArtworkService } from '../artwork/artwork.service';
 import { User } from '../user/entities/user.entity';
 import { exec } from 'child_process';
 import pathToFfmpeg from 'ffmpeg-static';
+import path from 'path';
+import { MountedFile } from '../bucket/entities/mounted-file.entity';
 
 
 @Injectable()
@@ -34,7 +36,7 @@ export class ImportService {
     ) {}
 
     public async createImport(createImportDto: CreateImportDTO, importer?: User): Promise<ImportEntity> {
-        const downloadableUrl = createImportDto.url + "&t=" + (createImportDto.startTime || 0);
+        const downloadableUrl = createImportDto.url;
         if(!ytdl.validateURL(downloadableUrl)) throw new BadRequestException("Not a valid youtube url.")
 
         const mount: Mount = await this.mountService.findById(createImportDto.mountId || this.mountId);
@@ -44,28 +46,29 @@ export class ImportService {
         })
 
         const title = createImportDto.title || info.videoDetails.title;
-        const dstFilepath = this.storageService.buildFilepathNonIndex({ mount, filename: title + ".mp3", directory: "yt-import" });
+        const file: MountedFile = { mount, filename: title + ".mp3", directory: "yt-import" }
+        const dstFilepath = this.storageService.buildFilepathNonIndex(file);
+        const dstDirectory = path.dirname(dstFilepath);
+        mkdirSync(dstDirectory, { recursive: true })
 
         const importEntity = new ImportEntity();
         importEntity.status = "preparing";
         importEntity.downloadableUrl = downloadableUrl;
         importEntity.metadata = {
             title: title.replace(/^(?:\[[^\]]*\]|\([^()]*\))\s*|\s*(?:\[[^\]]*\]|\([^()]*\))/gm, ""),
-            duration: parseInt(info.videoDetails.lengthSeconds) - (createImportDto.startTime || 0),
+            duration: parseInt(info.videoDetails.lengthSeconds),
             thumbnail_url: info.videoDetails?.thumbnails[info.videoDetails.thumbnails.length - 1]?.url,
             description: info.videoDetails.description,
             youtubeUrl: createImportDto.url,
-            youtubeStart: createImportDto.startTime,
             artists: createImportDto.artists,
             albums: createImportDto.albums
         }
         importEntity.url = createImportDto.url;
-        importEntity.startTime = createImportDto.startTime;
         importEntity.dstFilepath = dstFilepath;
         importEntity.dstFilename = sanitize(info.videoDetails.title + ".mp3");
+        importEntity.importer = importer;
 
-        // TODO: Implement queue for downloads.
-        // Enqueueing should be made before setting timeout
+        // TODO: Artwork for banner and song fail?!
 
         setTimeout(() => {
             this.download(importEntity).then(async () => {
@@ -99,10 +102,15 @@ export class ImportService {
 
                     setTimeout(() => {
                         // trigger indexing
-                        this.indexService.createIndex({ mount, filename: importEntity.dstFilename }, importer).then((index) => {
-                            // TODO: Send upgrade to index to socket
+                        this.indexService.createIndex(file, importer).then((index) => {
                             importEntity.upgradeIndex = index
                             importEntity.status = "upgradeIndex"
+
+                            this.sendUpdate(importEntity)
+                        }).catch((reason) => {
+                            this.logger.warn("Could not import url " + createImportDto.url, reason)
+
+                            importEntity.status = "errored"
                             this.sendUpdate(importEntity)
                         });
                     }, 100)

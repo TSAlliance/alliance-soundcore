@@ -5,10 +5,14 @@ import { BucketModule } from '../bucket/bucket.module';
 import { StorageModule } from '../storage/storage.module';
 import { IndexModule } from '../index/index.module';
 import { ArtworkModule } from '../artwork/artwork.module';
+import { ImportGateway } from './gateway/import.gateway';
 
 @Module({
   controllers: [ImportController],
-  providers: [ImportService],
+  providers: [
+    ImportService,
+    ImportGateway
+  ],
   imports: [
     BucketModule,
     StorageModule,

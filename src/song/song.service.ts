@@ -222,8 +222,6 @@ export class SongService {
         const filepath = this.storageServie.buildFilepath(index);
         if(!fs.existsSync(filepath)) throw new NotFoundException("Could not find song file");
 
-        console.log(filepath)
-
         const id3tags = await this.readId3Tags(filepath);
         const song: Song = await this.create({
             duration: id3tags.duration,

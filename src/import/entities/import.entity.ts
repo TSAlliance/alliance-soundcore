@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from "uuid"
 import { Index } from "../../index/entities/index.entity";
+import { User } from "../../user/entities/user.entity";
 
 export type ImportStatus = "preparing" | "downloading" | "upgradeIndex" | "errored"
 export class ImportEntity {
@@ -24,6 +25,7 @@ export class ImportEntity {
         artists?: string[]
     }
 
+    public importer?: User;
     public status: ImportStatus = "preparing";
 
 }
