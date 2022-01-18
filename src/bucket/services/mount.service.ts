@@ -15,6 +15,9 @@ import { BUCKET_ID, MOUNT_ID } from "../../shared/shared.module";
 import { IndexStatus } from '../../index/enum/index-status.enum';
 import { MountStatus } from '../enums/mount-status.enum';
 import { User } from '../../user/entities/user.entity';
+import { MountGateway } from '../gateway/mount-status.gateway';
+import { OnEvent } from '@nestjs/event-emitter';
+import { MOUNT_INDEX_END, MOUNT_INDEX_START } from '../../index/services/queue.service';
 
 @Injectable()
 export class MountService {
@@ -24,6 +27,7 @@ export class MountService {
         private indexService: IndexService,
         private mountRepository: MountRepository, 
         private bucketRepository: BucketRepository,
+        private gateway: MountGateway,
         @Inject(BUCKET_ID) private bucketId: string,
         @Inject(MOUNT_ID) private mountId: string
     ){}
@@ -228,7 +232,7 @@ export class MountService {
         const notIndexedFiles: string[] = files.filter((file) => !indices.includes(file));
             
         if(notIndexedFiles.length > 0) {
-            // TODO: this.setStatus(mount, MountStatus.INDEXING)
+            this.setStatus(mount, MountStatus.INDEXING)
             this.logger.warn(`Found ${notIndexedFiles.length} files that require indexing. Indexing mount '${mount.name}'...`);
                 
             for(const filename of notIndexedFiles) {
@@ -249,7 +253,6 @@ export class MountService {
         for(const mount of mounts) {
             await this.checkIndicesOfMount(mount);
         }
-        
     }
 
     /**
@@ -260,9 +263,21 @@ export class MountService {
      */
     public async setStatus(mount: Mount, status: MountStatus): Promise<Mount> {
         mount.status = status;
-        await this.mountRepository.save(mount);
-        // TODO: Send update to sockets
+        this.mountRepository.save(mount);
+        this.gateway.sendUpdate(mount);
         return mount;
+    }
+
+    @OnEvent(MOUNT_INDEX_START)
+    public async onMountIndexStart(mount: Mount) {
+        if(mount.status == MountStatus.INDEXING) return
+        this.setStatus(mount, MountStatus.INDEXING)
+    }
+
+    @OnEvent(MOUNT_INDEX_END)
+    public async onMountIndexEnd(mount: Mount) {
+        if(mount.status == MountStatus.OK) return
+        this.setStatus(mount, MountStatus.OK)
     }
 
 }
