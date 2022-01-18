@@ -193,4 +193,5 @@ export class IndexService {
         
         await this.indexRepository.delete({ id: In(processing.map((index) => index.id)) });
     }
+
 }

@@ -13,7 +13,6 @@ import { StorageService } from '../storage/storage.service';
 import { IndexModule } from '../index/index.module';
 import { BUCKET_ID, MOUNT_ID } from '../shared/shared.module';
 import { MountController } from './controllers/mount.controller';
-import { MountGateway } from './gateway/mount-status.gateway';
 
 @Module({
   controllers: [
@@ -22,8 +21,7 @@ import { MountGateway } from './gateway/mount-status.gateway';
   ],
   providers: [
     BucketService, 
-    MountService,
-    MountGateway
+    MountService
   ],
   exports: [ BucketService, MountService ],
   imports: [

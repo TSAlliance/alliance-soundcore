@@ -1,12 +1,8 @@
 import { forwardRef, Inject, Injectable, Logger } from "@nestjs/common";
-import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Index } from "../entities/index.entity";
 import { IndexService } from "./index.service";
 
 export type QueueEndReason = "errored" | "done"
-
-export const MOUNT_INDEX_START = "onMountIndexStart"
-export const MOUNT_INDEX_END = "onMountIndexEnd"
 
 @Injectable()
 export class QueueService {
@@ -17,7 +13,6 @@ export class QueueService {
     private _hasCooldown = false;
 
     constructor(
-        private eventEmitter: EventEmitter2,
         @Inject(forwardRef(() => IndexService)) private indexService: IndexService
     ) {}
 
@@ -25,12 +20,14 @@ export class QueueService {
         const wasEmpty = this.isEmpty();
         // Add to queue
         this._queue.push(index);
-        this.logger.log("Enqueued file " + index?.filename + " (" + this._queue.length + ")")
+        this.logger.log("Enqueued file " + index?.filename)
 
         // Check if queue is empty and nothing is in progress
         if(wasEmpty && !this._currentlyProcessing) {
             this.next();
         }
+
+        console.log(wasEmpty, this._currentlyProcessing)
     }
 
     public async dequeue(): Promise<Index> {
@@ -56,11 +53,6 @@ export class QueueService {
             this.logger.log(`Indexed file ${index?.filename} with errors.`)
         }
 
-        // Mount is ready, if no index is left associated with the mount 
-        if(!this._queue.find((i) => i.mount.id == index.mount.id)) {
-            this.eventEmitter.emitAsync(MOUNT_INDEX_END, index.mount)
-        }
-
         if(!this.isEmpty()) {
             this.logger.log("Applied short cooldown to queue. Processing next item in 2s");
             setTimeout(() => {
@@ -73,14 +65,13 @@ export class QueueService {
     public async onIndexStart(index: Index) {
         this.logger.log(`Indexing file '${index.filename}'`)
         this._currentlyProcessing = index;
-
-        this.eventEmitter.emitAsync(MOUNT_INDEX_START, index.mount)
     }
 
     private async next() {
         if(this.isEmpty() || !!this._currentlyProcessing || this._hasCooldown) return;
 
         const nextItem = await this.dequeue();
+        console.log("next: " + nextItem.filename)
         this.indexService.processIndex(nextItem);
     }
 
