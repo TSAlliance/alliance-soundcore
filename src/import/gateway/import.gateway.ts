@@ -2,9 +2,10 @@ import { InternalServerErrorException, UnauthorizedException } from "@nestjs/com
 import { OnGatewayConnection, OnGatewayDisconnect, WebSocketGateway } from "@nestjs/websockets";
 import { SSOService } from "@tsalliance/sso-nest";
 import { Socket } from "socket.io";
-import { ImportEntity } from "../entities/import.entity";
+import { ImportEntity, ImportProgressUpdate } from "../entities/import.entity";
 
 export const IMPORT_STATUS_EVENT = "onImportStatusUpdate"
+export const IMPORT_PROGRESS_EVENT = "onImportProgressUpdate"
 
 @WebSocketGateway({ 
     path: "/import-status",
@@ -34,16 +35,16 @@ export class ImportGateway implements OnGatewayConnection, OnGatewayDisconnect {
      * Send updated audiofile to socket room. The room has the name of the uploaded file id.
      * @param index Updated indexed file
      */
-    public sendUpdateToUploader(importEntity: ImportEntity) {
+    public sendUpdateToImporter(importEntity: ImportEntity) {
         try {
-            const indexCopy = importEntity;
-            delete indexCopy?.dstFilename;
-            delete indexCopy?.dstFilepath;
+            const importCp: ImportEntity = { ...importEntity };
+            delete importCp?.dstFilename;
+            delete importCp?.dstFilepath;
 
-            if(indexCopy?.importer?.id) {
-                this.findSocketsByUserId(indexCopy.importer.id).then((sockets) => {
+            if(importCp?.importer?.id) {
+                this.findSocketsByUserId(importCp.importer.id).then((sockets) => {
                     for(const socket of sockets) {
-                        socket.emit(IMPORT_STATUS_EVENT, indexCopy)
+                        socket.emit(IMPORT_STATUS_EVENT, importCp)
                     }
                 });
             }
@@ -51,6 +52,20 @@ export class ImportGateway implements OnGatewayConnection, OnGatewayDisconnect {
             console.error(error)
         }
     } 
+
+    public sendDownloadProgressToImport(importEntity: ImportEntity) {
+        try {
+            if(importEntity?.importer?.id) {
+                this.findSocketsByUserId(importEntity.importer.id).then((sockets) => {
+                    for(const socket of sockets) {
+                        socket.emit(IMPORT_PROGRESS_EVENT, { progress: importEntity.downloadProgress, importId: importEntity.id } as ImportProgressUpdate)
+                    }
+                });
+            }
+        } catch (error) {
+            console.error(error)
+        }
+    }
     
     /**
      * Register new connection.

@@ -2,7 +2,11 @@ import { v4 as uuidv4 } from "uuid"
 import { Index } from "../../index/entities/index.entity";
 import { User } from "../../user/entities/user.entity";
 
-export type ImportStatus = "preparing" | "downloading" | "upgradeIndex" | "errored"
+export type ImportStatus = "preparing" | "downloading" | "upgradeIndex" | "errored" | "duplicate"
+export class ImportProgressUpdate {
+    public progress: number;
+    public importId: string;
+}
 export class ImportEntity {
 
     public id: string = uuidv4();

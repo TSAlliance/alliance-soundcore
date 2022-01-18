@@ -9,6 +9,7 @@ import sanitize from 'sanitize-filename';
 
 import ytdl from "ytdl-core";
 import ytpl from 'ytpl';
+
 import { Mount } from '../bucket/entities/mount.entity';
 import { IndexService } from '../index/services/index.service';
 
@@ -21,7 +22,7 @@ import { exec } from 'child_process';
 import pathToFfmpeg from 'ffmpeg-static';
 import path from 'path';
 import { MountedFile } from '../bucket/entities/mounted-file.entity';
-
+import { ImportGateway } from './gateway/import.gateway';
 
 @Injectable()
 export class ImportService {
@@ -32,6 +33,7 @@ export class ImportService {
         private storageService: StorageService,
         private indexService: IndexService,
         private artworkService: ArtworkService,
+        private importGateway: ImportGateway,
         @Inject(MOUNT_ID) private mountId: string
     ) {}
 
@@ -110,8 +112,14 @@ export class ImportService {
                         }).catch((reason) => {
                             this.logger.warn("Could not import url " + createImportDto.url, reason)
 
-                            importEntity.status = "errored"
-                            this.sendUpdate(importEntity)
+                            if(reason?.message?.includes("similar")) {
+                                importEntity.status = "duplicate"
+                                this.sendUpdate(importEntity)
+                            } else {
+                                importEntity.status = "errored"
+                                this.sendUpdate(importEntity)
+                            }
+                            
                         });
                     }, 100)
                 })
@@ -130,6 +138,9 @@ export class ImportService {
         return new Promise((resolve, reject) => {
             const tmpFilepath = this.storageService.buildTmpFilepath();
 
+            importEntity.status = "downloading"
+            this.sendUpdate(importEntity)
+
             const downloadStream = ytdl(importEntity.downloadableUrl, {
                 filter: "audioonly",
                 quality: "highestaudio"
@@ -139,7 +150,7 @@ export class ImportService {
                 importEntity.status = "downloading"
                 importEntity.downloadProgress = (transfered/total) * 100;
 
-                this.sendUpdate(importEntity)
+                this.sendProgressUpdate(importEntity)
             })
 
             // Download to tmp file
@@ -165,9 +176,12 @@ export class ImportService {
     /**
      * 
      */
-    private async sendUpdate(value: ImportEntity): Promise<any> {
-        // TODO: Send updates to sockets
-        
+    private async sendUpdate(value: ImportEntity): Promise<void> {
+        this.importGateway.sendUpdateToImporter(value);
+    }
+
+    private async sendProgressUpdate(value: ImportEntity): Promise<void> {
+        this.importGateway.sendDownloadProgressToImport(value);
     }
 
 }

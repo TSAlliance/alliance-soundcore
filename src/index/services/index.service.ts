@@ -93,8 +93,8 @@ export class IndexService {
         }
 
         index.status = IndexStatus.PREPARING;
-        await this.indexRepository.save(index);
-        await this.queueService.enqueue(index);
+        this.indexRepository.save(index);
+        this.queueService.enqueue(index);
         return index;
     }
 
