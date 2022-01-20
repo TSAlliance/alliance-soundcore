@@ -42,6 +42,8 @@ export class ImportService {
         if(!ytdl.validateURL(downloadableUrl)) throw new BadRequestException("Not a valid youtube url.")
 
         const mount: Mount = await this.mountService.findById(createImportDto.mountId || this.mountId);
+        if(!mount) throw new BadRequestException("Mount does not exist")
+
         const info: ytdl.videoInfo = await ytdl.getInfo(createImportDto.url).catch((reason) => {
             console.error(reason)
             return null;
@@ -49,7 +51,9 @@ export class ImportService {
 
         const title = createImportDto.title || info.videoDetails.title;
         const file: MountedFile = { mount, filename: title + ".mp3", directory: "yt-import" }
+
         const dstFilepath = this.storageService.buildFilepathNonIndex(file);
+
         const dstDirectory = path.dirname(dstFilepath);
         mkdirSync(dstDirectory, { recursive: true })
 
