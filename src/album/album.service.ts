@@ -1,7 +1,9 @@
-import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
 import { ILike } from 'typeorm';
-import { Mount } from '../bucket/entities/mount.entity';
+import { Artist } from '../artist/entities/artist.entity';
+import { GeniusArtistDTO } from '../genius/dtos/genius-artist.dto';
+import { GeniusAlbumResponse } from '../genius/dtos/genius-response.dto';
 import { GeniusService } from '../genius/services/genius.service';
 import { CreateAlbumDTO } from './dto/create-album.dto';
 import { Album } from './entities/album.entity';
@@ -9,12 +11,11 @@ import { AlbumRepository } from './repositories/album.repository';
 
 @Injectable()
 export class AlbumService {
-
-    // Search on genius and get info: https://genius.com/api/search/album?q=
+    private logger: Logger = new Logger(AlbumService.name);
 
     constructor(
         private albumRepository: AlbumRepository,
-        @Inject(forwardRef(() => GeniusService)) private geniusService: GeniusService
+        private geniusService: GeniusService
     ) {}
 
     public async findProfilesByArtist(artistId: string, pageable: Pageable): Promise<Page<Album>> {
@@ -37,6 +38,10 @@ export class AlbumService {
         return await this.albumRepository.findOne({ where: { title }});
     }
 
+    public async findByGeniusId(geniusId: string): Promise<Album> {
+        return await this.albumRepository.findOne({ where: { geniusId }, relations: ["artist"]});
+    }
+
     public async existsByTitle(title: string): Promise<boolean> {
         return !!(await this.findByTitle(title));
     }
@@ -53,20 +58,45 @@ export class AlbumService {
         })
     }
 
-    public async createIfNotExists(createAlbumDto: CreateAlbumDTO, primaryArtistName: string, mountForArtwork?: Mount): Promise<Album> {
-        let album = await this.findByTitle(createAlbumDto.title);
-        
-        if(!album) {
-            album = await this.create(createAlbumDto);
+    public async createIfNotExists(createAlbumDto: CreateAlbumDTO): Promise<{ album: Album, artist: GeniusArtistDTO}> {
+        if(createAlbumDto.geniusId) {
+            const album = await this.findByGeniusId(createAlbumDto.geniusId);
+            if(album) return { album, artist: null };
 
-            return this.geniusService.findAndApplyAlbumInfo(album, primaryArtistName, mountForArtwork).then(() => {
-                return this.albumRepository.save(album);
+            // Find by genius id.
+            // This returns created album entry and the artist that was found on genius
+            return this.geniusService.fetchResourceByIdAndType<GeniusAlbumResponse>("album", createAlbumDto.geniusId).then(async (response) => {
+                if(!response.album) return { album: null, artist: null };
+
+                return await this.albumRepository.save({
+                    geniusId: createAlbumDto.geniusId,
+                    title: response.album.name,
+                    description: response.album.description_preview,
+                    released: response.album.release_date
+                }).then((album) => {
+                    return { album, artist: response.album.artist }
+                }).catch(() => {
+                    return { album: null, artist: null }
+                })
             }).catch(() => {
-                return album
+                return { album: null, artist: null }
+            })
+        } else {
+            // Find by name on genius
+            const album = await this.findByTitle(createAlbumDto.title);
+            if(album) return { album, artist: null};
+
+            return this.create(createAlbumDto).then((album) => {
+                return this.geniusService.findAndApplyAlbumInfo(album, createAlbumDto.artists, createAlbumDto.mountForArtworkId).then(async (result) => {
+                    this.albumRepository.save(album)
+    
+                    return { album, artist: result.artist };
+                }).catch(() => {
+                    this.logger.warn("Could not find information for album '" + createAlbumDto.title + "'")
+                    return {album, artist: null};
+                })
             })
         }
-
-        return album;
     }
 
     public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Album>> {
@@ -77,6 +107,11 @@ export class AlbumService {
         }
 
         return this.albumRepository.findAll(pageable, { where: { title: ILike(query) }, relations: ["artwork"]})
+    }
+
+    public async setArtistOfAlbum(album: Album, artist: Artist): Promise<Album> {
+        album.artist = artist;
+        return this.albumRepository.save(album);
     }
 
 }

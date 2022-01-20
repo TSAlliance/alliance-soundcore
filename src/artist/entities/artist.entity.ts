@@ -1,5 +1,5 @@
 import { CanRead } from "@tsalliance/sso-nest";
-import { Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Album } from "../../album/entities/album.entity";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Song } from "../../song/entities/song.entity";
@@ -11,7 +11,7 @@ export class Artist {
     public id: string;
 
     @CanRead(false)
-    @Column({ nullable: true })
+    @Column({ nullable: true, unique: true })
     public geniusId: string;
 
     @Column({ nullable: true, type: "text" })
@@ -33,6 +33,9 @@ export class Artist {
     @ManyToMany(() => Album)
     @JoinTable({ name: "album2artist" })
     public albums: Album[];
+
+    @OneToMany(() => Album, (a) => a.artist)
+    public album: Album[];
 
     @OneToOne(() => Artwork, { onDelete: "SET NULL" })
     @JoinColumn()

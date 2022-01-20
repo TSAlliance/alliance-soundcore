@@ -26,9 +26,9 @@ export class Album {
     @Column({ nullable: true, type: "text" })
     public description: string;
 
-    @ManyToMany(() => Artist)
-    @JoinTable({ name: "album2artist" })
-    public artists: Artist[];
+    @ManyToOne(() => Artist)
+    @JoinColumn()
+    public artist: Artist;
 
     @ManyToMany(() => Song)
     @JoinTable({ name: "song2album" })

@@ -1,7 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import NodeID3 from 'node-id3';
-import path from 'path';
 
 import ffprobe from 'ffprobe';
 import ffprobeStatic from "ffprobe-static";
@@ -19,10 +18,11 @@ import { IndexStatus } from '../index/enum/index-status.enum';
 import { GeniusService } from '../genius/services/genius.service';
 import { Page, Pageable } from 'nestjs-pager';
 import { ILike } from 'typeorm';
-import { Album } from '../album/entities/album.entity';
 import { AlbumService } from '../album/album.service';
 import { ArtworkService } from '../artwork/artwork.service';
 import { StorageService } from '../storage/storage.service';
+import { CreateAlbumDTO } from '../album/dto/create-album.dto';
+import { GeniusAlbumDTO } from '../genius/dtos/genius-album.dto';
 
 @Injectable()
 export class SongService {
@@ -241,7 +241,10 @@ export class SongService {
             // Save relations
             index.song = song;
             song.index = index;
-            await this.songRepository.save(song);
+
+            await this.songRepository.save(song).catch((reason) => {
+                this.logger.error(`Could not save index relations in database for song ${filepath}: `, reason);
+            });
         
             // Request song info on Genius.com
             await this.geniusService.findAndApplySongInfo(song).then(async (result) => {
@@ -262,16 +265,101 @@ export class SongService {
                     song.artists.push(...artists)
                 }
 
+                // Extract and create albums
+                if(!song.albums) song.albums = [];
+
+                let albums: GeniusAlbumDTO[] = [];
+                const artistNames: string[] = song.artists.map((artist) => artist.name);
+
+                if(result.dto?.album) albums.push(result.dto.album)
+                if(result.dto?.albums) albums.push(...result.dto.albums)
+
+                // Filter out unwanted albums like music compilations
+                // Those have a different primary artist.
+                albums = albums.filter((album) => artistNames.includes(album.artist.name));
+
+                // Find every album on genius
+                for(const album of albums) {
+                    await this.albumService.createIfNotExists({
+                        geniusId: album.id,
+                        mountForArtworkId: song.index.mount.id,
+                        artists: song.artists
+                    } as CreateAlbumDTO).then(async (result) => {
+                        if(result.album) song.albums.push(result.album);
+                        if(result.artist) {
+                            // Create artist of album if doesnt exist
+                            await this.artistService.createIfNotExists({
+                                geniusId: result.artist.id,
+                                name: result.artist.name,
+                                mountForArtworkId: song.index.mount.id
+                            }).then((artist) => {
+                                // After artist creation, set the artist as the main album's artist.
+                                this.albumService.setArtistOfAlbum(result.album, artist).catch(() => {
+                                    this.logger.warn(`Failed setting primary artist on album '${result.album.title}' to artist '${result.artist.name}' (Genius)`);
+                                });
+                            }).catch(() => {
+                                this.logger.warn(`Could not create artist for album ${result.album.title}. Failed on artist: ${result.artist.name} (Genius)`);
+                            })
+                        }
+
+                        // It could be possible, that there was no valid artist returned,
+                        // so we will just stick to the first artist in the song's artist list
+                        if(result.album && !result.artist && !!song.artists[0]) {
+                            // After artist creation, set the artist as the main album's artist.
+                            this.albumService.setArtistOfAlbum(result.album, song.artists[0]).catch(() => {
+                                this.logger.warn(`Failed setting primary artist on album '${result.album.title}' to artist '${song.artists[0]?.name}'`);
+                            });
+                        }
+                    }).catch(() => {
+                        this.logger.warn(`Could not save album metadata fetched from genius.com of file '${filepath}'. Failed on album '${album.name}'.`);
+                    })
+                }
+
+                // Get album that is connected via id3tags
+                if(id3tags.album) {
+                    await this.albumService.createIfNotExists({ 
+                        title: id3tags.album.includes("feat") ? id3tags.album : id3tags.album.replace(/^(?:\[[^\]]*\]|\([^()]*\))\s*|\s*(?:\[[^\]]*\]|\([^()]*\))/gm, ""),
+                        mountForArtworkId: song.index.mount.id,
+                        artists: song.artists
+                    }).then(async (result) => {
+                        if(result.album) song.albums.push(result.album);
+                        if(result.artist) {
+                            // Create artist of album if doesnt exist
+                            await this.artistService.createIfNotExists({
+                                geniusId: result.artist.id,
+                                name: result.artist.name,
+                                mountForArtworkId: song.index.mount.id
+                            }).then((artist) => {
+                                // After artist creation, set the artist as the main album's artist.
+                                this.albumService.setArtistOfAlbum(result.album, artist).catch(() => {
+                                    this.logger.warn(`Failed setting primary artist on album '${result.album.title}' to artist '${result.artist.name}'`);
+                                });
+                            }).catch(() => {
+                                this.logger.warn(`Could not create artist for album ${result.album.title}. Failed on artist: ${result.artist.name}`);
+                            })
+                        }
+
+                        // It could be possible, that there was no valid artist returned,
+                        // so we will just stick to the first artist in the song's artist list
+                        if(result.album && !result.artist && !!song.artists[0]) {
+                            // After artist creation, set the artist as the main album's artist.
+                            this.albumService.setArtistOfAlbum(result.album, song.artists[0]).catch(() => {
+                                this.logger.warn(`Failed setting primary artist on album '${result.album.title}' to artist '${song.artists[0]?.name}'`);
+                            });
+                        }
+                    }).catch(() => {
+                        this.logger.warn(`Could not save album metadata extracted from ID3 Tags of file '${filepath}'`);
+                    })
+                }
+
                 // Save updated song metadata together
                 // with artist relations
-                await this.songRepository.save(song);
+                await this.songRepository.save(song).catch((reason) => {
+                    this.logger.error(`Could not save relations in database for song ${filepath}: `, reason);
+                });
             });
 
-            // Getting album info
-            if(id3tags.album) {
-                const album: Album = await this.albumService.createIfNotExists({ title: id3tags.album }, song.artists[0]?.name, song.index.mount);
-                song.albums = [ album ];
-            }
+            
 
             // Set status to OK, as this is the last step of the indexing process
             index.status = IndexStatus.OK;

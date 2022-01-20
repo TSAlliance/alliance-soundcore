@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
 import { ILike } from 'typeorm';
-import { Mount } from '../bucket/entities/mount.entity';
 import { GeniusService } from '../genius/services/genius.service';
 import { CreateArtistDTO } from './dtos/create-artist.dto';
 import { Artist } from './entities/artist.entity';
