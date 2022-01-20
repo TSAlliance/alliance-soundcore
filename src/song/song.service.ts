@@ -115,8 +115,8 @@ export class SongService {
         const songs = result.entities.map((song, index) => {
             const songRelations = resultWithRelations.find((s) => s.id == song.id);
 
-            song.artwork = songRelations.artwork
-            song.artists = songRelations.artists;
+            song.artwork = songRelations?.artwork
+            song.artists = songRelations?.artists;
             song.streamCount = result.raw[index].streamCount
 
             return song;
