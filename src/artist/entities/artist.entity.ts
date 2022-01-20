@@ -30,12 +30,8 @@ export class Artist {
     @JoinTable({ name: "artist2song" })
     public songs: Song[];
 
-    @ManyToMany(() => Album)
-    @JoinTable({ name: "album2artist" })
-    public albums: Album[];
-
     @OneToMany(() => Album, (a) => a.artist)
-    public album: Album[];
+    public albums: Album[];
 
     @OneToOne(() => Artwork, { onDelete: "SET NULL" })
     @JoinColumn()
