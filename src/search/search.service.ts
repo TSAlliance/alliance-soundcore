@@ -7,6 +7,7 @@ import { GenreService } from '../genre/genre.service';
 import { LabelService } from '../label/label.service';
 import { PublisherService } from '../publisher/publisher.service';
 import { SongService } from '../song/song.service';
+import { UserService } from '../user/user.service';
 import { Levenshtein } from '../utils/levenshtein';
 import { SearchBestMatch, SearchBestMatchType } from './entities/best-match.entity';
 import { ComplexSearchResult } from './entities/complex-search.entity';
@@ -23,7 +24,8 @@ export class SearchService {
         private publisherService: PublisherService,
         private distributorService: DistributorService,
         private labelService: LabelService,
-        private albumService: AlbumService
+        private albumService: AlbumService,
+        private userService: UserService
     ) {}
 
     public async complexSearch(query: string): Promise<ComplexSearchResult> {
@@ -36,6 +38,7 @@ export class SearchService {
         const distributors = await this.distributorService.findBySearchQuery(query, settings);
         const labels = await this.labelService.findBySearchQuery(query, settings);
         const albums = await this.albumService.findBySearchQuery(query, settings);
+        const users = await this.userService.findBySearchQuery(query, settings);
 
         const searchResult: ComplexSearchResult = {
             songs: songs.amount > 0 ? songs : undefined,
@@ -44,7 +47,8 @@ export class SearchService {
             publisher: publisher.amount > 0 ? publisher : undefined,
             distributors: distributors.amount > 0 ? distributors : undefined,
             labels: labels.amount > 0 ? labels : undefined,
-            albums: albums.amount > 0 ? albums : undefined
+            albums: albums.amount > 0 ? albums : undefined,
+            users: users.amount > 0 ? users : undefined
         }
 
         if(query && query.length > 0 && query != " ") {
@@ -53,7 +57,6 @@ export class SearchService {
         }
         
         return searchResult
-
     }
 
     public async findBestMatch(needle: string, haystack: ComplexSearchResult): Promise<SearchBestMatch> {
@@ -66,6 +69,7 @@ export class SearchService {
         if(haystack.publisher) candidates.push(...haystack.publisher?.elements.map((x) => ({ compareString: x.name, obj: x, type: "publisher" as SearchBestMatchType })))
         if(haystack.distributors) candidates.push(...haystack.distributors?.elements.map((x) => ({ compareString: x.name, obj: x, type: "distributor" as SearchBestMatchType })))
         if(haystack.labels) candidates.push(...haystack.labels?.elements.map((x) => ({ compareString: x.name, obj: x, type: "label" as SearchBestMatchType })))
+        if(haystack.users) candidates.push(...haystack.users?.elements.map((x) => ({ compareString: x.username, obj: x, type: "user" as SearchBestMatchType })))
 
         let bestMatch: { score: number, value: MatchCandidate, type: SearchBestMatchType } = { score: 0, value: null, type: "song"};
 

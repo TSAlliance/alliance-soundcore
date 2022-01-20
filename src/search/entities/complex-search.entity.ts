@@ -6,6 +6,7 @@ import { Genre } from "../../genre/entities/genre.entity";
 import { Label } from "../../label/entities/label.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
 import { Song } from "../../song/entities/song.entity";
+import { User } from "../../user/entities/user.entity";
 import { SearchBestMatch } from "./best-match.entity";
 
 export class ComplexSearchResult {
@@ -19,5 +20,6 @@ export class ComplexSearchResult {
     public publisher?: Page<Publisher>;
     public labels?: Page<Label>;
     public distributors?: Page<Distributor>;
+    public users?: Page<User>;
 
 }

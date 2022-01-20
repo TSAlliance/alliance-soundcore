@@ -8,6 +8,7 @@ import { PublisherModule } from '../publisher/publisher.module';
 import { LabelModule } from '../label/label.module';
 import { DistributorModule } from '../distributor/distributor.module';
 import { AlbumModule } from '../album/album.module';
+import { UserModule } from '../user/user.module';
 
 @Module({
   controllers: [SearchController],
@@ -19,7 +20,8 @@ import { AlbumModule } from '../album/album.module';
     PublisherModule,
     LabelModule,
     DistributorModule,
-    AlbumModule
+    AlbumModule,
+    UserModule
   ]
 })
 export class SearchModule {}
