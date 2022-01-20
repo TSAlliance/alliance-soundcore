@@ -88,7 +88,7 @@ export class AlbumService {
 
             return this.create(createAlbumDto).then((album) => {
                 return this.geniusService.findAndApplyAlbumInfo(album, createAlbumDto.artists, createAlbumDto.mountForArtworkId).then(async (result) => {
-                    this.albumRepository.save(album)
+                    await this.albumRepository.save(album)
     
                     return { album, artist: result.artist };
                 }).catch(() => {

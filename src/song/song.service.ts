@@ -210,7 +210,10 @@ export class SongService {
         const song = await this.songRepository.findOne({ where: { title: createSongDto.title }, relations: ["artwork", "index"]})
         if(song) return song;
 
-        return this.songRepository.save(createSongDto);
+        return this.songRepository.save(createSongDto).catch((error) => {
+            this.logger.error(`Could not create song '${createSongDto.title}' in database: `, error)
+            return null;
+        });
     }
 
     /**
@@ -227,6 +230,8 @@ export class SongService {
             duration: id3tags.duration,
             title: id3tags.title
         });
+
+        if(!song) throw new NotFoundException("Cannot create song entity.");
 
         try {
             // Create artwork
