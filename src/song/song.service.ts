@@ -357,6 +357,9 @@ export class SongService {
                     })
                 }
 
+                // Sort out duplicates
+                song.albums = [...new Map(song.albums.map(a => [a.id, a])).values()]
+
                 // Save updated song metadata together
                 // with artist relations
                 await this.songRepository.save(song).catch((reason) => {
