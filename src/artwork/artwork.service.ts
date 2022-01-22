@@ -16,6 +16,7 @@ import { ArtworkType } from './types/artwork-type.enum';
 
 import Vibrant from "node-vibrant"
 import { v4 as uuidv4 } from "uuid"
+import sanitize from 'sanitize-filename';
 
 @Injectable()
 export class ArtworkService {
@@ -53,7 +54,7 @@ export class ArtworkService {
      * @returns string
      */
     public buildArtworkFile(artwork: Artwork): string {
-        return path.join(this.storageService.getArtworksDir(artwork.mount), (artwork.type || "song").toString() , `${artwork.dstFilename}.jpeg`)
+        return path.join(this.storageService.getArtworksDir(artwork.mount), (artwork.type || "song").toString() , `${sanitize(artwork.dstFilename)}.jpeg`)
     }
 
     /**

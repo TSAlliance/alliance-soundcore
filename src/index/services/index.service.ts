@@ -1,5 +1,6 @@
 import { BadRequestException, forwardRef, Inject, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
+import sanitize from 'sanitize-filename';
 import { In } from 'typeorm';
 import { MountedFile } from '../../bucket/entities/mounted-file.entity';
 import { BUCKET_ID } from '../../shared/shared.module';
@@ -79,11 +80,11 @@ export class IndexService {
         }
 
         // Create index in database or fetch existing
-        let index = await this.findByMountAndFilenameWithRelations(file.mount.id, file.filename);
+        let index = await this.findByMountAndFilenameWithRelations(file.mount.id, sanitize(file.filename));
         if(!index) {
             index = await this.indexRepository.save({
                 mount: file.mount,
-                filename: file.filename,
+                filename: sanitize(file.filename),
                 size: fileStats.size,
                 directory: file.directory,
                 uploader
