@@ -1,10 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { SongService } from '../song/song.service';
-import { StorageService } from '../storage/storage.service';
+import { SongService } from '../../song/song.service';
+import { StorageService } from '../../storage/storage.service';
 
 import fs from "fs"
-import { StreamRepository } from './repositories/stream.repository';
+import { StreamRepository } from '../repositories/stream.repository';
 import { SSOService } from '@tsalliance/sso-nest';
 
 @Injectable()

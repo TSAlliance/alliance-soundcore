@@ -1,6 +1,6 @@
 import { Controller, Get, Param, Query, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { StreamService } from './stream.service';
+import { StreamService } from './services/stream.service';
 
 @Controller('streams')
 export class StreamController {
