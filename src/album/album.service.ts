@@ -106,7 +106,7 @@ export class AlbumService {
             query = `%${query.replace(/\s/g, '%')}%`;
         }
 
-        return this.albumRepository.findAll(pageable, { where: { title: ILike(query) }, relations: ["artwork"]})
+        return this.albumRepository.findAll(pageable, { where: { title: ILike(query) }, relations: ["artwork", "artist"]})
     }
 
     public async setArtistOfAlbum(album: Album, artist: Artist): Promise<Album> {
