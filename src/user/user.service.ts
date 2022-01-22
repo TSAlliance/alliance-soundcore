@@ -1,5 +1,5 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { SSOService } from '@tsalliance/sso-nest';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { SSOService, SSOUser } from '@tsalliance/sso-nest';
 import { Page, Pageable } from 'nestjs-pager';
 import { ILike } from 'typeorm';
 import { User } from './entities/user.entity';
@@ -7,6 +7,7 @@ import { UserRepository } from './repositories/user.repository';
 
 @Injectable()
 export class UserService {
+    private logger: Logger = new Logger(UserService.name);
 
     constructor(
         private ssoService: SSOService,
@@ -36,6 +37,26 @@ export class UserService {
         }
 
         return this.userRepository.findAll(pageable, { where: { username: ILike(query) }})
+    }
+
+    public async createIfNotExists(user: SSOUser) {
+        return this.userRepository.findOne({ where: { id: user.id }}).then((result) => {
+            // Create new user in database if there is no existing one for this id.
+            if(!result) {
+              return this.userRepository.save(user).catch(() => {
+                this.logger.warn("Could not save user info.")
+              })
+            } else {
+              // Update user in database if username has changed.
+              if(user.username != result.username || user.avatarResourceId != result.avatarResourceId) {
+                return this.userRepository.save(user).catch(() => {
+                  this.logger.warn("Could not save user info.")
+                })
+              }
+            }
+        }).catch(() => {
+            this.logger.warn("Could not save user info.")
+        })
     }
 
 }

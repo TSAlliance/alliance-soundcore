@@ -20,30 +20,11 @@ export class UserModule {
 
   constructor(
     private ssoService: SSOService,
-    private userRepository: UserRepository
+    private userService: UserService
   ) {
     this.ssoService.registerOnUserRecognizedEvent(async (user) => {
       // Do everything in background to not block executions in chain
-      this.userRepository.findOne({ where: { id: user.id }}).then((result) => {
-        // Create new user in database if there is no existing one for this id.
-        if(!result) {
-          this.userRepository.save(user).catch(() => {
-            this.logger.warn("Could not save user info.")
-          })
-        } else {
-          // Update user in database if username has changed.
-          if(user.username != result.username || user.avatarResourceId != result.avatarResourceId) {
-            this.userRepository.save(user).catch(() => {
-              this.logger.warn("Could not save user info.")
-            })
-          }
-        }
-
-        
-      }).catch(() => {
-        this.logger.warn("Could not save user info.")
-      })
-      
+      this.userService.createIfNotExists(user);
       return user;
     })
   }
