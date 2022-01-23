@@ -13,6 +13,7 @@ export class QueueService {
     private logger: Logger = new Logger(QueueService.name)
 
     private readonly _queue: Index[] = [];
+    private readonly _mounts: Record<string, number> = {};
     private _currentlyProcessing: Index = null;
     private _hasCooldown = false;
 
@@ -26,11 +27,20 @@ export class QueueService {
         this._queue.push(index);
         this.logger.log("Enqueued file " + index?.filename + " (" + this._queue.length + ")")
 
+        // Update amount of queued indices per mount
+        // This is later used to send status updates on wether a mount
+        // is currently processed or not
+        if(!this._mounts[index.mount.id]) this._mounts[index.mount.id] = 1;
+        else this._mounts[index.mount.id] += 1;
+
         this.next();
     }
 
     public async dequeue(): Promise<Index> {
         const item = this._queue.splice(0, 1)[0];
+
+        if(this._mounts[item.mount.id]) delete this._mounts[item.mount.id];
+
         return item;
     }
 
@@ -52,7 +62,7 @@ export class QueueService {
         }
 
         // Mount is ready, if no index is left associated with the mount 
-        if(!this._queue.find((i) => i.mount.id == index.mount.id)) {
+        if(!this._mounts[index.mount.id] || this._mounts[index.mount.id] <= 0) {
             this.eventEmitter.emitAsync(MOUNT_INDEX_END, index.mount)
         }
 
