@@ -23,6 +23,7 @@ import { ArtworkService } from '../artwork/artwork.service';
 import { StorageService } from '../storage/storage.service';
 import { CreateAlbumDTO } from '../album/dto/create-album.dto';
 import { GeniusAlbumDTO } from '../genius/dtos/genius-album.dto';
+import path from 'path';
 
 @Injectable()
 export class SongService {
@@ -226,9 +227,10 @@ export class SongService {
         if(!fs.existsSync(filepath)) throw new NotFoundException("Could not find song file");
 
         const id3tags = await this.readId3Tags(filepath);
-        const song: Song = await this.create({
+
+        const song: Song = index.song || await this.create({
             duration: id3tags.duration,
-            title: id3tags.title
+            title: id3tags.title || path.parse(filepath).name
         });
 
         if(!song) throw new NotFoundException("Cannot create song entity.");

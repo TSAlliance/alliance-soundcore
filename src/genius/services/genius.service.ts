@@ -29,9 +29,14 @@ export class GeniusService {
     ) {}
 
     public async findAndApplySongInfo(song: Song): Promise<{ song: Song, dto?: GeniusSongDTO }> {
-        const title = song.title.replace(/^(?:\[[^\]]*\]|\([^()]*\))\s*|\s*(?:\[[^\]]*\]|\([^()]*\))/gm, "").split("-")[0];
+        const title = song?.title?.replace(/^(?:\[[^\]]*\]|\([^()]*\))\s*|\s*(?:\[[^\]]*\]|\([^()]*\))/gm, "").split("-")[0];
         const artists = song.artists[0]?.name || "";
         let query: string;
+
+        if(!title) {
+            console.warn("Found a song without title: ", song.index.filename)
+            return { song, dto: null };
+        }
 
         if(artists != "") {
             query = title + " " + artists
