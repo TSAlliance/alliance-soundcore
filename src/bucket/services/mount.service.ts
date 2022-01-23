@@ -222,6 +222,10 @@ export class MountService {
      * @param mount Mount to check
      */
     public async checkIndicesOfMount(mount: Mount): Promise<void> {
+        // This function is only to check health of the files in a mount.
+        // So if new files are detected, they automatically get indexed.
+        // If you look for the method that resumes indices stuck on status PREPARING
+        // go to index.service.ts and have a look on clearOrResumeProcessing() 
         const mountDir = path.join(mount.path);
 
         if(!fs.existsSync(mountDir)) {
@@ -238,7 +242,6 @@ export class MountService {
         }));
 
         const indices: string[] = (await this.indexService.findAllByMount(mount.id)).filter((index) => index.status != IndexStatus.ERRORED).map((index) => index.filename);
-        // const files: string[] = fs.readdirSync(mountDir, { withFileTypes: true }).filter((file) => file.isFile()).map((file) => file.name);
         const notIndexedFiles: MountedFile[] = files.filter((file) => !indices.includes(file.filename));
             
         if(notIndexedFiles.length > 0) {

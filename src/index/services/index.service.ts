@@ -42,7 +42,7 @@ export class IndexService {
      * @returns Index[]
      */
     public async findAllByStatusInBucket(bucketId: string, status: string[]): Promise<Index[]> {
-        return this.indexRepository.find({ where: { mount: { bucket: { id: bucketId } }, status: In(status) }, relations: ["mount", "mount.bucket"], select: [ "id", "checksum", "filename", "size", "status", "uploader" ]});
+        return this.indexRepository.find({ where: { mount: { bucket: { id: bucketId } }, status: In(status) }, relations: ["mount", "mount.bucket"]});
     }
 
     /**
@@ -67,30 +67,33 @@ export class IndexService {
      * @returns Index
      */
     public async createIndex(file: MountedFile, uploader?: User): Promise<Index> {
-        const filepath = this.storageService.buildFilepathNonIndex(file);
-        if(!filepath) {
-            if(uploader) throw new InternalServerErrorException("Could not find file.");
-            return null;
-        }
-
-        const fileStats = await this.storageService.getFileStats(filepath)
-        if(!fileStats) {
-            if(uploader) throw new InternalServerErrorException("Could not read file stats.");
-            return null;
-        }
-
-        // Create index in database or fetch existing
         let index = await this.findByMountAndFilenameWithRelations(file.mount.id, sanitize(file.filename));
+
         if(!index) {
-            index = await this.indexRepository.save({
-                mount: file.mount,
-                filename: sanitize(file.filename),
-                size: fileStats.size,
-                directory: file.directory,
-                uploader
-            })
-        } else {
-            if(uploader) throw new BadRequestException("A similar file already exists.")
+            const filepath = this.storageService.buildFilepathNonIndex(file);
+            if(!filepath) {
+                if(uploader) throw new InternalServerErrorException("Could not find file.");
+                return null;
+            }
+
+            const fileStats = await this.storageService.getFileStats(filepath)
+            if(!fileStats) {
+                if(uploader) throw new InternalServerErrorException("Could not read file stats.");
+                return null;
+            }
+
+            // Create index in database or fetch existing
+            if(!index) {
+                index = await this.indexRepository.save({
+                    mount: file.mount,
+                    filename: sanitize(file.filename),
+                    size: fileStats.size,
+                    directory: file.directory,
+                    uploader
+                })
+            } else {
+                if(uploader) throw new BadRequestException("A similar file already exists.")
+            }
         }
 
         index.status = IndexStatus.PREPARING;
@@ -213,7 +216,7 @@ export class IndexService {
 
         for(const index of preparing) {
             await this.queueService.enqueue(index);
-        }
+        }    
         
         await this.indexRepository.delete({ id: In(processing.map((index) => index.id)) });
     }
