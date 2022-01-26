@@ -3,6 +3,7 @@ import { Mount } from "../../bucket/entities/mount.entity";
 import { Song } from "../../song/entities/song.entity";
 import { User } from "../../user/entities/user.entity";
 import { IndexStatus } from "../enum/index-status.enum";
+import { IndexReport } from "./report.entity";
 
 @Entity()
 export class Index {
@@ -34,6 +35,10 @@ export class Index {
 
     @ManyToOne(() => User, { onDelete: "SET NULL" })
     public uploader: User;
+
+    @OneToOne(() => IndexReport, { onDelete: "SET NULL" })
+    @JoinColumn()
+    public lastReport: IndexReport;
 
     @CreateDateColumn()
     public indexedAt: Date;

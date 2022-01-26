@@ -5,6 +5,7 @@ export enum IndexStatus {
     DUPLICATE = "duplicate",
     PREPARING = "preparing",
     PROCESSING = "processing",
+    IGNORE = "ignore",
     ERRORED = "errored"
 
 }
