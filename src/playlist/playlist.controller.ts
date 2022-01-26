@@ -18,8 +18,8 @@ export class PlaylistController {
 
   @Get("/songs/:playlistId") 
   @IsAuthenticated()
-  public async findSongInPlaylist(@Param("playlistId") playlistId: string, @Pageable() pageable: Pageable, @Authentication() requester: User) {
-    return this.playlistService.findSongsInPlaylist(playlistId, pageable, requester)
+  public async findSongInPlaylist(@Param("playlistId") playlistId: string, @Authentication() requester: User) {
+    return this.playlistService.findSongsInPlaylist(playlistId, requester)
   }
 
   @Get("/byAuthor/:authorId") 

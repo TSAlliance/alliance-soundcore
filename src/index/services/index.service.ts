@@ -1,4 +1,4 @@
-import { BadRequestException, forwardRef, Inject, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { BadRequestException, forwardRef, Inject, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
 import sanitize from 'sanitize-filename';
 import { In } from 'typeorm';
@@ -36,6 +36,15 @@ export class IndexService {
     }
 
     /**
+     * Find an index by its id.
+     * @param indexId Index's id
+     * @returns Index
+     */
+    public async findById(indexId: string): Promise<Index> {
+        return this.indexRepository.findOne({ where: { id: indexId }});
+    }
+
+    /**
      * Find all indexed files by a certain status inside a whole bucket.
      * @param bucketId Bucket's id
      * @param status Statuses to look for
@@ -55,8 +64,8 @@ export class IndexService {
         return this.indexRepository.findAll(pageable, { where: { uploader: { id: uploaderId}}, relations: ["song", "song.artists", "song.artwork"]})
     }
 
-    public async findByMountAndFilenameWithRelations(mountId: string, filename: string): Promise<Index> {
-        return this.indexRepository.findOne({ where: { filename, mount: { id: mountId }}, relations: ["mount", "song", "uploader"]})
+    public async findByMountedFileWithRelations(file: MountedFile): Promise<Index> {
+        return this.indexRepository.findOne({ where: { filename: sanitize(file.filename), directory: file.directory, mount: { id: file.mount.id }}, relations: ["mount", "song", "uploader"]})
     }
 
     /**
@@ -67,7 +76,7 @@ export class IndexService {
      * @returns Index
      */
     public async createIndex(file: MountedFile, uploader?: User): Promise<Index> {
-        let index = await this.findByMountAndFilenameWithRelations(file.mount.id, sanitize(file.filename));
+        let index = await this.findByMountedFileWithRelations(file);
 
         if(!index) {
             const filepath = this.storageService.buildFilepathNonIndex(file);
@@ -90,11 +99,16 @@ export class IndexService {
                     size: fileStats.size,
                     directory: file.directory,
                     uploader
+                }).catch(() => {
+                    this.logger.error("Could not create new index entry.")
+                    return null;
                 })
             } else {
                 if(uploader) throw new BadRequestException("A similar file already exists.")
             }
         }
+
+        if(!index) throw new BadRequestException("Could not create new index entry.")
 
         index.status = IndexStatus.PREPARING;
         this.indexRepository.save(index);
@@ -110,8 +124,6 @@ export class IndexService {
      * @returns Index
      */
     public async processIndex(index: Index): Promise<Index> {
-        // TODO: Implement index queue to only have one file at a time be indexed.
-        // This slows down indexing process, but prevents duplication errors on album / artists and so on
         this.queueService.onIndexStart(index)
 
         // Do indexing tasks in background
@@ -183,6 +195,21 @@ export class IndexService {
      */
     public async existsByChecksum(checksum: string): Promise<boolean> {
         return !!(await this.indexRepository.findOne({ where: { checksum, status: In([IndexStatus.OK, IndexStatus.PROCESSING])}}));
+    }
+
+    /**
+     * Set an index to be ignored. This means that unlike delete, they will still be stored in database,
+     * but do not go through indexing processes in the future. So once indexed and set to ignored, they
+     * will not be considered on any indexing processes anymore.
+     * @param indexId Index's id
+     * @returns Index
+     */
+    public async setIgnored(indexId: string): Promise<Index> {
+        const index = await this.findById(indexId);
+        if(!index) throw new NotFoundException("Index not found.")
+
+        index.status = IndexStatus.IGNORE;
+        return this.indexRepository.save(index);
     }
 
     /**

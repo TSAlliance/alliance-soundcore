@@ -54,4 +54,7 @@ export class Album {
     @JoinColumn()
     public publisher: Publisher;
 
+    public songsCount?: number;
+    public totalDuration?: number;
+    public featuredArtists?: Artist[];
 }

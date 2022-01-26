@@ -29,7 +29,9 @@ export class ArtistService {
     }
 
     public async createIfNotExists(createArtistDto: CreateArtistDTO): Promise<Artist> {
+        createArtistDto.name = createArtistDto.name?.replace(/^[ ]+|[ ]+$/g,'')
         // Get artist from db if it does exists.
+        // The regex removes leading and trailing spaces
         let artist = await this.findByName(createArtistDto.name)
         
         // Artist exists? If not, create and gather information

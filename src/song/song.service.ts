@@ -147,31 +147,46 @@ export class SongService {
         return Page.of(result, result.length, pageable.page);
     }
 
-    public async findByPlaylist(playlistId: string, pageable: Pageable): Promise<Page<Song>> {
+    /**
+     * Find a complete list of songs that belong to a certain album.
+     * @param albumId Album's id
+     * @returns Page<Song>
+     */
+    public async findByAlbum(albumId: string): Promise<Page<Song>> {
+        const result = await this.songRepository.createQueryBuilder("songs")
+            .leftJoin("songs.albums", "albums")
+            .leftJoinAndSelect("songs.artwork", "artwork")
+            .leftJoinAndSelect("songs.artists", "artist")
+            .select(["artist.id", "artist.name", "artwork.id", "artwork.accentColor", "songs.id", "songs.title", "songs.duration", "songs.released"])
+            .where("albums.id = :albumId", { albumId })
+            .getMany();
+
+        return Page.of(result, result.length, result.length)
+    }
+
+    /**
+     * Find all songs that are contained in specific playlist.
+     * @param playlistId Playlist's id
+     * @returns Page<Song>
+     */
+    public async findByPlaylist(playlistId: string): Promise<Page<Song>> {
         const result = await this.songRepository.createQueryBuilder("songs")
             .leftJoin("songs.song2playlist", "song2playlist")
             .leftJoin("song2playlist.playlist", "playlist")
             .leftJoinAndSelect("songs.artwork", "artwork")
             .leftJoinAndSelect("songs.artists", "artist")
             .leftJoinAndSelect("songs.albums", "albums")
-            .limit(pageable.size || 30)
-            .offset(pageable.page * pageable.size)
             .where("playlist.id = :playlistId", { playlistId })
+            .select(["songs.id", "songs.title", "songs.duration", "artwork.id", "artwork.accentColor", "artist.id", "artist.name", "albums.id", "albums.title"])
             .addSelect("song2playlist.createdAt", "song2playlist")
             .getRawAndEntities();
-
-        const totalElements = (await this.songRepository.createQueryBuilder("songs")
-            .leftJoin("songs.song2playlist", "song2playlist")
-            .leftJoin("song2playlist.playlist", "playlist")
-            .where("playlist.id = :playlistId", { playlistId })
-        .getCount())
 
         const elements = result.entities.map((song, index) => {
             song.song2playlist = result.raw[index].song2playlist
             return song;
         });
 
-        return Page.of(elements, totalElements, pageable.page);
+        return Page.of(elements, elements.length, elements.length);
     }
 
     /**
@@ -202,14 +217,22 @@ export class SongService {
         return this.songRepository.findOne({ where: { id: songId }, relations: ["label", "publisher", "artists", "artwork", "banner", "distributor", "albums", "genres"]})
     }
 
+    public async findByTitleAndAlbums(title: string, albums: string[]): Promise<Song> {
+        return this.songRepository.createQueryBuilder("song")
+            .leftJoin("song.albums", "albums")
+            .where("albums.title IN(:titles)", { titles: albums.join(",") })
+            .andWhere("song.title = :title", { title })
+            .getOne()
+    }
+
     /**
      * Create new song entry in database.
      * @param createSongDto Song data to be saved
      * @returns Song
      */
     private async create(createSongDto: CreateSongDTO): Promise<Song> {
-        const song = await this.songRepository.findOne({ where: { title: createSongDto.title }, relations: ["artwork", "index"]})
-        if(song) return song;
+        /*const song = await this.songRepository.findOne({ where: { title: createSongDto.title }, relations: ["artwork", "index"]})
+        if(song) return song;*/
 
         return this.songRepository.save(createSongDto).catch((error) => {
             this.logger.error(`Could not create song '${createSongDto.title}' in database: `, error)
@@ -230,8 +253,10 @@ export class SongService {
 
         const song: Song = index.song || await this.create({
             duration: id3tags.duration,
-            title: id3tags.title || path.parse(filepath).name
+            title: (id3tags.title || path.parse(filepath).name)?.replace(/^[ ]+|[ ]+$/g,'')
         });
+
+        // TODO: Check if song with title exists in album
 
         if(!song) throw new NotFoundException("Cannot create song entity.");
 
@@ -338,6 +363,8 @@ export class SongService {
                                 mountForArtworkId: song.index.mount.id
                             }).then((artist) => {
                                 // After artist creation, set the artist as the main album's artist.
+
+                                // TODO: If no artist present, take the artist that was found either on the song or on this album
                                 this.albumService.setArtistOfAlbum(result.album, artist).catch(() => {
                                     this.logger.warn(`Failed setting primary artist on album '${result.album.title}' to artist '${result.artist.name}'`);
                                 });
@@ -350,6 +377,7 @@ export class SongService {
                         // so we will just stick to the first artist in the song's artist list
                         if(result.album && !result.artist && !!song.artists[0]) {
                             // After artist creation, set the artist as the main album's artist.
+                            // TODO: If no artist present, take the artist that was found either on the song or on this album
                             this.albumService.setArtistOfAlbum(result.album, song.artists[0]).catch(() => {
                                 this.logger.warn(`Failed setting primary artist on album '${result.album.title}' to artist '${song.artists[0]?.name}'`);
                             });
@@ -359,20 +387,34 @@ export class SongService {
                     })
                 }
 
+
+
                 // Sort out duplicates
                 song.albums = [...new Map(song.albums.map(a => [a.id, a])).values()]
 
-                // Save updated song metadata together
-                // with artist relations
-                await this.songRepository.save(song).catch((reason) => {
-                    this.logger.error(`Could not save relations in database for song ${filepath}: `, reason);
-                });
+                const existsInOneAlbum = await this.findByTitleAndAlbums(song.title, song.albums.map((a) => a.title));
+                if(!!existsInOneAlbum) {
+                    // Duplicate song in album
+                    this.logger.warn("Found duplicate song in one album: " + existsInOneAlbum.title + " albums: " + song.albums.map((a) => a.title).join(", "))
+
+                    index.status = IndexStatus.DUPLICATE;
+                } else {
+                    // Save updated song metadata together
+                    // with artist relations
+                    await this.songRepository.save(song).catch((reason) => {
+                        this.logger.error(`Could not save relations in database for song ${filepath}: `, reason);
+                    });
+
+                    // Set status to OK, as this is the last step of the indexing process
+                    index.status = IndexStatus.OK;
+                }
+
+                
             });
 
             
 
-            // Set status to OK, as this is the last step of the indexing process
-            index.status = IndexStatus.OK;
+            
         } catch (error) {
             this.logger.error(error);
             console.error(error)

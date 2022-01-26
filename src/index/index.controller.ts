@@ -1,4 +1,4 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, Post } from '@nestjs/common';
 import { IsAuthenticated } from '@tsalliance/sso-nest';
 import { Page, Pageable } from 'nestjs-pager';
 import { Index } from './entities/index.entity';
@@ -12,5 +12,11 @@ export class IndexController {
   @IsAuthenticated()
   public async findByUploaderId(@Param("uploaderId") uploaderId: string, @Pageable() pageable: Pageable): Promise<Page<Index>> {
     return this.indexService.findPageByUploader(uploaderId, pageable)
+  }
+
+  @Post(":indexId/ignore")
+  @IsAuthenticated()
+  public async setIndexToIgnored(@Param("indexId") indexId: string) {
+    return this.indexService.setIgnored(indexId);
   }
 }

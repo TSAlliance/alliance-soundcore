@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
 import { ILike } from 'typeorm';
 import { Artist } from '../artist/entities/artist.entity';
@@ -22,16 +22,94 @@ export class AlbumService {
         const result = await this.albumRepository.createQueryBuilder("albums")
             .leftJoinAndSelect("albums.artwork", "artwork")
             .leftJoinAndSelect("albums.banner", "banner")
-            .leftJoinAndSelect("albums.artists", "artists")
+            .leftJoinAndSelect("albums.artist", "artist")
 
 
-            .where("artists.id = :artistId", { artistId })
+            .where("artist.id = :artistId", { artistId })
             .offset(pageable.page * pageable.size)
             .limit(pageable.size)
             .getManyAndCount();
 
         return Page.of(result[0], result[1], pageable.page);
+    }
 
+    public async findRecommendedProfilesByArtist(artistId: string, exceptAlbumIds: string | string[] = []): Promise<Page<Album>> {
+        if(!Array.isArray(exceptAlbumIds)) {
+            exceptAlbumIds = [ exceptAlbumIds ];
+        }
+
+        const result = await this.albumRepository.createQueryBuilder("album")
+            .leftJoinAndSelect("album.artwork", "artwork")
+            .leftJoinAndSelect("album.banner", "banner")
+            .leftJoinAndSelect("album.artist", "artist")
+            .where("artist.id = :artistId", { artistId })
+            .andWhere("album.id NOT IN(:except)", { except: exceptAlbumIds })
+            .select(["album.id", "album.title", "album.released", "artist.id", "artist.name", "artwork.id", "artwork.accentColor"])
+            .limit(10)
+            .getMany();
+
+        return Page.of(result, 10, 0);
+    }
+
+    /**
+     * Find album by its id including all information required to display the album
+     * page on the frontend
+     * @param albumId Album's id
+     * @returns Album
+     */
+    public async findProfileById(albumId: string): Promise<Album> {
+        const result = await this.albumRepository.createQueryBuilder("album")
+                .where("album.id = :albumId", { albumId })
+
+                // Relation for counting and summing up duration
+                .leftJoin("album.songs", "song")
+                
+                // This is for relations
+                .leftJoinAndSelect("album.artwork", "artwork")
+                .leftJoinAndSelect("album.banner", "banner")
+                .leftJoinAndSelect("album.distributor", "distributor")
+                .leftJoinAndSelect("distributor.artwork", "distrArtwork")
+                .leftJoinAndSelect("album.label", "label")
+                .leftJoinAndSelect("label.artwork", "labelArtwork")
+                .leftJoinAndSelect("album.publisher", "publisher")
+                .leftJoinAndSelect("publisher.artwork", "publisherArtwork")
+                .leftJoinAndSelect("album.artist", "artist")
+                .leftJoinAndSelect("artist.artwork", "albumArtwork")
+
+                // Counting the songs
+                .addSelect('COUNT(song.id)', 'songsCount')
+
+                // SUM up the duration of every song to get total duration of the playlist
+                .addSelect('SUM(song.duration)', 'totalDuration')
+                .getRawAndEntities()
+
+        const album = result.entities[0];
+        if(!album) throw new NotFoundException("Album not found.")
+
+        const featuredArtists = await this.albumRepository.createQueryBuilder("album")
+            .leftJoin("album.songs", "song")
+            .leftJoinAndSelect("song.artists", "artist")
+            .leftJoinAndSelect("artist.artwork", "artwork")
+
+            .where("album.id = :albumId", { albumId })
+            .andWhere("artist.id != :artistId", { artistId: album.artist?.id })
+            .select(["artist.id", "artist.name", "artwork.id", "artwork.accentColor"])
+            .distinct()
+            .getRawAndEntities()
+
+        album.featuredArtists = featuredArtists.raw.map((a) => ({
+            id: a.artist_id,
+            name: a.artist_name,
+            artwork: {
+                id: a.artwork_id,
+                accentColor: a.artwork_accentColor
+            }
+        } as Artist))
+
+        album.totalDuration = parseInt(result.raw[0].totalDuration);
+        album.songsCount = parseInt(result.raw[0].songsCount)
+
+        return album
     }
 
     public async findByTitle(title: string): Promise<Album> {
@@ -59,6 +137,8 @@ export class AlbumService {
     }
 
     public async createIfNotExists(createAlbumDto: CreateAlbumDTO): Promise<{ album: Album, artist: GeniusArtistDTO}> {
+        createAlbumDto.title = createAlbumDto.title?.replace(/^[ ]+|[ ]+$/g,'')
+
         if(createAlbumDto.geniusId) {
             const album = await this.findByGeniusId(createAlbumDto.geniusId);
             if(album) return { album, artist: null };

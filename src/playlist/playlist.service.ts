@@ -78,7 +78,7 @@ export class PlaylistService {
         return this.playlistRepository.findAll(pageable, { where: { privacy: PlaylistPrivacy.PUBLIC, author: { id: authorId }}, relations: ["artwork", "author", "collaborators"]})
     }
 
-    public async findSongsInPlaylist(playlistId: string, pageable: Pageable, requester: User): Promise<Page<Song>> {
+    public async findSongsInPlaylist(playlistId: string, requester: User): Promise<Page<Song>> {
         const playlist = await this.playlistRepository.findOne({ where: { id: playlistId }});
         if(!playlist) throw new NotFoundException("Playlist not found.")
 
@@ -86,7 +86,7 @@ export class PlaylistService {
             throw new NotFoundException("No access")
         }
 
-        return this.songService.findByPlaylist(playlistId, pageable);
+        return this.songService.findByPlaylist(playlistId);
     }
 
     public async existsByTitleInUser(title: string, userId: string): Promise<boolean> {
