@@ -37,6 +37,7 @@ export class StreamService {
         const filePath = this.storageService.buildFilepath(song.index);
     
         const stat = await this.storageService.getFileStats(filePath);
+        if(!stat) throw new NotFoundException("Song not found.")
         const total = stat.size;
     
         if(request.headers.range) {    
