@@ -61,7 +61,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
     }),
     AllianceRestModule.forRoot({
       logging: false,
-      disableErrorHandling: false,
+      disableErrorHandling: true,
       disableValidation: false
     }),
     EventEmitterModule.forRoot({ global: true, ignoreErrors: true }),
