@@ -31,13 +31,15 @@ export class SongController {
   }
 
   @Get("/byGenre/:genreId")
+  @IsAuthenticated()
   public async findByGenre(@Param("genreId") genreId: string, @Pageable() pageable: Pageable): Promise<Page<Song>> {
     return this.songService.findByGenre(genreId, pageable)
   }
 
   @Get("/byArtist/:artistId/top")
-  public async findTopSongsByArtist(@Param("artistId") artistId: string): Promise<Song[]> {
-    return this.songService.findTopSongsByArtist(artistId)
+  @IsAuthenticated()
+  public async findTopSongsByArtist(@Param("artistId") artistId: string, @Authentication() user: User): Promise<Song[]> {
+    return this.songService.findTopSongsByArtist(artistId, user)
   }
 
   @Get("/byAlbum/:albumId")

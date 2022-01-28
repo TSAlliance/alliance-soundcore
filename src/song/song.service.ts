@@ -91,17 +91,17 @@ export class SongService {
      * @param artistId Artist's id
      * @returns Song[]
      */
-    public async findTopSongsByArtist(artistId: string): Promise<Song[]> {
-        const result = await this.songRepository.createQueryBuilder('songs')
+    public async findTopSongsByArtist(artistId: string, user?: User): Promise<Song[]> {
+        const result = await this.songRepository.createQueryBuilder('song')
             // Join for relations
-            .leftJoin("songs.artists", "artist")
+            .leftJoin("song.artists", "artist")
 
             // Join to get amount all streams
-            .leftJoin('songs.streams', 'streams')
+            .leftJoin('song.streams', 'streams')
 
             // Sum up streams and order by highest
             .addSelect('SUM(streams.streamCount)', 'streamCount')
-            .groupBy('songs.id')
+            .groupBy('song.id')
             .orderBy('streamCount', 'DESC')
 
             .limit(5)
@@ -110,13 +110,16 @@ export class SongService {
 
         if(result.entities.length <= 0) return [];
 
-        const resultWithRelations = await this.songRepository.createQueryBuilder('songs')
+        const resultWithRelations = await this.songRepository.createQueryBuilder('song')
             // Join to fetch artists that are featured
-            .leftJoinAndSelect("songs.artists", "allArtists")
-            .leftJoinAndSelect("songs.artwork", "artwork")
+            .leftJoinAndSelect("song.artists", "allArtists")
+            .leftJoinAndSelect("song.artwork", "artwork")
+
+            // Count how many likes. This takes user's id in count
+            .loadRelationCountAndMap("song.likesCount", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
 
             .limit(5)
-            .where("songs.id IN(:artistIds)", { artistIds: result.entities.map((s) => s.id) })
+            .where("song.id IN(:artistIds)", { artistIds: result.entities.map((s) => s.id) })
             .getMany();
 
         const songs = result.entities.map((song, index) => {
@@ -125,6 +128,7 @@ export class SongService {
             song.artwork = songRelations?.artwork
             song.artists = songRelations?.artists;
             song.streamCount = result.raw[index].streamCount
+            song.isLiked = songRelations?.likesCount > 0
 
             return song;
         });
