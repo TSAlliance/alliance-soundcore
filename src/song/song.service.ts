@@ -24,6 +24,7 @@ import { StorageService } from '../storage/storage.service';
 import { CreateAlbumDTO } from '../album/dto/create-album.dto';
 import { GeniusAlbumDTO } from '../genius/dtos/genius-album.dto';
 import path from 'path';
+import { User } from '../user/entities/user.entity';
 
 @Injectable()
 export class SongService {
@@ -85,6 +86,11 @@ export class SongService {
         return this.songRepository.findOne({ where: { id: songId }, relations: ["index", "index.mount"]})
     }
 
+    /**
+     * Find the top 5 songs by stream count by an artist.
+     * @param artistId Artist's id
+     * @returns Song[]
+     */
     public async findTopSongsByArtist(artistId: string): Promise<Song[]> {
         const result = await this.songRepository.createQueryBuilder('songs')
             // Join for relations
@@ -102,7 +108,7 @@ export class SongService {
             .where("artist.id = :artistId", { artistId })
             .getRawAndEntities();
 
-        if(result.entities.length <= 0) throw new NotFoundException("Could not find artist");
+        if(result.entities.length <= 0) return [];
 
         const resultWithRelations = await this.songRepository.createQueryBuilder('songs')
             // Join to fetch artists that are featured
@@ -152,16 +158,38 @@ export class SongService {
      * @param albumId Album's id
      * @returns Page<Song>
      */
-    public async findByAlbum(albumId: string): Promise<Page<Song>> {
+    public async findByAlbum(albumId: string, user?: User): Promise<Page<Song>> {
+        const stats = await this.songRepository.createQueryBuilder('song')
+            // Join for relations
+            .leftJoin("song.albums", "album")
+
+            // Join to get amount all streams
+            .leftJoin('song.streams', 'streams')
+
+            // Count how many likes. This takes user's id in count
+            .loadRelationCountAndMap("song.likesCount", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
+            
+            // Sum up streams and order by highest
+            .addSelect(['SUM(IFNULL(streams.streamCount, 0)) AS streamCount'])
+            .groupBy('song.id')
+
+            .where("album.id = :albumId", { albumId })
+            .getRawAndEntities();
+
         const result = await this.songRepository.createQueryBuilder("songs")
             .leftJoin("songs.albums", "albums")
             .leftJoinAndSelect("songs.artwork", "artwork")
             .leftJoinAndSelect("songs.artists", "artist")
             .select(["artist.id", "artist.name", "artwork.id", "artwork.accentColor", "songs.id", "songs.title", "songs.duration", "songs.released"])
-            .where("albums.id = :albumId", { albumId })
-            .getMany();
 
-        return Page.of(result, result.length, result.length)
+            .where("albums.id = :albumId", { albumId })
+            .getRawAndEntities();
+
+        return Page.of(result.entities.map((s, i) => {
+            s.streamCount = parseInt(stats.raw[i].streamCount)
+            s.isLiked = stats.entities[i].likesCount > 0
+            return s;
+        }), result.entities.length, result.entities.length)
     }
 
     /**
@@ -169,20 +197,26 @@ export class SongService {
      * @param playlistId Playlist's id
      * @returns Page<Song>
      */
-    public async findByPlaylist(playlistId: string): Promise<Page<Song>> {
-        const result = await this.songRepository.createQueryBuilder("songs")
-            .leftJoin("songs.song2playlist", "song2playlist")
+    public async findByPlaylist(playlistId: string, user?: User): Promise<Page<Song>> {
+        const result = await this.songRepository.createQueryBuilder("song")
+            .leftJoin("song.song2playlist", "song2playlist")
             .leftJoin("song2playlist.playlist", "playlist")
-            .leftJoinAndSelect("songs.artwork", "artwork")
-            .leftJoinAndSelect("songs.artists", "artist")
-            .leftJoinAndSelect("songs.albums", "albums")
+            .leftJoinAndSelect("song.artwork", "artwork")
+            .leftJoinAndSelect("song.artists", "artist")
+            .leftJoinAndSelect("song.albums", "albums")
+
+            // Count how many likes. This takes user's id in count
+            .loadRelationCountAndMap("song.likesCount", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
+
             .where("playlist.id = :playlistId", { playlistId })
-            .select(["songs.id", "songs.title", "songs.duration", "artwork.id", "artwork.accentColor", "artist.id", "artist.name", "albums.id", "albums.title"])
+            .select(["song.id", "song.title", "song.duration", "artwork.id", "artwork.accentColor", "artist.id", "artist.name", "albums.id", "albums.title"])
             .addSelect("song2playlist.createdAt", "song2playlist")
+            
             .getRawAndEntities();
 
         const elements = result.entities.map((song, index) => {
             song.song2playlist = result.raw[index].song2playlist
+            song.isLiked = result.entities[index].likesCount > 0
             return song;
         });
 
@@ -386,8 +420,6 @@ export class SongService {
                         this.logger.warn(`Could not save album metadata extracted from ID3 Tags of file '${filepath}'`);
                     })
                 }
-
-
 
                 // Sort out duplicates
                 song.albums = [...new Map(song.albums.map(a => [a.id, a])).values()]

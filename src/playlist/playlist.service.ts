@@ -86,7 +86,7 @@ export class PlaylistService {
             throw new NotFoundException("No access")
         }
 
-        return this.songService.findByPlaylist(playlistId);
+        return this.songService.findByPlaylist(playlistId, requester);
     }
 
     public async existsByTitleInUser(title: string, userId: string): Promise<boolean> {

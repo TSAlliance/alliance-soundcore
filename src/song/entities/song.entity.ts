@@ -7,6 +7,8 @@ import { Distributor } from "../../distributor/entities/distributor.entity";
 import { Genre } from "../../genre/entities/genre.entity";
 import { Index } from "../../index/entities/index.entity";
 import { Label } from "../../label/entities/label.entity";
+import { Liked } from "../../like/entities/like.entity";
+import { LikedSong } from "../../like/entities/liked-song.entity";
 import { Song2Playlist } from "../../playlist/entities/song2playlist.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
 import { Stream } from "../../stream/entities/stream.entity";
@@ -94,10 +96,14 @@ export class Song {
     @OneToMany(() => Stream, stream => stream.song)
     public streams: Stream[];
 
+    @OneToMany(() => Liked, (l) => l["song"])
+    public likedBy: LikedSong[];
+
     // Value that will be set if the songs of a playlist
     // are fetched
     public playlistAdded: Date;
-
     public streamCount?: number;
+    public likesCount?: number;
+    public isLiked?: boolean;
 
 }

@@ -1,6 +1,7 @@
 import { Controller, Get, Param } from '@nestjs/common';
-import { CanAccess } from '@tsalliance/sso-nest';
+import { Authentication, CanAccess, IsAuthenticated } from '@tsalliance/sso-nest';
 import { Page, Pageable } from 'nestjs-pager';
+import { User } from '../user/entities/user.entity';
 import { Song } from './entities/song.entity';
 import { SongService } from './song.service';
 
@@ -40,8 +41,9 @@ export class SongController {
   }
 
   @Get("/byAlbum/:albumId")
-  public async findByAlbum(@Param("albumId") albumId: string): Promise<Page<Song>> {
-    return this.songService.findByAlbum(albumId)
+  @IsAuthenticated()
+  public async findByAlbum(@Param("albumId") albumId: string, @Authentication() user: User): Promise<Page<Song>> {
+    return this.songService.findByAlbum(albumId, user)
   }
 
 }
