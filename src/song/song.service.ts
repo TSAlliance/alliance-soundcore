@@ -209,6 +209,7 @@ export class SongService {
 
             .offset(pageable.page * pageable.size)
             .limit(pageable.size)
+            .orderBy("likedBy.likedAt", "DESC")
 
             .getRawAndEntities();
 
