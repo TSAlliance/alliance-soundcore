@@ -9,11 +9,6 @@ import { SongService } from './song.service';
 export class SongController {
   constructor(private readonly songService: SongService) {}
 
-  @Get(":songId")
-  public async findById(@Param("songId") songId: string): Promise<Song> {
-    return this.songService.findByIdInfoWithRelations(songId);
-  }
-
   @Get("latest")
   public async findLatest(): Promise<Page<Song>> {
     return this.songService.findLatestPage();
@@ -22,6 +17,12 @@ export class SongController {
   @Get("oldest")
   public async findOldestRelease(): Promise<Page<Song>> {
     return this.songService.findOldestReleasePage();
+  }
+
+  @Get("byCollection")
+  @IsAuthenticated()
+  public async findByCollection(@Authentication() user: User, @Pageable() pageable: Pageable): Promise<Page<Song>> {
+    return this.songService.findByCollection(user, pageable)
   }
 
   @Get("/byUploader/:uploaderId")
@@ -46,6 +47,11 @@ export class SongController {
   @IsAuthenticated()
   public async findByAlbum(@Param("albumId") albumId: string, @Authentication() user: User): Promise<Page<Song>> {
     return this.songService.findByAlbum(albumId, user)
+  }
+
+  @Get(":songId")
+  public async findById(@Param("songId") songId: string): Promise<Song> {
+    return this.songService.findByIdInfoWithRelations(songId);
   }
 
 }

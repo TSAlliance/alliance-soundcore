@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { Song } from '../song/entities/song.entity';
-import { User } from '../user/entities/user.entity';
-import { LikedSong } from './entities/liked-song.entity';
-import { LikeRepository } from './repositories/like.repository';
+import { Song } from '../../song/entities/song.entity';
+import { User } from '../../user/entities/user.entity';
+import { LikedSong } from '../entities/liked-song.entity';
+import { LikeRepository } from '../repositories/like.repository';
 
 @Injectable()
 export class LikeService {

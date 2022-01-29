@@ -7,8 +7,8 @@ import { Distributor } from "../../distributor/entities/distributor.entity";
 import { Genre } from "../../genre/entities/genre.entity";
 import { Index } from "../../index/entities/index.entity";
 import { Label } from "../../label/entities/label.entity";
-import { Liked } from "../../like/entities/like.entity";
-import { LikedSong } from "../../like/entities/liked-song.entity";
+import { Liked } from "../../collection/entities/like.entity";
+import { LikedSong } from "../../collection/entities/liked-song.entity";
 import { Song2Playlist } from "../../playlist/entities/song2playlist.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
 import { Stream } from "../../stream/entities/stream.entity";
@@ -105,5 +105,6 @@ export class Song {
     public streamCount?: number;
     public likesCount?: number;
     public isLiked?: boolean;
+    public likedAt?: Date;
 
 }

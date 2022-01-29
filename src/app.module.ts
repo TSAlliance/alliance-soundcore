@@ -24,7 +24,7 @@ import { PlaylistModule } from './playlist/playlist.module';
 import { UserModule } from './user/user.module';
 import { ImportModule } from './import/import.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
-import { LikeModule } from './like/like.module';
+import { CollectionModule } from './collection/collection.module';
 
 @Module({
   imports: [
@@ -84,7 +84,7 @@ import { LikeModule } from './like/like.module';
     PlaylistModule,
     UserModule,
     ImportModule,
-    LikeModule
+    CollectionModule
   ],
   controllers: [],
   providers: []

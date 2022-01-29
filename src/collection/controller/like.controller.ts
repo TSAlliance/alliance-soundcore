@@ -1,7 +1,7 @@
 import { Controller, Param, Post } from '@nestjs/common';
 import { Authentication, IsAuthenticated } from '@tsalliance/sso-nest';
-import { User } from '../user/entities/user.entity';
-import { LikeService } from './like.service';
+import { User } from '../../user/entities/user.entity';
+import { LikeService } from '../services/like.service';
 
 @Controller('likes')
 export class LikeController {

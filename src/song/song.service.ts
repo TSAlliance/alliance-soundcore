@@ -196,6 +196,29 @@ export class SongService {
         }), result.entities.length, result.entities.length)
     }
 
+    public async findByCollection(user: User, pageable: Pageable): Promise<Page<Song>> {
+        const result = await this.songRepository.createQueryBuilder('song')
+            .leftJoin("song.likedBy", "likedBy")
+
+            .leftJoinAndSelect("song.albums", "album")
+            .leftJoinAndSelect("song.artwork", "artwork")
+            .leftJoin("song.artists", "artist")
+
+            .select(["song.id", "song.title", "song.duration", "artwork.id", "artwork.accentColor", "album.id", "album.title", "artist.id", "artist.name", "likedBy.likedAt AS likedAt"])
+            .where("likedBy.userId = :userId", { userId: user.id })
+
+            .offset(pageable.page * pageable.size)
+            .limit(pageable.size)
+
+            .getRawAndEntities();
+
+        return Page.of(result.entities.map((s, i) => {
+            s.likedAt = result.raw[i].likedAt
+            s.isLiked = true
+            return s;
+        }), result.entities.length, result.entities.length)
+    }
+
     /**
      * Find all songs that are contained in specific playlist.
      * @param playlistId Playlist's id
