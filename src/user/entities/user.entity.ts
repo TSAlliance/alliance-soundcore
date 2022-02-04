@@ -12,6 +12,9 @@ export class User extends SSOUser {
     @Column({ nullable: true })
     public avatarResourceId: string;
 
+    @Column({ nullable: true })
+    public accentColor: string;
+
     @CanRead(false)
     @OneToMany(() => Stream, stream => stream.listener)
     public streams: Stream[];

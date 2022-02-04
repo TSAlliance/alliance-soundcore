@@ -4,12 +4,14 @@ import { UserController } from './user.controller';
 import { SSOService } from '@tsalliance/sso-nest';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserRepository } from './repositories/user.repository';
+import { ArtworkModule } from '../artwork/artwork.module';
 
 @Module({
   controllers: [UserController],
   providers: [UserService],
   imports: [
-    TypeOrmModule.forFeature([ UserRepository ])
+    TypeOrmModule.forFeature([ UserRepository ]),
+    ArtworkModule
   ],
   exports: [
     UserService

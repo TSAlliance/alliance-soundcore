@@ -2,6 +2,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { SSOService, SSOUser } from '@tsalliance/sso-nest';
 import { Page, Pageable } from 'nestjs-pager';
 import { ILike } from 'typeorm';
+import { ArtworkService } from '../artwork/artwork.service';
 import { User } from './entities/user.entity';
 import { UserRepository } from './repositories/user.repository';
 
@@ -11,6 +12,7 @@ export class UserService {
 
     constructor(
         private ssoService: SSOService,
+        private artworkService: ArtworkService,
         private userRepository: UserRepository
     ) {}
 
@@ -40,16 +42,22 @@ export class UserService {
     }
 
     public async createIfNotExists(user: SSOUser) {
-        return this.userRepository.findOne({ where: { id: user.id }}).then((result) => {
+        return this.userRepository.findOne({ where: { id: user.id }}).then(async (result) => {
             // Create new user in database if there is no existing one for this id.
             if(!result) {
-              return this.userRepository.save(user).catch(() => {
+              const soundcoreUser: User = user as User;
+              soundcoreUser.accentColor = await this.artworkService.getAccentColorFromAvatar(user.avatarUrl).catch(() => null);
+
+              return this.userRepository.save(soundcoreUser).catch(() => {
                 this.logger.warn("Could not save user info.")
               })
             } else {
               // Update user in database if username has changed.
               if(user.username != result.username || user.avatarResourceId != result.avatarResourceId) {
-                return this.userRepository.save(user).catch(() => {
+                const soundcoreUser: User = user as User;
+                soundcoreUser.accentColor = await this.artworkService.getAccentColorFromAvatar(user.avatarUrl).catch(() => null);
+
+                return this.userRepository.save(soundcoreUser).catch(() => {
                   this.logger.warn("Could not save user info.")
                 })
               }
