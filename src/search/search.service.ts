@@ -7,6 +7,7 @@ import { GenreService } from '../genre/genre.service';
 import { LabelService } from '../label/label.service';
 import { PublisherService } from '../publisher/publisher.service';
 import { SongService } from '../song/song.service';
+import { User } from '../user/entities/user.entity';
 import { UserService } from '../user/user.service';
 import { Levenshtein } from '../utils/levenshtein';
 import { SearchBestMatch, SearchBestMatchType } from './entities/best-match.entity';
@@ -28,10 +29,10 @@ export class SearchService {
         private userService: UserService
     ) {}
 
-    public async complexSearch(query: string): Promise<ComplexSearchResult> {
+    public async complexSearch(query: string, searcher?: User): Promise<ComplexSearchResult> {
         const settings: Pageable = { page: 0, size: 12 }
         
-        const songs = await this.songService.findBySearchQuery(query, settings);
+        const songs = await this.songService.findBySearchQuery(query, settings, searcher);
         const artists = await this.artistService.findBySearchQuery(query, settings);
         const genres = await this.genreService.findBySearchQuery(query, settings);
         const publisher = await this.publisherService.findBySearchQuery(query, settings);

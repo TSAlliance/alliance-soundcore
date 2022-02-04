@@ -1,5 +1,6 @@
 import { Controller, Get, Query } from '@nestjs/common';
-import { IsAuthenticated } from '@tsalliance/sso-nest';
+import { Authentication, IsAuthenticated } from '@tsalliance/sso-nest';
+import { User } from '../user/entities/user.entity';
 import { SearchService } from './search.service';
 
 @Controller('search')
@@ -8,7 +9,7 @@ export class SearchController {
 
   @Get()
   @IsAuthenticated()
-  public async performSearch(@Query("q") query: string) {
-    return this.searchService.complexSearch(query);
+  public async performSearch(@Query("q") query: string, @Authentication() searcher: User) {
+    return this.searchService.complexSearch(query, searcher);
   } 
 }

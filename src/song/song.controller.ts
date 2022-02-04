@@ -19,10 +19,16 @@ export class SongController {
     return this.songService.findOldestReleasePage();
   }
 
-  @Get("byCollection")
+  @Get("/byCollection")
   @IsAuthenticated()
   public async findByCollection(@Authentication() user: User, @Pageable() pageable: Pageable): Promise<Page<Song>> {
-    return this.songService.findByCollection(user, pageable)
+    return this.songService.findByCollectionAndOrArtist(user, pageable, undefined)
+  }
+
+  @Get("/byCollection/byArtist/:artistId")
+  @IsAuthenticated()
+  public async findByCollectionAndArtist(@Param("artistId") artistId: string, @Authentication() user: User, @Pageable() pageable: Pageable): Promise<Page<Song>> {
+    return this.songService.findByCollectionAndOrArtist(user, pageable, artistId)
   }
 
   @Get("/byUploader/:uploaderId")
@@ -33,14 +39,26 @@ export class SongController {
 
   @Get("/byGenre/:genreId")
   @IsAuthenticated()
-  public async findByGenre(@Param("genreId") genreId: string, @Pageable() pageable: Pageable): Promise<Page<Song>> {
-    return this.songService.findByGenre(genreId, pageable)
+  public async findByGenre(@Param("genreId") genreId: string, @Pageable() pageable: Pageable, @Authentication() user: User): Promise<Page<Song>> {
+    return this.songService.findByGenreAndOrArtist(genreId, undefined, pageable, user)
+  }
+
+  @Get("/byGenre/:genreId/byArtist/:artistId")
+  @IsAuthenticated()
+  public async findByGenreAndArtist(@Param("genreId") genreId: string, @Param("artistId") artistId: string, @Pageable() pageable: Pageable, @Authentication() user: User): Promise<Page<Song>> {
+    return this.songService.findByGenreAndOrArtist(genreId, artistId, pageable, user)
   }
 
   @Get("/byArtist/:artistId/top")
   @IsAuthenticated()
-  public async findTopSongsByArtist(@Param("artistId") artistId: string, @Authentication() user: User): Promise<Song[]> {
-    return this.songService.findTopSongsByArtist(artistId, user)
+  public async findTopSongsByArtist(@Param("artistId") artistId: string, @Authentication() user: User): Promise<Page<Song>> {
+    return this.songService.findTopSongsByArtist(artistId, user, { page: 0, size: 5 })
+  }
+
+  @Get("/byArtist/:artistId")
+  @IsAuthenticated()
+  public async findSongsByArtist(@Param("artistId") artistId: string, @Authentication() user: User, @Pageable() pageable: Pageable): Promise<Page<Song>> {
+    return this.songService.findSongsByArtist(artistId, pageable, user)
   }
 
   @Get("/byAlbum/:albumId")

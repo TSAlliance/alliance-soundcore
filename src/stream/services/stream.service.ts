@@ -17,8 +17,9 @@ export class StreamService {
         private ssoService: SSOService
     ){}
 
-    public async addToSong(songId: string, listenerId: string) {
+    public async increaseStreamCount(songId: string, listenerId: string) {
       const stream = await this.streamRepository.findOne({ where: { songId, listenerId }});
+
       if(!stream) {
         this.streamRepository.save({ songId, listenerId })
         return
@@ -39,6 +40,8 @@ export class StreamService {
         const stat = await this.storageService.getFileStats(filePath);
         if(!stat) throw new NotFoundException("Song not found.")
         const total = stat.size;
+
+        let readableStream: fs.ReadStream;
     
         if(request.headers.range) {    
           const range = request.headers.range;
@@ -49,22 +52,27 @@ export class StreamService {
           const start = parseInt(partialstart, 10);
           const end = partialend ? parseInt(partialend, 10) : total-1;
           const chunksize = (end-start)+1;
-          const readStream = fs.createReadStream(filePath, {start: start, end: end});
+          readableStream = fs.createReadStream(filePath, {start: start, end: end});
+
+          if(end/total >= 0.4) {
+            this.increaseStreamCount(songId, listener.id);
+          }
           
           response.writeHead(206, {
               'Content-Range': 'bytes ' + start + '-' + end + '/' + total,
               'Accept-Ranges': 'bytes', 'Content-Length': chunksize,
               'Content-Type': 'audio/mpeg'
           });
-    
-          readStream.pipe(response);
         } else {
-          if(listener) {
-            this.addToSong(songId, listener.id);
-          }
-
-          fs.createReadStream(filePath).pipe(response)
+          readableStream = fs.createReadStream(filePath)
+          readableStream.on("end", () => {
+            if(listener) {
+              this.increaseStreamCount(songId, listener.id);
+            }
+          })
         }
+
+        readableStream.pipe(response);
     }
 
 }
