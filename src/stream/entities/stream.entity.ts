@@ -1,22 +1,20 @@
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, ManyToOne, PrimaryColumn } from "typeorm";
 import { Song } from "../../song/entities/song.entity";
 import { User } from "../../user/entities/user.entity";
 
 @Entity()
 export class Stream {
 
-    @PrimaryGeneratedColumn({ unsigned: true, type: "bigint" })
-    public id!: number;
-
-    @Column()
+    @PrimaryColumn({ type: "varchar", name: "songId" })
     public songId: string;
 
-    @Column()
+    @PrimaryColumn({ type: "varchar", name: "listenerId" })
     public listenerId: string;
 
     @Column({ default: 1 })
     public streamCount: number;
 
+    
     @ManyToOne(() => Song, s => s.song2playlist, { onDelete: "CASCADE" })
     public song: Song;
 

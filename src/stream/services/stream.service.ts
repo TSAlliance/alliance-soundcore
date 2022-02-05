@@ -18,15 +18,21 @@ export class StreamService {
     ){}
 
     public async increaseStreamCount(songId: string, listenerId: string) {
-      const stream = await this.streamRepository.findOne({ where: { songId, listenerId }});
+      const stream = await this.streamRepository.findOne({ where: { songId, listenerId }}).catch(() => {
+        return null;
+      });
 
       if(!stream) {
-        this.streamRepository.save({ songId, listenerId })
+        this.streamRepository.save({ songId, listenerId }).catch(() => {
+          return null;
+        })
         return
       }
       
       stream.streamCount++;
-      this.streamRepository.save(stream)
+      this.streamRepository.save(stream).catch(() => {
+        return null;
+      })
     }
 
     public async findStreamableSongById(songId: string, session: string, request: Request, response: Response) {
