@@ -8,14 +8,7 @@ export class CreatePlaylistDTO {
     public title: string;
 
     @IsOptional()
-    @Length(0, 254)
-    public description?: string;
-
-    @IsOptional()
     @IsEnum(PlaylistPrivacy)
     public privacy?: PlaylistPrivacy;
-
-    @IsOptional()
-    public collaborative?: boolean;
 
 }
