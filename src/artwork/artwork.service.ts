@@ -69,6 +69,35 @@ export class ArtworkService {
     }
 
     /**
+     * Extract the accent color from an avatar url.
+     * @param avatarUrl Artwork to extract color from
+     * @returns Hex string
+     */
+     public async getAccentColorFromAvatar(avatarUrl: string): Promise<string> {
+        return new Promise((resolve) => {
+            const tmpFilepath = this.storageService.buildTmpFilepath();
+
+            this.downloadImageUrl(avatarUrl).then((buffer) => {
+                fs.writeFile(tmpFilepath, buffer, (err) => {
+                    if(err) {
+                        console.error(err)
+                        resolve(null)
+                        return
+                    }
+
+                    Vibrant.from(tmpFilepath).getPalette().then((palette) => {
+                        resolve(palette.Vibrant.hex)
+                    }).catch(() => {
+                        resolve(null)
+                    })
+                })
+            }).catch(() => {
+                resolve(null)
+            })
+        })
+    }
+
+    /**
      * Write the extracted image of an indexed file to the disk.
      * @param index Indexed file the artwork belongs to.
      * @param buffer Image data to be written.
