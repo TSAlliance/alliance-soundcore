@@ -18,6 +18,16 @@ export class AlbumController {
     return this.albumService.findRecommendedProfilesByArtist(artistId, exceptAlbumIds);
   }
 
+  @Get("/byFeaturedArtist/:artistId")
+  public async findByFeaturedArtist(@Param("artistId") artistId: string, @Pageable() pageable: Pageable) {
+    return this.albumService.findFeaturedWithArtist(artistId, pageable);
+  }
+
+  @Get("/byGenre/:genreId")
+  public async findByGenre(@Param("genreId") genreId: string, @Pageable() pageable: Pageable) {
+    return this.albumService.findByGenre(genreId, pageable);
+  }
+
   @Get(":albumId")
   public async findProfileById(@Param("albumId") albumId: string) {
     return this.albumService.findProfileById(albumId);

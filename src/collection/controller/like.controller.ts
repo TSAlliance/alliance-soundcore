@@ -14,4 +14,10 @@ export class LikeController {
     return this.likeService.likeSong(songId, user)
   }
 
+  @Post("/playlist/:playlistId")
+  @IsAuthenticated()
+  public async likePlaylist(@Param("playlistId") playlistId: string, @Authentication() user: User) {
+    return this.likeService.likePlaylist(playlistId, user)
+  }
+
 }

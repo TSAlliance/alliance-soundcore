@@ -15,6 +15,23 @@ export class GenreService {
         return this.genreRepository.findOne({ where: { id: genreId }})
     }
 
+    public async findGenreByArtist(artistId: string, pageable: Pageable): Promise<Page<Genre>> {
+        const result = await this.genreRepository.createQueryBuilder("genre")
+            .leftJoin("genre.songs", "song")
+            .leftJoin("song.artists", "artist")
+
+            .select(["genre.id", "genre.name"])
+            .distinct(true)
+
+            .take(pageable.size)
+            .offset(pageable.page * pageable.size)
+
+            .where("artist.id = :artistId", { artistId })
+            .getManyAndCount();
+
+        return Page.of(result[0], result[1], pageable.page);
+    }
+
     /**
      * Create new genre by name if it does not already exist in the database.
      * @param createGenreDto Genre data to create

@@ -41,4 +41,10 @@ export class Artist {
     @JoinColumn()
     public artwork: Artwork;
 
+    songCount?: number;
+    albumCount?: number;
+    streamCount?: number;
+    // Refers to the user that performs the request
+    likedCount?: number;
+
 }

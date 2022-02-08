@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { PlaylistModule } from '../playlist/playlist.module';
 import { CollectionController } from './controller/collection.controller';
 import { LikeController } from './controller/like.controller';
 import { LikeRepository } from './repositories/like.repository';
@@ -16,6 +17,7 @@ import { LikeService } from './services/like.service';
     LikeService
   ],
   imports: [
+    PlaylistModule,
     TypeOrmModule.forFeature([ LikeRepository ])
   ]
 })

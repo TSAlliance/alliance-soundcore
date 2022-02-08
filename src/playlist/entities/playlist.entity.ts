@@ -1,5 +1,7 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Artwork } from "../../artwork/entities/artwork.entity";
+import { Liked } from "../../collection/entities/like.entity";
+import { LikedPlaylist } from "../../collection/entities/liked-playlist.entity";
 import { User } from "../../user/entities/user.entity";
 import { PlaylistPrivacy } from "../enums/playlist-privacy.enum";
 import { Song2Playlist } from "./song2playlist.entity";
@@ -40,9 +42,14 @@ export class Playlist {
     @JoinColumn()
     public artwork: Artwork;
 
+    @OneToMany(() => Liked, (l) => l["playlist"])
+    public likedBy: LikedPlaylist[];
 
-    public songsCount?: number = 0;
-    public collaboratorsCount?: number = 0;
-    public totalDuration?: number = 0;
+
+    public songsCount?: number = undefined;
+    public collaboratorsCount?: number = undefined;
+    public totalDuration?: number = undefined;
+    public likesCount?: number = undefined;
+    public isLiked?: boolean = false;
 
 }

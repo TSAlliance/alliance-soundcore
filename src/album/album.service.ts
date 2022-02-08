@@ -24,10 +24,38 @@ export class AlbumService {
             .leftJoinAndSelect("albums.banner", "banner")
             .leftJoinAndSelect("albums.artist", "artist")
 
-
             .where("artist.id = :artistId", { artistId })
-            .offset(pageable.page * pageable.size)
-            .limit(pageable.size)
+            .orderBy("albums.released", "DESC")
+            .addOrderBy("albums.createdAt", "DESC")
+
+            // Pagination
+            .offset((pageable?.page || 0) * (pageable?.size || 30))
+            .take(pageable.size || 30)
+
+            .getManyAndCount();
+
+        return Page.of(result[0], result[1], pageable.page);
+    }
+
+    public async findFeaturedWithArtist(artistId: string, pageable: Pageable): Promise<Page<Album>> {
+        const result = await this.albumRepository.createQueryBuilder("album")
+            .leftJoin("album.artwork", "artwork")
+            .leftJoin("album.banner", "banner")
+            .leftJoin("album.artist", "artist")
+            .leftJoin("album.songs", "song")
+            .leftJoin("song.artists", "featuredArtist")
+
+            .select(["album.id", "album.title", "album.released", "artwork.id", "artwork.accentColor", "banner.id", "banner.accentColor", "artist.id", "artist.name", "featuredArtist.id", "featuredArtist.name"])
+
+            .where("featuredArtist.id = :artistId", { artistId })
+            .andWhere("artist.id != :artistId", { artistId })
+            .orderBy("album.released", "DESC")
+            .addOrderBy("album.createdAt", "DESC")
+
+            // Pagination
+            .offset((pageable?.page || 0) * (pageable?.size || 30))
+            .take(pageable.size || 30)
+
             .getManyAndCount();
 
         return Page.of(result[0], result[1], pageable.page);
@@ -45,10 +73,29 @@ export class AlbumService {
             .where("artist.id = :artistId", { artistId })
             .andWhere("album.id NOT IN(:except)", { except: exceptAlbumIds })
             .select(["album.id", "album.title", "album.released", "artist.id", "artist.name", "artwork.id", "artwork.accentColor"])
-            .limit(10)
+            .take(10)
             .getMany();
 
         return Page.of(result, 10, 0);
+    }
+
+    public async findByGenre(genreId: string, pageable: Pageable): Promise<Page<Album>> {
+        const result = await this.albumRepository.createQueryBuilder("album")
+            .leftJoin("album.artist", "artist")
+            .leftJoin("album.artwork", "artwork")
+            .leftJoin("album.songs", "song")
+            .leftJoin("song.genres", "genre")
+
+            .select(["album.id", "album.title", "album.released", "artwork.id", "artwork.accentColor", "artist.id", "artist.name"])
+
+            // Pagination
+            .offset((pageable?.page || 0) * (pageable?.size || 30))
+            .take(pageable.size || 30)
+
+            .where("genre.id = :genreId", { genreId })
+            .getMany()
+
+        return Page.of(result, result.length, pageable.page);
     }
 
     /**

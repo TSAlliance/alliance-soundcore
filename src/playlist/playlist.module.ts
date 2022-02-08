@@ -12,6 +12,9 @@ import { Song2PlaylistRepository } from './repositories/song2playlist.repository
   imports: [
     SongModule,
     TypeOrmModule.forFeature([ PlaylistRepository, Song2PlaylistRepository ])
+  ],
+  exports: [
+    PlaylistService
   ]
 })
 export class PlaylistModule {}
