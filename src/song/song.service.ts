@@ -298,6 +298,9 @@ export class SongService {
             .where("playlist.id = :playlistId", { playlistId })
             .select(["song.id", "song.title", "song.duration", "artwork.id", "artwork.accentColor", "artist.id", "artist.name", "albums.id", "albums.title"])
             .addSelect("song2playlist.createdAt", "song2playlist")
+
+            .offset((pageable?.page || 0) * (pageable?.size || 50))
+            .limit(pageable.size || 50)
             
             .getRawAndEntities();
 
