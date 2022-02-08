@@ -30,7 +30,7 @@ export class AlbumService {
 
             // Pagination
             .offset((pageable?.page || 0) * (pageable?.size || 30))
-            .take(pageable.size || 30)
+            .limit(pageable.size || 30)
 
             .getManyAndCount();
 
@@ -54,7 +54,7 @@ export class AlbumService {
 
             // Pagination
             .offset((pageable?.page || 0) * (pageable?.size || 30))
-            .take(pageable.size || 30)
+            .limit(pageable.size || 30)
 
             .getManyAndCount();
 
@@ -73,7 +73,7 @@ export class AlbumService {
             .where("artist.id = :artistId", { artistId })
             .andWhere("album.id NOT IN(:except)", { except: exceptAlbumIds })
             .select(["album.id", "album.title", "album.released", "artist.id", "artist.name", "artwork.id", "artwork.accentColor"])
-            .take(10)
+            .limit(10)
             .getMany();
 
         return Page.of(result, 10, 0);
@@ -90,7 +90,7 @@ export class AlbumService {
 
             // Pagination
             .offset((pageable?.page || 0) * (pageable?.size || 30))
-            .take(pageable.size || 30)
+            .limit(pageable.size || 30)
 
             .where("genre.id = :genreId", { genreId })
             .getMany()

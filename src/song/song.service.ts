@@ -284,7 +284,7 @@ export class SongService {
      * @param playlistId Playlist's id
      * @returns Page<Song>
      */
-    public async findByPlaylist(playlistId: string, user?: User): Promise<Page<Song>> {
+    public async findByPlaylist(playlistId: string, user?: User, pageable?: Pageable): Promise<Page<Song>> {
         const result = await this.songRepository.createQueryBuilder("song")
             .leftJoin("song.song2playlist", "song2playlist")
             .leftJoin("song2playlist.playlist", "playlist")
@@ -613,7 +613,7 @@ export class SongService {
             .loadRelationCountAndMap("song.likesCount", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
 
             .offset((pageable?.page || 0) * (pageable?.size || 10))
-            .limit(pageable.size || 10)
+            .take(pageable.size || 10)
 
             .getMany();
 

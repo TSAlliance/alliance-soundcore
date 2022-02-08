@@ -23,7 +23,7 @@ export class GenreService {
             .select(["genre.id", "genre.name"])
             .distinct(true)
 
-            .take(pageable.size)
+            .limit(pageable.size)
             .offset(pageable.page * pageable.size)
 
             .where("artist.id = :artistId", { artistId })

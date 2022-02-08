@@ -89,7 +89,7 @@ export class PlaylistService {
             .leftJoin("playlist.collaborators", "collaborator")
 
             // Pagination
-            .take(pageable?.size || 30)
+            .limit(pageable?.size || 30)
             .offset((pageable?.size || 30) * (pageable?.page || 0))
 
             // Count how many likes. This takes user's id in count
@@ -118,7 +118,7 @@ export class PlaylistService {
             .loadRelationCountAndMap("playlist.likesCount", "playlist.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: requester?.id }))
 
             // Pagination
-            .take(pageable?.size || 30)
+            .limit(pageable?.size || 30)
             .offset((pageable?.size || 30) * (pageable?.page || 0))
 
             .select(["playlist.id", "playlist.title", "playlist.collaborative", "playlist.privacy", "author.id", "author.username", "author.avatarResourceId", "artwork.id", "artwork.accentColor"])
@@ -145,7 +145,7 @@ export class PlaylistService {
             .select(["playlist.id", "playlist.title", "artwork.id", "artwork.accentColor", "author.id", "author.username"])
 
             .offset(pageable.page * pageable.size)
-            .take(pageable.size)
+            .limit(pageable.size)
 
             .where("genre.id = :genreId", { genreId })
             .getMany()
