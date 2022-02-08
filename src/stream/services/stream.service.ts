@@ -60,9 +60,13 @@ export class StreamService {
           const chunksize = (end-start)+1;
           readableStream = fs.createReadStream(filePath, {start: start, end: end});
 
-          if(end/total >= 0.4) {
+          /*if(end/total >= 0.4) {
+            // TODO: Fix streamCount increasing if user is skipping in player.
+            // Currently, it works, but if the user uses the seeking functionality and not the whole data is retrieved
+            // The browser will send a new request with the appropriate range. This causes to reexcute this whole method
+            // and also increases the streamCount another time
             this.increaseStreamCount(songId, listener.id);
-          }
+          }*/
           
           response.writeHead(206, {
               'Content-Range': 'bytes ' + start + '-' + end + '/' + total,
@@ -72,9 +76,9 @@ export class StreamService {
         } else {
           readableStream = fs.createReadStream(filePath)
           readableStream.on("end", () => {
-            if(listener) {
+            /*if(listener) {
               this.increaseStreamCount(songId, listener.id);
-            }
+            }*/
           })
         }
 

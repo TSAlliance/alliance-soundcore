@@ -13,7 +13,6 @@ export class Stream {
 
     @Column({ default: 1 })
     public streamCount: number;
-
     
     @ManyToOne(() => Song, s => s.song2playlist, { onDelete: "CASCADE" })
     public song: Song;
