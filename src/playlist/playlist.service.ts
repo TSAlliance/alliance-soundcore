@@ -168,7 +168,8 @@ export class PlaylistService {
     }
 
     public async existsByTitleInUser(title: string, userId: string, playlistId?: string): Promise<boolean> {
-        return !! (await this.playlistRepository.findOne({ where: { title, author: { id: userId }, id: Not(playlistId)}}))
+        if(playlistId) return !! (await this.playlistRepository.findOne({ where: { title, author: { id: userId }, id: Not(playlistId)}}))
+        return !! (await this.playlistRepository.findOne({ where: { title, author: { id: userId }}}))
     }
 
     /**
