@@ -344,7 +344,7 @@ export class PlaylistService {
         const playlist = await this.findById(playlistId);
 
         if(playlist.author?.id != user?.id) throw new ForbiddenException("Not allowed.");
-        return this.playlistRepository.delete(playlist);
+        return this.playlistRepository.delete({ id: playlist?.id });
     }
 
     private async hasUserAccessToPlaylist(playlistId: string, user: User): Promise<boolean> {
