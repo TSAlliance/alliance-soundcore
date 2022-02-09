@@ -1,10 +1,11 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
-import { DeleteResult, In } from 'typeorm';
+import { DeleteResult, In, Not } from 'typeorm';
 import { Song } from '../song/entities/song.entity';
 import { SongService } from '../song/song.service';
 import { User } from '../user/entities/user.entity';
 import { CreatePlaylistDTO } from './dtos/create-playlist.dto';
+import { UpdatePlaylistDTO } from './dtos/update-playlist.dto';
 import { Playlist } from './entities/playlist.entity';
 import { Song2Playlist } from './entities/song2playlist.entity';
 import { PlaylistPrivacy } from './enums/playlist-privacy.enum';
@@ -166,16 +167,36 @@ export class PlaylistService {
         return this.songService.findByPlaylist(playlistId, requester, pageable);
     }
 
-    public async existsByTitleInUser(title: string, userId: string): Promise<boolean> {
-        return !! (await this.playlistRepository.findOne({ where: { title, author: { id: userId }}}))
+    public async existsByTitleInUser(title: string, userId: string, playlistId?: string): Promise<boolean> {
+        return !! (await this.playlistRepository.findOne({ where: { title, author: { id: userId }, id: Not(playlistId)}}))
     }
 
+    /**
+     * Create new playlist. This fails with 
+     * @param createPlaylistDto Playlist metadata
+     * @param author Author entity (User)
+     * @throws BadRequestException if a playlist by its title already exists in user scope.
+     * @returns 
+     */
     public async create(createPlaylistDto: CreatePlaylistDTO, author: User): Promise<Playlist> {
         if(await this.existsByTitleInUser(createPlaylistDto.title, author.id)) throw new BadRequestException("Playlist already exists.");
         return this.playlistRepository.save({
             ...createPlaylistDto,
             author
         })
+    }
+
+    public async update(playlistId: string, updatePlaylistDto: UpdatePlaylistDTO, requester: User): Promise<Playlist> {
+        const playlist = await this.findById(playlistId);
+
+        if(!playlist) throw new NotFoundException("Playlist not found.")
+        if(!await this.hasUserAccessToPlaylist(playlistId, requester) || !await this.canEditPlaylist(playlist, requester)) throw new ForbiddenException("Not allowed to edit this playlist.")
+        if(await this.existsByTitleInUser(updatePlaylistDto.title, requester?.id, playlistId)) throw new BadRequestException("Playlist already exists.");
+        
+        playlist.title = updatePlaylistDto.title || playlist.title;
+        playlist.privacy = updatePlaylistDto.privacy || playlist.privacy;
+
+        return this.playlistRepository.save(playlist)
     }
 
     /**
@@ -280,6 +301,7 @@ export class PlaylistService {
 
         if(!playlist.collaborators) playlist.collaborators = [];
         playlist.collaborators.push(...collaboratorIds.map((id) => ({ id } as User)))
+        playlist.collaborative = playlist.collaborators?.length > 0;
         return this.playlistRepository.save(playlist).then(() => {
             return;
         }).catch(() => {
@@ -309,6 +331,8 @@ export class PlaylistService {
 
         if(!playlist.collaborators) playlist.collaborators = [];
         playlist.collaborators = playlist.collaborators.filter((u) => collaboratorIds.includes(u.id));
+        playlist.collaborative = playlist.collaborators?.length > 0;
+
         return this.playlistRepository.save(playlist).then(() => {
             return;
         }).catch(() => {

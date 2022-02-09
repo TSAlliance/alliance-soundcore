@@ -3,6 +3,7 @@ import { Authentication, IsAuthenticated } from '@tsalliance/sso-nest';
 import { Pageable } from 'nestjs-pager';
 import { User } from '../user/entities/user.entity';
 import { CreatePlaylistDTO } from './dtos/create-playlist.dto';
+import { UpdatePlaylistDTO } from './dtos/update-playlist.dto';
 import { PlaylistService } from './playlist.service';
 
 @Controller('playlists')
@@ -73,6 +74,12 @@ export class PlaylistController {
   @IsAuthenticated()
   public async createPlaylist(@Body() createPlaylistDto: CreatePlaylistDTO, @Authentication() author: User) {
     return this.playlistService.create(createPlaylistDto, author);
+  }
+
+  @Put(":playlistId") 
+  @IsAuthenticated()
+  public async updatePlaylist(@Param("playlistId") playlistId: string, @Body() updatePlaylistDto: UpdatePlaylistDTO, @Authentication() requester: User) {
+    return this.playlistService.update(playlistId, updatePlaylistDto, requester);
   }
 
   @Get("/song-list/byPlaylist/:playlistId") 
