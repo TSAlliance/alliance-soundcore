@@ -82,6 +82,8 @@ export class ImportService {
 
                 const tags: NodeID3.Tags = {
                     title: importEntity.metadata.title.length >= 30 ? importEntity.metadata.title.slice(0, 30) : importEntity.metadata.title,
+                    album: createImportDto.albums[0],
+                    artist: createImportDto.artists.join("/"),
                     image: {
                         mime: "image/jpg",
                         type: {
