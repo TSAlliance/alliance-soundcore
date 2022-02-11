@@ -285,7 +285,7 @@ export class SongService {
      * @returns Page<Song>
      */
     public async findByPlaylist(playlistId: string, user?: User, pageable?: Pageable): Promise<Page<Song>> {
-        const result = await this.songRepository.createQueryBuilder("song")
+        const qb = this.songRepository.createQueryBuilder("song")
             .leftJoin("song.song2playlist", "song2playlist")
             .leftJoin("song2playlist.playlist", "playlist")
             .leftJoinAndSelect("song.artwork", "artwork")
@@ -299,10 +299,11 @@ export class SongService {
             .select(["song.id", "song.title", "song.duration", "artwork.id", "artwork.accentColor", "artist.id", "artist.name", "albums.id", "albums.title"])
             .addSelect("song2playlist.createdAt", "song2playlist")
 
-            .offset((pageable?.page || 0) * (pageable?.size || 50))
-            .limit(pageable.size || 50)
-            
-            .getRawAndEntities();
+            .skip((pageable?.page || 0) * (pageable?.size || 50))
+            .take(pageable.size || 50)
+
+        const result = await qb.getRawAndEntities();
+        const totalElements = await qb.getCount();
 
         const elements = result.entities.map((song, index) => {
             song.song2playlist = result.raw[index].song2playlist
@@ -310,7 +311,7 @@ export class SongService {
             return song;
         });
 
-        return Page.of(elements, elements.length, elements.length);
+        return Page.of(elements, totalElements, pageable?.page);
     }
 
     /**

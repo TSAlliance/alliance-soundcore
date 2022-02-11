@@ -1,6 +1,7 @@
 import { forwardRef, Inject, Injectable, Logger } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Index } from "../entities/index.entity";
+import { IndexReportService } from "./index-report.service";
 import { IndexService } from "./index.service";
 
 export type QueueEndReason = "errored" | "done"
@@ -17,7 +18,12 @@ export class QueueService {
     private _currentlyProcessing: Index = null;
     private _hasCooldown = false;
 
+    public get size(): number {
+        return this._queue.length;
+    }
+
     constructor(
+        private indexReportService: IndexReportService,
         private eventEmitter: EventEmitter2,
         @Inject(forwardRef(() => IndexService)) private indexService: IndexService
     ) {}
@@ -33,14 +39,15 @@ export class QueueService {
         if(!this._mounts[index.mount.id]) this._mounts[index.mount.id] = 1;
         else this._mounts[index.mount.id] += 1;
 
+        await this.indexReportService.appendInfo(index.report, `Index has been added to queue. (Position #${this.size})`)
         this.next();
     }
 
     public async dequeue(): Promise<Index> {
         const item = this._queue.splice(0, 1)[0];
-
         if(this._mounts[item.mount.id]) delete this._mounts[item.mount.id];
 
+        if(item) await this.indexReportService.appendInfo(item.report, `Index has been taken from queue.`)
         return item;
     }
 
@@ -62,6 +69,7 @@ export class QueueService {
         }
 
         // Mount is ready, if no index is left associated with the mount 
+        // TODO: Does not work, because FE constantly receives updates about the status
         if(!this._mounts[index.mount.id] || this._mounts[index.mount.id] <= 0) {
             this.eventEmitter.emitAsync(MOUNT_INDEX_END, index.mount)
         }
@@ -74,12 +82,15 @@ export class QueueService {
                 this.next();
             }, 2000)
         }
+
+        this.indexReportService.appendInfo(index.report, `Processing ended. (Reason: ${reason.toUpperCase()})`)
     }
 
     public async onIndexStart(index: Index) {
         this.logger.log(`Indexing file '${index.filename}'`)
         this._currentlyProcessing = index;
 
+        this.indexReportService.appendInfo(index.report, `Processing started`)
         this.eventEmitter.emitAsync(MOUNT_INDEX_START, index.mount)
     }
 
