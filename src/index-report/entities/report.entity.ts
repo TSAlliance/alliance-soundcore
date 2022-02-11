@@ -28,5 +28,6 @@ export class IndexReportElement {
     public status: "info" | "warn" | "error" = "info";
     public message: string;
     public stack?: string;
+    public context?: Record<string, any>;
 
 }

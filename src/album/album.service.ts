@@ -186,7 +186,10 @@ export class AlbumService {
     public async createIfNotExists(createAlbumDto: CreateAlbumDTO): Promise<{ album: Album, artist: GeniusArtistDTO}> {
         createAlbumDto.title = createAlbumDto.title?.replace(/^[ ]+|[ ]+$/g,'')
 
+        // Check if dto contains a geniusId
         if(createAlbumDto.geniusId) {
+            // If geniusId was found on dto, proceed looking up that id on the
+            // Genius.com api to retrieve additional data
             const album = await this.findByGeniusId(createAlbumDto.geniusId);
             if(album) return { album, artist: null };
 
@@ -209,9 +212,12 @@ export class AlbumService {
                 return { album: null, artist: null }
             })
         } else {
-            // Find by name on genius
+            // There was no geniusId provided
+            // So we have to search a fitting resourceId by ourselves
+            // by sending a search request providing the title we are looking for.
+            // But first we can check if the title already exists in the database.
             const album = await this.findByTitle(createAlbumDto.title);
-            if(album) return { album, artist: null};
+            if(album) return { album, artist: null };
 
             return this.create(createAlbumDto).then((album) => {
                 return this.geniusService.findAndApplyAlbumInfo(album, createAlbumDto.artists, createAlbumDto.mountForArtworkId).then(async (result) => {

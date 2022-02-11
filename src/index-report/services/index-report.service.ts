@@ -53,10 +53,11 @@ export class IndexReportService {
      * @param report Report id or report entity
      * @param reportElement Element to be appended
      */
-     public async appendWarn(report: string | IndexReport, message: string) {
+     public async appendWarn(report: string | IndexReport, message: string, context?: Record<string, any>) {
         await this.appendElement(report, {
             message,
-            status: "warn"
+            status: "warn",
+            context
         })
     }
 
@@ -65,10 +66,11 @@ export class IndexReportService {
      * @param report Report id or report entity
      * @param reportElement Element to be appended
      */
-     public async appendInfo(report: string | IndexReport, message: string) {
+     public async appendInfo(report: string | IndexReport, message: string, context?: Record<string, any>) {
         await this.appendElement(report, {
             message,
-            status: "info"
+            status: "info",
+            context
         })
     }
 
@@ -77,23 +79,11 @@ export class IndexReportService {
      * @param report Report id or report entity
      * @param reportElement Element to be appended
      */
-    public async appendError(report: string | IndexReport, message: string) {
-        await this.appendElement(report, {
-            message,
-            status: "error"
-        })
-    }
-
-    /**
-     * Add a new element to the report containing a timestamp, log level info and the corresponding message.
-     * @param report Report id or report entity
-     * @param reportElement Element to be appended
-     */
-     public async appendStackTrace(report: string | IndexReport, message: string, stack: string) {
+    public async appendError(report: string | IndexReport, message: string, context?: Record<string, any>) {
         await this.appendElement(report, {
             message,
             status: "error",
-            stack
+            context
         })
     }
 
@@ -102,7 +92,21 @@ export class IndexReportService {
      * @param report Report id or report entity
      * @param reportElement Element to be appended
      */
-    public async appendElement(report: string | IndexReport, reportElement: { status: "info" | "warn" | "error", message: string, stack?: string }) {
+     public async appendStackTrace(report: string | IndexReport, message: string, stack: string, context?: Record<string, any>) {
+        await this.appendElement(report, {
+            message,
+            status: "error",
+            stack,
+            context
+        })
+    }
+
+    /**
+     * Add a new element to the report containing a timestamp, log level info and the corresponding message.
+     * @param report Report id or report entity
+     * @param reportElement Element to be appended
+     */
+    public async appendElement(report: string | IndexReport, reportElement: { status: "info" | "warn" | "error", message: string, stack?: string, context?: Record<string, any> }) {
         let reportEntity: IndexReport = report as IndexReport;
         if(typeof report == "string") {
             reportEntity = await this.findById(report);
@@ -113,9 +117,12 @@ export class IndexReportService {
         element.status = reportElement.status || "info";
         element.message = reportElement.message;
         element.stack = reportElement.stack;
+        element.context = reportElement.context;
 
         reportEntity.jsonContents.push(element);
-        await this.indexReportRepository.save(reportEntity);
+        await this.indexReportRepository.save(reportEntity).catch((reason) => {
+            console.error(reason)
+        });
     }
 
 }

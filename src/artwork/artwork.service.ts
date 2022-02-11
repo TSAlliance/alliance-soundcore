@@ -17,6 +17,7 @@ import { ArtworkType } from './types/artwork-type.enum';
 import Vibrant from "node-vibrant"
 import { v4 as uuidv4 } from "uuid"
 import sanitize from 'sanitize-filename';
+import { IndexReportService } from '../index-report/services/index-report.service';
 
 @Injectable()
 export class ArtworkService {
@@ -24,6 +25,7 @@ export class ArtworkService {
 
     constructor(
         private storageService: StorageService,
+        private indexReportService: IndexReportService,
         private artworkRepository: ArtworkRepository,
         @Inject(MOUNT_ID) private mountId: string
     ){}
@@ -107,7 +109,10 @@ export class ArtworkService {
         const dstDirectory = this.storageService.getArtworksDir(index.mount);
         mkdirSync(dstDirectory, { recursive: true });
 
-        if(!buffer) return null;
+        if(!buffer) {
+            this.indexReportService.appendWarn(index.report, "Artwork buffer on file is empty. Not creating artwork")
+            return null;
+        }
 
         // Create new artwork instance in database
         const artwork = await this.create({
@@ -115,11 +120,14 @@ export class ArtworkService {
             mountId: index.mount.id,
             dstFilename: index.filename,
             autoDownload: false // There is nothing that could be downloaded
+        }).catch((reason) => {
+            this.indexReportService.appendError(index.report, `Unable to save artwork to database: ${reason.message}`);
+            return null;
         })
 
         // Write artwork to file
-        return this.writeArtwork(buffer, artwork).catch(() => {
-            return null;
+        return this.writeArtwork(buffer, artwork, index).catch((reason) => {
+            throw reason
         })
     }
 
@@ -208,7 +216,7 @@ export class ArtworkService {
     private async writeBufferToFile(buffer: Buffer, filepath: string): Promise<string> {
         if(!buffer) return null;
 
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
             const directory = path.dirname(filepath);
             mkdirSync(directory, { recursive: true });
 
@@ -218,7 +226,7 @@ export class ArtworkService {
                     return
                 } else {
                     console.error(err)
-                    resolve(null)
+                    reject(err)
                 }
             })
         })
@@ -230,12 +238,14 @@ export class ArtworkService {
      * @param artwork Artwork data used to build the filepath
      * @returns Artwork
      */
-     private async writeArtwork(buffer: Buffer, artwork: Artwork): Promise<Artwork> {
+     private async writeArtwork(buffer: Buffer, artwork: Artwork, indexContext?: Index): Promise<Artwork> {
         if(!buffer) return null;
         const dstFilepath = this.buildArtworkFile(artwork);
 
         return this.optimizeImageBuffer(buffer, artwork.type).then(async () => {
-            await this.writeBufferToFile(buffer, dstFilepath)
+            await (this.writeBufferToFile(buffer, dstFilepath).catch((reason) => {
+                if(indexContext) this.indexReportService.appendError(indexContext.report, `Failed writing artwork to disk: ${reason.message}`)
+            }))
 
             // Extract accent color and save to database
             artwork.accentColor = await this.getAccentColorFromArtwork(artwork);

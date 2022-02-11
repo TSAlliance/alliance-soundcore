@@ -10,6 +10,7 @@ import { LabelModule } from '../label/label.module';
 import { AlbumModule } from '../album/album.module';
 import { ArtworkModule } from '../artwork/artwork.module';
 import { StorageModule } from '../storage/storage.module';
+import { IndexReportModule } from '../index-report/index-report.module';
 
 @Module({
   controllers: [SongController],
@@ -22,6 +23,7 @@ import { StorageModule } from '../storage/storage.module';
     AlbumModule,
     ArtworkModule,
     StorageModule,
+    IndexReportModule,
     TypeOrmModule.forFeature([ SongRepository ])
   ],
   exports: [

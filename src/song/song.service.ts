@@ -17,7 +17,6 @@ import { Artist } from '../artist/entities/artist.entity';
 import { IndexStatus } from '../index/enum/index-status.enum';
 import { GeniusService } from '../genius/services/genius.service';
 import { Page, Pageable } from 'nestjs-pager';
-import { ILike } from 'typeorm';
 import { AlbumService } from '../album/album.service';
 import { ArtworkService } from '../artwork/artwork.service';
 import { StorageService } from '../storage/storage.service';
@@ -25,6 +24,7 @@ import { CreateAlbumDTO } from '../album/dto/create-album.dto';
 import { GeniusAlbumDTO } from '../genius/dtos/genius-album.dto';
 import path from 'path';
 import { User } from '../user/entities/user.entity';
+import { IndexReportService } from '../index-report/services/index-report.service';
 
 @Injectable()
 export class SongService {
@@ -37,6 +37,7 @@ export class SongService {
         private artworkService: ArtworkService,
         private artistService: ArtistService,
         private storageServie: StorageService,
+        private indexReportService: IndexReportService,
         private songRepository: SongRepository
     ){}
 
@@ -106,9 +107,7 @@ export class SongService {
             .select(["song.id", "song.title", "song.duration", "artist.id", "artist.name", "artwork.id", "artwork.accentColor"])
 
             // Count how many likes. This takes user's id in count
-            .loadRelationCountAndMap("song.likesCount", "song.likedBy", "likedBy", (qb) => 
-                qb.where("likedBy.userId = :userId", { userId: user?.id })
-            )
+            .loadRelationCountAndMap("song.likesCount", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
             
             .addSelect('SUM(streams.streamCount)', 'streamCount')
             .addSelect("COUNT(likedByAll.id)", "likedByAllCount")
@@ -135,6 +134,13 @@ export class SongService {
         return Page.of(result.entities, 5, 0);
     }
 
+    /**
+     * Find page of songs from artist.
+     * @param artistId Artist's id to lookup
+     * @param pageable Pagination settings
+     * @param user Define user, to add stats like hasLiked to each song.
+     * @returns Page<Song>
+     */
     public async findSongsByArtist(artistId: string, pageable: Pageable, user?: User): Promise<Page<Song>> {
         const qb = await this.songRepository.createQueryBuilder('song')
             // Join for relations
@@ -174,6 +180,14 @@ export class SongService {
         return Page.of(result.entities, totalElements, pageable.page);
     }
 
+    /**
+     * Find page of songs for a genre (and if defined: for an artist in that genre).
+     * @param genreId Genre's id
+     * @param artistId Artist's id, if you want to get songs of the artist out of that genre.
+     * @param pageable Page settings
+     * @param user Enables fetching of hasLiked
+     * @returns Page<Song>
+     */
     public async findByGenreAndOrArtist(genreId: string, artistId?: string, pageable?: Pageable, user?: User): Promise<Page<Song>> {
         let qb = this.songRepository.createQueryBuilder("song")
             .leftJoin("song.genres", "genre")
@@ -195,10 +209,10 @@ export class SongService {
 
         const result = await qb.getManyAndCount();
 
-            return Page.of(result[0].map((s) => {
-                s.isLiked = s.likesCount > 0;
-                return s;
-            }), result[1], pageable.page);
+        return Page.of(result[0].map((s) => {
+            s.isLiked = s.likesCount > 0;
+            return s;
+        }), result[1], pageable.page);
     }
 
     /**
@@ -240,6 +254,13 @@ export class SongService {
         }), result.entities.length, result.entities.length)
     }
 
+    /**
+     * Find page of songs out of a user's collection and, if defined, by an artist.
+     * @param user User to fetch collection for.
+     * @param pageable Page settings.
+     * @param artistId Artist's id, to fetch songs from an artist that a user has in his collection.
+     * @returns Page<Song>
+     */
     public async findByCollectionAndOrArtist(user: User, pageable: Pageable, artistId?: string): Promise<Page<Song>> {
         // Fetch available elements
         let qb = await this.songRepository.createQueryBuilder('song')
@@ -342,10 +363,10 @@ export class SongService {
         return this.songRepository.findOne({ where: { id: songId }, relations: ["label", "publisher", "artists", "artwork", "banner", "distributor", "albums", "genres"]})
     }
 
-    public async findByTitleAndAlbums(title: string, albums: string[]): Promise<Song> {
+    public async findByTitleAndAlbum(title: string, albums: string[]): Promise<Song> {
         return this.songRepository.createQueryBuilder("song")
             .leftJoin("song.albums", "albums")
-            .where("albums.title IN(:titles)", { titles: albums.join(",") })
+            .where("albums.title IN(:titles)", { titles: albums })
             .andWhere("song.title = :title", { title })
             .getOne()
     }
@@ -372,9 +393,14 @@ export class SongService {
      */
     public async createFromIndex(index: Index): Promise<Song> {
         const filepath = this.storageServie.buildFilepath(index);
-        if(!fs.existsSync(filepath)) throw new NotFoundException("Could not find song file");
+        this.indexReportService.appendInfo(index.report, `Extracting song metadata from file '${filepath}'`);
 
-        const id3tags = await this.readId3Tags(filepath);
+        if(!fs.existsSync(filepath)) {
+            this.indexReportService.appendError(index.report, `Could not find song file '${filepath}'`);
+            throw new NotFoundException("Could not find song file");
+        }
+
+        const id3tags = await this.readId3Tags(filepath, index);
 
         const song: Song = index.song || await this.create({
             duration: id3tags.duration,
@@ -383,28 +409,74 @@ export class SongService {
 
         // TODO: Check if song with title exists in album
 
-        if(!song) throw new NotFoundException("Cannot create song entity.");
+        if(!song) {
+            this.indexReportService.appendError(index.report, `Cannot create song entity for file '${filepath}'`);
+            throw new NotFoundException("Cannot create song entity.");
+        }
 
         try {
-            // Create artwork
-            const artwork = await this.artworkService.createFromIndexAndBuffer(index, id3tags.artwork);
-            if(artwork) song.artwork = artwork;
-
-            // There are artists on the id3 tags. Search them on genius
-            song.artists = [];
-            const artists: Artist[] = await Promise.all(id3tags.artists.map(async (id3Artist) => await this.artistService.createIfNotExists({ name: id3Artist.name, mountForArtworkId: index.mount.id }))) || [];
-            song.artists.push(...artists)
-
-            // Save relations
+            // Save index relations
             index.song = song;
             song.index = index;
-
             await this.songRepository.save(song).catch((reason) => {
                 this.logger.error(`Could not save index relations in database for song ${filepath}: `, reason);
+                this.indexReportService.appendError(index.report, `Could not save index relations in database: ${reason.message}`)
             });
+
+            // Create artwork
+            const artwork = await this.artworkService.createFromIndexAndBuffer(index, id3tags.artwork).catch((error: Error) => {
+                this.indexReportService.appendStackTrace(index.report, `Failed creating artwork from ID3Tags: '${error.message}'`, error.stack);
+            });
+            if(artwork) song.artwork = artwork;
+
+            // If there are artists on id3 tags -> Create them if they do not exist already
+            // Otherwise they will be retrieved and added to the song.
+            if(!song.artists) song.artists = [];
+            if(id3tags.artists && id3tags.artists.length > 0) {
+                // Create all artists found on id3tags, but
+                // only if they do not exist
+                await Promise.all(id3tags.artists.map(async (id3Artist) => {
+                    return await this.artistService.createIfNotExists({ name: id3Artist.name, mountForArtworkId: index.mount.id })
+                })).then((artists) => {
+                    // Filter out duplicates
+                    const existing = song.artists.map((artist) => artist.id)
+                    song.artists.push(...artists.filter((artist) => !!artist && !existing.includes(artist.id)))
+                    this.indexReportService.appendInfo(index.report, `Adding '${song.artists.map((a) => a.name).join(", ")}' as artists to song`);
+                }).catch((reason) => {
+                    this.indexReportService.appendError(index.report, `Failed adding artist(s) to song: ${reason.message}`);
+                });
+            }
+
+            // If there is an album title on id3tags, create it if it does not exist already.
+            // If it exists, just add it to song.
+            if(!song.albums) song.albums = [];
+            if(id3tags.album) {
+                const album = await this.albumService.createIfNotExists({ title: id3tags.album, artists: song.artists, mountForArtworkId: index.mount.id }).then((state) => state.album).catch((reason) => {
+                    this.indexReportService.appendError(index.report, `Failed creating album '${id3tags.album}' for song: ${reason.message}`);
+                    return null;
+                });
+
+                if(album) {
+                    const existing = song.albums.map((album) => album.id);
+                    if(!existing.includes(album?.id)) {
+                        song.albums.push(album);
+                        console.log(album)
+                        this.indexReportService.appendInfo(index.report, `Added song to album '${album.title}'`);
+                    }
+                }
+            }
+
+            // Save relations to database
+            await this.songRepository.save(song).catch((reason) => {
+                this.logger.error(`Could not save relations in database for song ${filepath}: `, reason);
+                this.indexReportService.appendError(index.report, `Could not save relations in database: ${reason.message}`)
+            });
+
+            // Set status to OK, as this is the last step of the indexing process
+            index.status = IndexStatus.OK;
         
             // Request song info on Genius.com
-            await this.geniusService.findAndApplySongInfo(song).then(async (result) => {
+            /*await this.geniusService.findAndApplySongInfo(song).then(async (result) => {
                 if(!result) return;
 
                 // If there are no artists till this point, this means, that
@@ -515,7 +587,7 @@ export class SongService {
                 // Sort out duplicates
                 song.albums = [...new Map(song.albums.map(a => [a.id, a])).values()]
 
-                const existsInOneAlbum = await this.findByTitleAndAlbums(song.title, song.albums.map((a) => a.title));
+                const existsInOneAlbum = await this.findByTitleAndAlbum(song.title, song.albums.map((a) => a.title));
                 if(!!existsInOneAlbum) {
                     // Duplicate song in album
                     this.logger.warn("Found duplicate song in one album: " + existsInOneAlbum.title + " albums: " + song.albums.map((a) => a.title).join(", "))
@@ -533,11 +605,7 @@ export class SongService {
                 }
 
                 
-            });
-
-            
-
-            
+            });*/
         } catch (error) {
             this.logger.error(error);
             console.error(error)
@@ -555,7 +623,7 @@ export class SongService {
      * @param filepath Path to the file.
      * @returns ID3TagsDTO
      */
-    private async readId3Tags(filepath: string): Promise<ID3TagsDTO> {
+    private async readId3Tags(filepath: string, indexContext: Index): Promise<ID3TagsDTO> {
         const id3Tags = NodeID3.read(fs.readFileSync(filepath));
 
         // Get duration in seconds
@@ -577,14 +645,19 @@ export class SongService {
         if(id3Tags?.image && id3Tags.image["imageBuffer"]) {
             artworkBuffer = id3Tags.image["imageBuffer"]
         }
-    
-        return {
+
+        const result = {
             title: id3Tags.title,
             duration: durationInSeconds,
             artists: artists.map((name) => ({ name })),
             album: id3Tags.album,
             artwork: artworkBuffer
         }
+    
+        const context = {...result};
+        context.artwork = undefined
+        this.indexReportService.appendInfo(indexContext.report, `Read ID3Tags from file '${filepath}'`, context);
+        return result
     }
 
     /**
