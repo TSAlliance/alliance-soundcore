@@ -11,6 +11,7 @@ import { Index } from '../entities/index.entity';
 import { IndexStatus } from '../enum/index-status.enum';
 import { IndexGateway } from '../gateway/index.gateway';
 import { IndexRepository } from '../repositories/index.repository';
+import { IndexReportService } from '../../index-report/services/index-report.service';
 import { QueueService } from './queue.service';
 
 @Injectable()
@@ -20,6 +21,7 @@ export class IndexService {
     constructor(
         private storageService: StorageService,
         private songService: SongService,
+        private indexReportService: IndexReportService,
         private indexRepository: IndexRepository,
         private indexGateway: IndexGateway,
         @Inject(BUCKET_ID) private bucketId: string,
@@ -33,6 +35,23 @@ export class IndexService {
      */
     public async findAllByMount(mountId: string): Promise<Index[]> {
         return this.indexRepository.find({ where: { mount: mountId }});
+    }
+
+    /**
+     * Find all indexed files on a certain mount.
+     * @param mountId Mount's id
+     * @returns Index[]
+     */
+     public async findPagebyMount(mountId: string, pageable: Pageable): Promise<Page<Index>> {
+        const result = await this.indexRepository.createQueryBuilder("index")
+            .leftJoin("index.mount", "mount")
+            .leftJoinAndSelect("index.report", "report")
+
+            .where("mount.id = :mountId", { mountId })
+            .andWhere("index.status NOT IN(:status)", { status: [IndexStatus.PREPARING, IndexStatus.PROCESSING] })
+            .getManyAndCount();
+
+        return Page.of(result[0], result[1], pageable?.page);
     }
 
     /**
@@ -109,10 +128,20 @@ export class IndexService {
         }
 
         if(!index) throw new BadRequestException("Could not create new index entry.")
-
         index.status = IndexStatus.PREPARING;
-        this.indexRepository.save(index);
-        this.queueService.enqueue(index);
+
+        // Create index report in background (no await)
+        this.indexReportService.createBlank(index).then(async (report) => {
+            // Connect report with index
+            index.report = report;
+            this.indexRepository.save(index);
+            this.queueService.enqueue(index);
+        }).catch(() => {
+            // Error occured, continue without a report
+            this.indexRepository.save(index);
+            this.queueService.enqueue(index);
+        });
+        
         return index;
     }
 
@@ -125,6 +154,7 @@ export class IndexService {
      */
     public async processIndex(index: Index): Promise<Index> {
         this.queueService.onIndexStart(index)
+        await this.indexReportService.appendInfo(index.report, "Started processing...")
 
         // Do indexing tasks in background
         return this.storageService.generateChecksumOfIndex(index).then(async (index) => {
@@ -158,32 +188,27 @@ export class IndexService {
                     this.queueService.onIndexEnded(index, "done");
                     return index;
                 }).catch((reason) => {
-                    this.logger.error(reason)
-    
-                    index.status = IndexStatus.ERRORED;
-                    this.setStatus(index, IndexStatus.ERRORED);
-    
-                    this.queueService.onIndexEnded(index, "errored");
+                    this.setError(index, reason);
                     return index;
                 });
-            }).catch((reason) => {
-                this.logger.error(reason)
-
-                index.status = IndexStatus.ERRORED;
-                this.setStatus(index, IndexStatus.ERRORED);
-
-                this.queueService.onIndexEnded(index, "errored");
+            }).catch((reason: Error) => {
+                this.setError(index, reason);
                 return index;
             })
-        }).catch((error) => {
-            this.logger.error(error);
-
-            index.status = IndexStatus.ERRORED;
-            this.setStatus(index, IndexStatus.ERRORED);
-
-            this.queueService.onIndexEnded(index, "errored");
+        }).catch((error: Error) => {
+            this.setError(index, error);
             return index;
         })
+    }
+
+    public async setError(index: Index, error: Error) {
+        this.logger.error(error);
+
+        index.status = IndexStatus.ERRORED;
+        this.setStatus(index, IndexStatus.ERRORED);
+
+        this.queueService.onIndexEnded(index, "errored");
+        this.indexReportService.appendStackTrace(index.report, `Failed on step 'generateChecksumOfIndex()': ${error.message}`, error.stack);
     }
 
     /**

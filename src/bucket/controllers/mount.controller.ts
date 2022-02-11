@@ -17,6 +17,12 @@ export class MountController {
     return this.mountService.findPageByBucketId(bucketId, pageable);
   }
 
+  @Get(":mountId")
+  @IsAuthenticated()
+  public async findById(@Param("mountId") mountId: string): Promise<Mount> {
+    return this.mountService.findById(mountId);
+  }
+
   @Put(":mountId")
   @IsAuthenticated()
   public async updateMount(@Param("mountId") mountId: string, @Body() updateMountDto: UpdateMountDTO): Promise<Mount> {

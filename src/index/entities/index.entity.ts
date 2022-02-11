@@ -1,9 +1,9 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Mount } from "../../bucket/entities/mount.entity";
+import { IndexReport } from "../../index-report/entities/report.entity";
 import { Song } from "../../song/entities/song.entity";
 import { User } from "../../user/entities/user.entity";
 import { IndexStatus } from "../enum/index-status.enum";
-import { IndexReport } from "./report.entity";
 
 @Entity()
 export class Index {
@@ -38,7 +38,7 @@ export class Index {
 
     @OneToOne(() => IndexReport, { onDelete: "SET NULL" })
     @JoinColumn()
-    public lastReport: IndexReport;
+    public report: IndexReport;
 
     @CreateDateColumn()
     public indexedAt: Date;

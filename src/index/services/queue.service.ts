@@ -1,7 +1,7 @@
 import { forwardRef, Inject, Injectable, Logger } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Index } from "../entities/index.entity";
-import { IndexReportService } from "./index-report.service";
+import { IndexReportService } from "../../index-report/services/index-report.service";
 import { IndexService } from "./index.service";
 
 export type QueueEndReason = "errored" | "done"

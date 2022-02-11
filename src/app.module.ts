@@ -25,6 +25,7 @@ import { UserModule } from './user/user.module';
 import { ImportModule } from './import/import.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { CollectionModule } from './collection/collection.module';
+import { IndexReportModule } from './index-report/index-report.module';
 
 @Module({
   imports: [
@@ -84,7 +85,8 @@ import { CollectionModule } from './collection/collection.module';
     PlaylistModule,
     UserModule,
     ImportModule,
-    CollectionModule
+    CollectionModule,
+    IndexReportModule
   ],
   controllers: [],
   providers: []

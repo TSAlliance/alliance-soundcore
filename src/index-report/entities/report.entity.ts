@@ -1,5 +1,5 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
-import { Index } from "./index.entity";
+import { Index } from "../../index/entities/index.entity";
 
 @Entity()
 export class IndexReport {
@@ -27,5 +27,6 @@ export class IndexReportElement {
     public timestamp: number = Date.now();
     public status: "info" | "warn" | "error" = "info";
     public message: string;
+    public stack?: string;
 
 }

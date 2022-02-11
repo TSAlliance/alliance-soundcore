@@ -8,14 +8,22 @@ import { SongModule } from '../song/song.module';
 import { SharedModule } from '../shared/shared.module';
 import { IndexGateway } from './gateway/index.gateway';
 import { QueueService } from './services/queue.service';
+import { IndexReportModule } from '../index-report/index-report.module';
 
 @Module({
-  controllers: [IndexController],
-  providers: [IndexService, IndexGateway, QueueService],
+  controllers: [
+    IndexController
+  ],
+  providers: [
+    IndexService, 
+    IndexGateway, 
+    QueueService
+  ],
   imports: [
     SharedModule,
     StorageModule,
     SongModule,
+    IndexReportModule,
     TypeOrmModule.forFeature([ IndexRepository ])
   ],
   exports: [
