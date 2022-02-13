@@ -12,6 +12,7 @@ import { LikedSong } from "../../collection/entities/liked-song.entity";
 import { Song2Playlist } from "../../playlist/entities/song2playlist.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
 import { Stream } from "../../stream/entities/stream.entity";
+import { Song2Album } from "./song2album.entity";
 
 @Entity()
 export class Song {
@@ -53,7 +54,9 @@ export class Song {
     @Column({ nullable: true })
     public geniusUrl: string;
 
-    @CanRead(false)
+    @Column({ nullable: true, default: false })
+    public hasGeniusLookupFailed: boolean;
+
     @OneToOne(() => Index, { onDelete: "CASCADE" })
     @JoinColumn()
     public index: Index;
@@ -82,8 +85,7 @@ export class Song {
     @JoinColumn()
     public label: Label;
 
-    @ManyToMany(() => Album)
-    @JoinTable({ name: "song2album" })
+    @OneToMany(() => Song2Album, (a) => a.album)
     public albums: Album[];
 
     @ManyToMany(() => Genre)

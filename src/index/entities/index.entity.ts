@@ -1,3 +1,4 @@
+import { CanRead } from "@tsalliance/sso-nest";
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Mount } from "../../bucket/entities/mount.entity";
 import { IndexReport } from "../../index-report/entities/report.entity";

@@ -49,6 +49,8 @@ export class IndexService {
 
             .where("mount.id = :mountId", { mountId })
             .andWhere("index.status NOT IN(:status)", { status: [IndexStatus.PREPARING, IndexStatus.PROCESSING] })
+
+            .orderBy("index.indexedAt", "DESC")
             .getManyAndCount();
 
         return Page.of(result[0], result[1], pageable?.page);
@@ -131,18 +133,18 @@ export class IndexService {
         index.status = IndexStatus.PREPARING;
 
         // Create index report in background (no await)
-        this.indexReportService.createBlank(index).then(async (report) => {
+        return await this.indexReportService.createBlank(index).then((report) => {
             // Connect report with index
             index.report = report;
-            this.indexRepository.save(index);
-            this.queueService.enqueue(index);
+
+            return this.indexRepository.save(index).then((index) => {
+                return this.queueService.enqueue(index).then(() => index);
+            })
         }).catch(() => {
-            // Error occured, continue without a report
-            this.indexRepository.save(index);
-            this.queueService.enqueue(index);
+            return this.indexRepository.save(index).then((index) => {
+                return this.queueService.enqueue(index).then(() => index);
+            })
         });
-        
-        return index;
     }
 
     /**
@@ -153,21 +155,23 @@ export class IndexService {
      * @returns Index
      */
     public async processIndex(index: Index): Promise<Index> {
-        this.queueService.onIndexStart(index)
+        await this.queueService.onIndexStart(index)
         await this.indexReportService.appendInfo(index.report, "Started processing...")
 
         // Do indexing tasks in background
         return this.storageService.generateChecksumOfIndex(index).then(async (index) => {
+
             this.setStatus(index, index.status);
             if(index.status == IndexStatus.ERRORED) {
-                this.queueService.onIndexEnded(index, "errored");
+                await this.queueService.onIndexEnded(index, "errored");
                 return index;
             }
 
             // Check for duplicate files and abort if so
             if(await this.existsByChecksum(index.checksum)) {
                 this.setStatus(index, IndexStatus.DUPLICATE);
-                this.queueService.onIndexEnded(index, "errored");
+                this.indexReportService.appendWarn(index.report, `Similar file already exists (based on file's checksum)`)
+                await this.queueService.onIndexEnded(index, "errored");
                 return index;
             }
 
@@ -175,7 +179,7 @@ export class IndexService {
             this.storageService.createOptimizedMp3File(index).then(async (index) => {
                 index = await this.setStatus(index, index.status)
                 if(index.status == IndexStatus.ERRORED){
-                    this.queueService.onIndexEnded(index, "errored");
+                    await this.queueService.onIndexEnded(index, "errored");
                     return;
                 }
 
@@ -185,7 +189,7 @@ export class IndexService {
 
                     // Done at this point. The createFromIndex() in song service handles all required
                     // steps to gather information like artists, album and cover artwork
-                    this.queueService.onIndexEnded(index, "done");
+                    await this.queueService.onIndexEnded(index, "done");
                     return index;
                 }).catch((reason) => {
                     this.setError(index, reason);
@@ -207,7 +211,7 @@ export class IndexService {
         index.status = IndexStatus.ERRORED;
         this.setStatus(index, IndexStatus.ERRORED);
 
-        this.queueService.onIndexEnded(index, "errored");
+        await this.queueService.onIndexEnded(index, "errored");
         this.indexReportService.appendStackTrace(index.report, `Failed on step 'generateChecksumOfIndex()': ${error.message}`, error.stack);
     }
 
@@ -258,7 +262,7 @@ export class IndexService {
     public async clearOrResumeProcessing(): Promise<void> {
         const indices = await this.findAllByStatusInBucket(this.bucketId, [ IndexStatus.PROCESSING, IndexStatus.PREPARING ]);
 
-        const preparing = [];
+        const preparing: Index[] = [];
         const processing = [];
 
         indices.forEach((i) => {
@@ -267,7 +271,11 @@ export class IndexService {
         })
 
         for(const index of preparing) {
-            await this.queueService.enqueue(index);
+            await this.createIndex({
+                filename: index.filename,
+                directory: index.directory,
+                mount: index.mount
+            })
         }    
         
         await this.indexRepository.delete({ id: In(processing.map((index) => index.id)) });

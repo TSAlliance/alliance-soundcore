@@ -3,6 +3,7 @@ import { EventEmitter2 } from "@nestjs/event-emitter";
 import { Index } from "../entities/index.entity";
 import { IndexReportService } from "../../index-report/services/index-report.service";
 import { IndexService } from "./index.service";
+import { debounceTime, Observable, Subject } from "rxjs";
 
 export type QueueEndReason = "errored" | "done"
 
@@ -12,6 +13,9 @@ export const MOUNT_INDEX_END = "onMountIndexEnd"
 @Injectable()
 export class QueueService {
     private logger: Logger = new Logger(QueueService.name)
+
+    private readonly _onItemAddedSubject: Subject<void> = new Subject();
+    private readonly $onItemAdded: Observable<void> = this._onItemAddedSubject.asObservable().pipe(debounceTime(1000))
 
     private readonly _queue: Index[] = [];
     private readonly _mounts: Record<string, number> = {};
@@ -26,7 +30,11 @@ export class QueueService {
         private indexReportService: IndexReportService,
         private eventEmitter: EventEmitter2,
         @Inject(forwardRef(() => IndexService)) private indexService: IndexService
-    ) {}
+    ) {
+        this.$onItemAdded.subscribe(() => {
+            this.next();
+        })
+    }
 
     public async enqueue(index: Index) {
         // Add to queue
@@ -39,8 +47,8 @@ export class QueueService {
         if(!this._mounts[index.mount.id]) this._mounts[index.mount.id] = 1;
         else this._mounts[index.mount.id] += 1;
 
-        await this.indexReportService.appendInfo(index.report, `Index has been added to queue. (Position #${this.size})`)
-        this.next();
+        this.indexReportService.appendInfo(index.report, `Index has been added to queue. (Position #${this.size})`)
+        this._onItemAddedSubject.next();
     }
 
     public async dequeue(): Promise<Index> {
@@ -95,9 +103,11 @@ export class QueueService {
     }
 
     private async next() {
-        if(this.isEmpty() || !!this._currentlyProcessing || this._hasCooldown) return;
+        console.log(this.isEmpty(), this._hasCooldown, !!this._currentlyProcessing)
+        if(this.isEmpty() || this._hasCooldown || !!this._currentlyProcessing) return;
 
         const nextItem = await this.dequeue();
+        this._currentlyProcessing = nextItem;
         this.indexService.processIndex(nextItem);
     }
 

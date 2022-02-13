@@ -111,12 +111,12 @@ export class GeniusService {
             }).catch((error) => {
                 this.logger.warn("Error occured when searching for song info on Genius.com: ");
                 console.error(error)
-                return { song };
+                throw error
             })
         }).catch((error) => {
             this.logger.warn("Error occured when searching for song info on Genius.com: ");
             console.error(error)
-            return { song };
+            throw error
         })
     }
 
