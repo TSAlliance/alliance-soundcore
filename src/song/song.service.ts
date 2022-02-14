@@ -244,8 +244,7 @@ export class SongService {
      * @param albumId Album's id
      * @returns Page<Song>
      */
-    public async findByAlbum(albumId: string, user?: User): Promise<Page<Song>> {
-        
+    public async findByAlbum(albumId: string, pageable?: Pageable, user?: User): Promise<Page<Song>> {
         const stats = await this.songRepository.createQueryBuilder('song')
             // Join for relations
             .leftJoin("song.albums", "song2album")
@@ -261,6 +260,11 @@ export class SongService {
             // Sum up streams and order by highest
             .addSelect(['SUM(IFNULL(streams.streamCount, 0)) AS streamCount'])
             .groupBy('song.id')
+            .orderBy("song2album.titleNr", "ASC")
+
+            // Pagination
+            .offset((pageable?.page || 0) * (pageable?.size || 30))
+            .limit(pageable.size || 30)
 
             .where("album.id = :albumId", { albumId })
             .andWhere("index.status = :status", { status: IndexStatus.OK })
@@ -273,6 +277,11 @@ export class SongService {
             .leftJoinAndSelect("song.artwork", "artwork")
             .leftJoinAndSelect("song.artists", "artist")
             .select(["artist.id", "artist.name", "artwork.id", "artwork.accentColor", "song.id", "song.title", "song.duration", "song.released", "index.id"])
+            .orderBy("song2album.titleNr", "ASC")
+
+            // Pagination
+            .offset((pageable?.page || 0) * (pageable?.size || 30))
+            .limit(pageable.size || 30)
 
             .where("album.id = :albumId", { albumId })
             .andWhere("index.status = :status", { status: IndexStatus.OK })
