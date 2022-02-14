@@ -35,7 +35,7 @@ export class Album {
     public artist: Artist;
 
     @OneToMany(() => Song2Album, (a) => a.song)
-    public songs: Song[];
+    public songs: Song2Album[];
 
     @OneToOne(() => Artwork, { onDelete: "SET NULL" })
     @JoinColumn()

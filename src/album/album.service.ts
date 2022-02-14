@@ -2,7 +2,6 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
 import { ILike } from 'typeorm';
 import { Artist } from '../artist/entities/artist.entity';
-import { GeniusArtistDTO } from '../genius/dtos/genius-artist.dto';
 import { GeniusAlbumResponse } from '../genius/dtos/genius-response.dto';
 import { GeniusService } from '../genius/services/genius.service';
 import { CreateAlbumDTO } from './dto/create-album.dto';
@@ -42,7 +41,8 @@ export class AlbumService {
             .leftJoin("album.artwork", "artwork")
             .leftJoin("album.banner", "banner")
             .leftJoin("album.artist", "artist")
-            .leftJoin("album.songs", "song")
+            .leftJoin("album.songs", "song2album")
+            .leftJoin("song2album.song", "song")
             .leftJoin("song.artists", "featuredArtist")
 
             .select(["album.id", "album.title", "album.released", "artwork.id", "artwork.accentColor", "banner.id", "banner.accentColor", "artist.id", "artist.name", "featuredArtist.id", "featuredArtist.name"])
@@ -83,7 +83,8 @@ export class AlbumService {
         const result = await this.albumRepository.createQueryBuilder("album")
             .leftJoin("album.artist", "artist")
             .leftJoin("album.artwork", "artwork")
-            .leftJoin("album.songs", "song")
+            .leftJoin("album.songs", "song2album")
+            .leftJoin("song2album.song", "song")
             .leftJoin("song.genres", "genre")
 
             .select(["album.id", "album.title", "album.released", "artwork.id", "artwork.accentColor", "artist.id", "artist.name"])
@@ -109,7 +110,8 @@ export class AlbumService {
                 .where("album.id = :albumId", { albumId })
 
                 // Relation for counting and summing up duration
-                .leftJoin("album.songs", "song")
+                .leftJoin("album.songs", "song2album")
+                .leftJoin("song2album.song", "song")
                 
                 // This is for relations
                 .leftJoinAndSelect("album.artwork", "artwork")
@@ -134,7 +136,8 @@ export class AlbumService {
         if(!album) throw new NotFoundException("Album not found.")
 
         const featuredArtists = await this.albumRepository.createQueryBuilder("album")
-            .leftJoin("album.songs", "song")
+            .leftJoin("album.songs", "song2album")
+            .leftJoin("song2album.song", "song")
             .leftJoinAndSelect("song.artists", "artist")
             .leftJoinAndSelect("artist.artwork", "artwork")
 
@@ -176,7 +179,7 @@ export class AlbumService {
             geniusId: createAlbumDto.geniusId,
             title: createAlbumDto.title,
             released: createAlbumDto.released,
-            artists: createAlbumDto.artists,
+            artist: createAlbumDto.artists[0],
             distributor: createAlbumDto.distributor,
             label: createAlbumDto.label,
             publisher: createAlbumDto.publisher
@@ -222,7 +225,6 @@ export class AlbumService {
             return this.create(createAlbumDto).then((album) => {
                 return this.geniusService.findAndApplyAlbumInfo(album, createAlbumDto.artists, createAlbumDto.mountForArtworkId).then(async (result) => {
                     await this.albumRepository.save(album)
-    
                     return album;
                 }).catch(() => {
                     this.logger.warn("Could not find information for album '" + createAlbumDto.title + "'")
@@ -239,7 +241,18 @@ export class AlbumService {
             query = `%${query.replace(/\s/g, '%')}%`;
         }
 
-        return this.albumRepository.findAll(pageable, { where: { title: ILike(query) }, relations: ["artwork", "artist"]})
+        const result = await this.albumRepository.createQueryBuilder("album")
+            .leftJoinAndSelect("album.artwork", "artwork")
+            .leftJoin("album.artist", "artist")
+
+            .addSelect(["artist.id", "artist.name"])
+            .where("album.title LIKE :query", { query })
+
+            .offset((pageable?.page || 0) * (pageable?.size || 10))
+            .limit(pageable?.size || 10)
+            .getManyAndCount();
+         
+        return Page.of(result[0], result[1], pageable?.page)
     }
 
     public async setArtistOfAlbum(album: Album, artist: Artist): Promise<Album> {

@@ -86,7 +86,7 @@ export class Song {
     public label: Label;
 
     @OneToMany(() => Song2Album, (a) => a.album)
-    public albums: Album[];
+    public albums: Song2Album[];
 
     @ManyToMany(() => Genre)
     @JoinTable({ name: "song2genre" })

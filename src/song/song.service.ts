@@ -22,6 +22,8 @@ import { StorageService } from '../storage/storage.service';
 import path from 'path';
 import { User } from '../user/entities/user.entity';
 import { IndexReportService } from '../index-report/services/index-report.service';
+import { Song2Album } from './entities/song2album.entity';
+import { Song2AlbumRepository } from './repositories/song2album.repository';
 
 @Injectable()
 export class SongService {
@@ -35,6 +37,7 @@ export class SongService {
         private artistService: ArtistService,
         private storageServie: StorageService,
         private indexReportService: IndexReportService,
+        private song2albumRepo: Song2AlbumRepository,
         private songRepository: SongRepository
     ){}
 
@@ -109,7 +112,8 @@ export class SongService {
             // Join for relations
             .leftJoin("song.artists", "artist")
             .leftJoin("song.artwork", "artwork")
-            .leftJoin("song.albums", "album")
+            .leftJoin("song.albums", "song2album")
+            .leftJoin("song2album.album", "album")
             .leftJoin("song.likedBy", "likedByAll")
             .leftJoin("song.index", "index")
 
@@ -160,7 +164,8 @@ export class SongService {
             // Join for relations
             .leftJoin("song.artists", "artist")
             .leftJoin("song.artwork", "artwork")
-            .leftJoin("song.albums", "album")
+            .leftJoin("song.albums", "song2album")
+            .leftJoin("song2album.album", "album")
             .leftJoin("song.index", "index")
 
             // Join to get amount all streams
@@ -209,7 +214,8 @@ export class SongService {
             .leftJoin("song.genres", "genre")
             .leftJoin("song.artwork", "artwork")
             .leftJoin("song.artists", "artist")
-            .leftJoin("song.albums", "album")
+            .leftJoin("song.albums", "song2album")
+            .leftJoin("song2album.album", "album")
             .leftJoin("song.index", "index")
 
             // Count how many likes. This takes user's id in count
@@ -239,9 +245,11 @@ export class SongService {
      * @returns Page<Song>
      */
     public async findByAlbum(albumId: string, user?: User): Promise<Page<Song>> {
+        
         const stats = await this.songRepository.createQueryBuilder('song')
             // Join for relations
-            .leftJoin("song.albums", "album")
+            .leftJoin("song.albums", "song2album")
+            .leftJoin("song2album.album", "album")
             .leftJoin("song.index", "index")
 
             // Join to get amount all streams
@@ -258,14 +266,15 @@ export class SongService {
             .andWhere("index.status = :status", { status: IndexStatus.OK })
             .getRawAndEntities();
 
-        const result = await this.songRepository.createQueryBuilder("songs")
-            .leftJoin("songs.albums", "albums")
+        const result = await this.songRepository.createQueryBuilder("song")
+            .leftJoin("song.albums", "song2album")
+            .leftJoin("song2album.album", "album")
             .leftJoin("song.index", "index")
-            .leftJoinAndSelect("songs.artwork", "artwork")
-            .leftJoinAndSelect("songs.artists", "artist")
-            .select(["artist.id", "artist.name", "artwork.id", "artwork.accentColor", "songs.id", "songs.title", "songs.duration", "songs.released", "index.id"])
+            .leftJoinAndSelect("song.artwork", "artwork")
+            .leftJoinAndSelect("song.artists", "artist")
+            .select(["artist.id", "artist.name", "artwork.id", "artwork.accentColor", "song.id", "song.title", "song.duration", "song.released", "index.id"])
 
-            .where("albums.id = :albumId", { albumId })
+            .where("album.id = :albumId", { albumId })
             .andWhere("index.status = :status", { status: IndexStatus.OK })
             .getRawAndEntities();
 
@@ -288,8 +297,9 @@ export class SongService {
         let qb = this.songRepository.createQueryBuilder('song')
             .leftJoin("song.likedBy", "likedBy")
             .leftJoin("song.index", "index")
+            .leftJoin("song.albums", "song2album")
 
-            .leftJoinAndSelect("song.albums", "album")
+            .leftJoinAndSelect("song2album.album", "album")
             .leftJoinAndSelect("song.artwork", "artwork")
             .leftJoin("song.artists", "artist")
 
@@ -333,7 +343,8 @@ export class SongService {
             .leftJoin("song.index", "index")
             .leftJoinAndSelect("song.artwork", "artwork")
             .leftJoinAndSelect("song.artists", "artist")
-            .leftJoinAndSelect("song.albums", "albums")
+            .leftJoin("song.albums", "song2album")
+            .leftJoinAndSelect("song2album.album", "album")
 
             // Count how many likes. This takes user's id in count
             .loadRelationCountAndMap("song.likesCount", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
@@ -387,13 +398,13 @@ export class SongService {
         return this.songRepository.findOne({ where: { id: songId }, relations: ["label", "publisher", "artists", "artwork", "banner", "distributor", "albums", "genres"]})
     }
 
-    public async findByTitleAndAlbum(title: string, albums: string[]): Promise<Song> {
+    /*public async findByTitleAndAlbum(title: string, albums: string[]): Promise<Song> {
         return this.songRepository.createQueryBuilder("song")
             .leftJoin("song.albums", "albums")
             .where("albums.title IN(:titles)", { titles: albums })
             .andWhere("song.title = :title", { title })
             .getOne()
-    }
+    }*/
 
     /**
      * Create new song entry in database.
@@ -480,10 +491,19 @@ export class SongService {
                 });
 
                 if(album) {
-                    const existing = song.albums.map((album) => album.id);
-                    if(!existing.includes(album?.id)) {
-                        song.albums.push(album);
-                        this.indexReportService.appendInfo(index.report, `Added song to album '${album.title}'`);
+                    const existing = song.albums.map((albums) => albums.album.id);
+                    if(!existing.includes(album.id)) {
+                        const song2Album = new Song2Album();
+                        song2Album.album = album;
+                        song2Album.song = song;
+                        song2Album.titleNr = id3tags.titleNrInAlbum || undefined
+
+                        await this.song2albumRepo.save(song2Album).then(() => {
+                            this.indexReportService.appendInfo(index.report, `Added song to album '${album.title}'`)
+                        }).catch((error: Error) => {
+                            console.error(error)
+                            this.indexReportService.appendError(index.report, `Could not add song to album '${album.title}': ${error.message}`)
+                        })
                     }
                 }
             }
@@ -675,12 +695,13 @@ export class SongService {
             artworkBuffer = id3Tags.image["imageBuffer"]
         }
 
-        const result = {
+        const result: ID3TagsDTO = {
             title: id3Tags.title,
             duration: durationInSeconds,
             artists: artists.map((name) => ({ name })),
             album: id3Tags.album,
-            artwork: artworkBuffer
+            artwork: artworkBuffer,
+            titleNrInAlbum: parseInt(id3Tags.trackNumber?.split("/")[0]) || undefined
         }
     
         const context = {...result};
@@ -720,7 +741,7 @@ export class SongService {
             // Count how many likes. This takes user's id in count
             .loadRelationCountAndMap("song.likesCount", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
 
-            .offset((pageable?.page || 0) * (pageable?.size || 10))
+            .skip((pageable?.page || 0) * (pageable?.size || 10))
             .take(pageable.size || 10)
 
             .getMany();
