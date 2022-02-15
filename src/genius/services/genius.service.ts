@@ -131,6 +131,8 @@ export class GeniusService {
      * @returns Album
      */
     public async findAndApplyAlbumInfo(album: Album, artists: Artist[], mountForArtwork?: string): Promise<{ album: Album, artist: GeniusArtistDTO }> {
+        if(!album?.title) return;
+
         const artistsWithGeniusIds: string[] = artists.filter((a) => !!a.geniusId).map((a) => a.geniusId);
         const artistsWithoutGeniusIdnames: string[] = artists.map((a) => a.name);
 
@@ -140,7 +142,7 @@ export class GeniusService {
 
         // Get list of albums by a title
         for(let i = 0; i < 8; i++) {
-            const res = (await this.searchPage(i, "album", album.title));
+            const res = (await this.searchPage(i, "album", album?.title?.replace(/^(?:\[[^\]]*\]|\([^()]*\))\s*|\s*(?:\[[^\]]*\]|\([^()]*\))/gm, "").split("-")[0]));
             albums.push(...res.result as GeniusAlbumDTO[])
             if(!res.hasNextPage) break;
         }
@@ -165,6 +167,8 @@ export class GeniusService {
         if(!bestMatch || !bestMatch.hit || !bestMatch.hit.id) {
             return { album, artist: null };
         }
+
+        console.log(bestMatch)
         
         return await this.fetchResourceByIdAndType<GeniusAlbumDTO>("album", bestMatch.hit.id).then(async (albumDto) => {
             if(!albumDto) return { album, artist: null };

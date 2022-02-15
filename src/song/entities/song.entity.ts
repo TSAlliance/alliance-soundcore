@@ -12,6 +12,7 @@ import { LikedSong } from "../../collection/entities/liked-song.entity";
 import { Song2Playlist } from "../../playlist/entities/song2playlist.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
 import { Stream } from "../../stream/entities/stream.entity";
+import { SongAlbumOrder } from "./song-order.entity";
 
 @Entity()
 export class Song {
@@ -85,6 +86,9 @@ export class Song {
     @ManyToMany(() => Album)
     @JoinTable({ name: "song2album" })
     public albums: Album[];
+
+    @OneToMany(() => SongAlbumOrder, (order) => order.song, { cascade: ["insert"] })
+    public albumOrders: SongAlbumOrder[];
 
     @ManyToMany(() => Genre)
     @JoinTable({ name: "song2genre" })

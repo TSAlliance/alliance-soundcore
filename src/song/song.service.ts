@@ -22,6 +22,7 @@ import { StorageService } from '../storage/storage.service';
 import path from 'path';
 import { User } from '../user/entities/user.entity';
 import { IndexReportService } from '../index-report/services/index-report.service';
+import { SongAlbumOrder } from './entities/song-order.entity';
 
 @Injectable()
 export class SongService {
@@ -217,7 +218,7 @@ export class SongService {
      * @param albumId Album's id
      * @returns Page<Song>
      */
-    public async findByAlbum(albumId: string, user?: User): Promise<Page<Song>> {
+    public async findByAlbum(albumId: string, pageable: Pageable, user?: User): Promise<Page<Song>> {
         const stats = await this.songRepository.createQueryBuilder('song')
             // Join for relations
             .leftJoin("song.albums", "album")
@@ -231,7 +232,6 @@ export class SongService {
             // Sum up streams and order by highest
             .addSelect(['SUM(IFNULL(streams.streamCount, 0)) AS streamCount'])
             .groupBy('song.id')
-            .orderBy("song2album.titleNr", "ASC")
 
             .where("album.id = :albumId", { albumId })
             .getRawAndEntities();
@@ -458,7 +458,18 @@ export class SongService {
                     const existing = song.albums.map((album) => album.id);
                     if(!existing.includes(album?.id)) {
                         song.albums.push(album);
-                        console.log(album)
+
+                        if(!song.albumOrders) song.albumOrders = [];
+                        const existsOrder = song.albumOrders.map((order) => order.album.id);
+                        if(!existsOrder.includes(album.id)) {
+                            const order = new SongAlbumOrder();
+                            order.album = album;
+                            order.song = song;
+                            order.nr = id3tags.orderNr;
+
+                            song.albumOrders.push(order);
+                        }
+                        
                         this.indexReportService.appendInfo(index.report, `Added song to album '${album.title}'`);
                     }
                 }
@@ -644,12 +655,13 @@ export class SongService {
             artworkBuffer = id3Tags.image["imageBuffer"]
         }
 
-        const result = {
+        const result: ID3TagsDTO = {
             title: id3Tags.title,
             duration: durationInSeconds,
             artists: artists.map((name) => ({ name })),
             album: id3Tags.album,
-            artwork: artworkBuffer
+            artwork: artworkBuffer,
+            orderNr: parseInt(id3Tags.trackNumber?.split("/")?.[0])
         }
     
         const context = {...result};

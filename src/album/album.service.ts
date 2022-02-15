@@ -176,7 +176,7 @@ export class AlbumService {
             geniusId: createAlbumDto.geniusId,
             title: createAlbumDto.title,
             released: createAlbumDto.released,
-            artists: createAlbumDto.artists,
+            artist: createAlbumDto.artists[0],
             distributor: createAlbumDto.distributor,
             label: createAlbumDto.label,
             publisher: createAlbumDto.publisher

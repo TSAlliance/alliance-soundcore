@@ -107,6 +107,8 @@ export class IndexReportService {
      * @param reportElement Element to be appended
      */
     public async appendElement(report: string | IndexReport, reportElement: { status: "info" | "warn" | "error", message: string, stack?: string, context?: Record<string, any> }) {
+        if(!report) return;
+
         let reportEntity: IndexReport = report as IndexReport;
         if(typeof report == "string") {
             reportEntity = await this.findById(report);
