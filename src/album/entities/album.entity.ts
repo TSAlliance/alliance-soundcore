@@ -1,12 +1,11 @@
 import { CanRead } from "@tsalliance/sso-nest";
-import { Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Artist } from "../../artist/entities/artist.entity";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Distributor } from "../../distributor/entities/distributor.entity";
 import { Label } from "../../label/entities/label.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
 import { Song } from "../../song/entities/song.entity";
-import { Song2Album } from "../../song/entities/song2album.entity";
 
 @Entity()
 export class Album {
@@ -34,7 +33,8 @@ export class Album {
     @JoinColumn()
     public artist: Artist;
 
-    @OneToMany(() => Song2Album, (a) => a.song)
+    @ManyToMany(() => Song)
+    @JoinTable({ name: "song2album" })
     public songs: Song[];
 
     @OneToOne(() => Artwork, { onDelete: "SET NULL" })

@@ -17,10 +17,7 @@ export class IndexReportService {
      * @returns 
      */
     public async createBlank(index: Index): Promise<IndexReport> {
-        const report = await this.findByIndexId(index.id);
-        if(report) {
-            return await this.clearReportByIndex(index.id);
-        }
+        await this.indexReportRepository.delete({ index: { id: index?.id } })
 
         return this.indexReportRepository.save({
             index: index,
@@ -47,7 +44,7 @@ export class IndexReportService {
      * @param reportId Report's id
      * @returns IndexReport
      */
-    public async findByIndexId(indexId: string): Promise<IndexReport> {
+     public async findByIndexId(indexId: string): Promise<IndexReport> {
         return this.indexReportRepository.findOne({ where: { index: { id: indexId } }, relations: ["index"]})
     }
 
@@ -56,22 +53,12 @@ export class IndexReportService {
      * @param report Report id or report entity
      * @param reportElement Element to be appended
      */
-    public async appendWarn(report: string | IndexReport, message: string, context?: Record<string, any>) {
+     public async appendWarn(report: string | IndexReport, message: string, context?: Record<string, any>) {
         await this.appendElement(report, {
             message,
             status: "warn",
             context
         })
-    }
-
-    public async clearReportByIndex(indexId: string) {
-        const report = await this.findByIndexId(indexId);
-        if(!report) return;
-
-        report.jsonContents = [{ timestamp: Date.now(), status: "info", message: `Report created for index '${indexId}'.` }];
-        report.createdAt = new Date();
-        
-        return this.indexReportRepository.save(report);
     }
 
     /**
@@ -125,7 +112,6 @@ export class IndexReportService {
             reportEntity = await this.findById(report);
         }
 
-        if(!reportEntity) return;
         const element = new IndexReportElement();
         element.timestamp = Date.now();
         element.status = reportElement.status || "info";

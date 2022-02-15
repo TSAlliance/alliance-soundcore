@@ -183,7 +183,7 @@ export class AlbumService {
         })
     }
 
-    public async createIfNotExists(createAlbumDto: CreateAlbumDTO): Promise<Album> {
+    public async createIfNotExists(createAlbumDto: CreateAlbumDTO): Promise<{ album: Album, artist: GeniusArtistDTO}> {
         createAlbumDto.title = createAlbumDto.title?.replace(/^[ ]+|[ ]+$/g,'')
 
         // Check if dto contains a geniusId
@@ -191,12 +191,12 @@ export class AlbumService {
             // If geniusId was found on dto, proceed looking up that id on the
             // Genius.com api to retrieve additional data
             const album = await this.findByGeniusId(createAlbumDto.geniusId);
-            if(album) return album;
+            if(album) return { album, artist: null };
 
             // Find by genius id.
             // This returns created album entry and the artist that was found on genius
             return this.geniusService.fetchResourceByIdAndType<GeniusAlbumResponse>("album", createAlbumDto.geniusId).then(async (response) => {
-                if(!response.album) return album;
+                if(!response.album) return { album: null, artist: null };
 
                 return await this.albumRepository.save({
                     geniusId: createAlbumDto.geniusId,
@@ -204,12 +204,12 @@ export class AlbumService {
                     description: response.album.description_preview,
                     released: response.album.release_date
                 }).then((album) => {
-                    return album
+                    return { album, artist: response.album.artist }
                 }).catch(() => {
-                    return album
+                    return { album: null, artist: null }
                 })
             }).catch(() => {
-                return album
+                return { album: null, artist: null }
             })
         } else {
             // There was no geniusId provided
@@ -217,16 +217,16 @@ export class AlbumService {
             // by sending a search request providing the title we are looking for.
             // But first we can check if the title already exists in the database.
             const album = await this.findByTitle(createAlbumDto.title);
-            if(album) return album;
+            if(album) return { album, artist: null };
 
             return this.create(createAlbumDto).then((album) => {
                 return this.geniusService.findAndApplyAlbumInfo(album, createAlbumDto.artists, createAlbumDto.mountForArtworkId).then(async (result) => {
                     await this.albumRepository.save(album)
     
-                    return album;
+                    return { album, artist: result.artist };
                 }).catch(() => {
                     this.logger.warn("Could not find information for album '" + createAlbumDto.title + "'")
-                    return album;
+                    return {album, artist: null};
                 })
             })
         }
