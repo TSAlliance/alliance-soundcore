@@ -111,12 +111,12 @@ export class GeniusService {
             }).catch((error) => {
                 this.logger.warn("Error occured when searching for song info on Genius.com: ");
                 console.error(error)
-                return { song };
+                throw error;
             })
         }).catch((error) => {
             this.logger.warn("Error occured when searching for song info on Genius.com: ");
             console.error(error)
-            return { song };
+            throw error;
         })
     }
 
@@ -148,7 +148,7 @@ export class GeniusService {
         }
 
         // Filter albums that contain one of the artists as primary artist
-        const filteredExactAlbums = albums.filter((a) => a.name == album.title || artistsWithGeniusIds.includes(a.artist.id) || artistsWithoutGeniusIdnames.includes(a.artist.name))
+        const filteredExactAlbums = albums.filter((a) => a.name == album.title && (artistsWithGeniusIds.includes(a.artist.id) || artistsWithoutGeniusIdnames.includes(a.artist.name)))
         let bestMatch: { score: number, hit: GeniusAlbumDTO } = { score: 0, hit: null};
 
         for(const result of filteredExactAlbums) {
@@ -167,8 +167,6 @@ export class GeniusService {
         if(!bestMatch || !bestMatch.hit || !bestMatch.hit.id) {
             return { album, artist: null };
         }
-
-        console.log(bestMatch)
         
         return await this.fetchResourceByIdAndType<GeniusAlbumDTO>("album", bestMatch.hit.id).then(async (albumDto) => {
             if(!albumDto) return { album, artist: null };

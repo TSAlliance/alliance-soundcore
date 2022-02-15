@@ -476,6 +476,13 @@ export class SongService {
                 }
             }
 
+            await this.geniusService.findAndApplySongInfo(song).then(() => {
+                song.hasGeniusLookupFailed = false;
+            }).catch((error: Error) => {
+                song.hasGeniusLookupFailed = true;
+                this.indexReportService.appendError(index.report, `Something went wrong on Genius.com lookup: ${error.message}`);
+            })
+
             // Save relations to database
             await this.songRepository.save(song).catch((reason) => {
                 this.logger.error(`Could not save relations in database for song ${filepath}: `, reason);
@@ -662,7 +669,7 @@ export class SongService {
             artists: artists.map((name) => ({ name })),
             album: id3Tags.album,
             artwork: artworkBuffer,
-            orderNr: parseInt(id3Tags.trackNumber?.split("/")?.[0])
+            orderNr: parseInt(id3Tags.trackNumber?.split("/")?.[0]) || undefined
         }
     
         const context = {...result};

@@ -54,6 +54,9 @@ export class Song {
     @Column({ nullable: true })
     public geniusUrl: string;
 
+    @Column({ nullable: false, default: false})
+    public hasGeniusLookupFailed: boolean;
+
     @CanRead(false)
     @OneToOne(() => Index, { onDelete: "CASCADE" })
     @JoinColumn()
