@@ -11,7 +11,6 @@ import { AlbumModule } from '../album/album.module';
 import { ArtworkModule } from '../artwork/artwork.module';
 import { StorageModule } from '../storage/storage.module';
 import { IndexReportModule } from '../index-report/index-report.module';
-import { Song2AlbumRepository } from './repositories/song2album.repository';
 
 @Module({
   controllers: [SongController],
@@ -25,7 +24,7 @@ import { Song2AlbumRepository } from './repositories/song2album.repository';
     ArtworkModule,
     StorageModule,
     IndexReportModule,
-    TypeOrmModule.forFeature([ SongRepository, Song2AlbumRepository ])
+    TypeOrmModule.forFeature([ SongRepository ])
   ],
   exports: [
     SongService

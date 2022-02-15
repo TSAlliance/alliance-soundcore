@@ -6,6 +6,5 @@ export class ID3TagsDTO {
     public artists: { name: string }[];
     public album: string;
     public artwork: Buffer;
-    public titleNrInAlbum: number;
 
 }
