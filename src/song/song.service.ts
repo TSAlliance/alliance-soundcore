@@ -238,7 +238,7 @@ export class SongService {
      * @param albumId Album's id
      * @returns Page<Song>
      */
-    public async findByAlbum(albumId: string, pageable?: Pageable, user?: User): Promise<Page<Song>> {
+    public async findByAlbum(albumId: string, user?: User): Promise<Page<Song>> {
         const stats = await this.songRepository.createQueryBuilder('song')
             // Join for relations
             .leftJoin("song.albums", "album")
@@ -255,10 +255,6 @@ export class SongService {
             .groupBy('song.id')
             .orderBy("song2album.titleNr", "ASC")
 
-            // Pagination
-            .offset((pageable?.page || 0) * (pageable?.size || 30))
-            .limit(pageable.size || 30)
-
             .where("album.id = :albumId", { albumId })
             .andWhere("index.status = :status", { status: IndexStatus.OK })
             .getRawAndEntities();
@@ -269,9 +265,6 @@ export class SongService {
             .leftJoinAndSelect("songs.artwork", "artwork")
             .leftJoinAndSelect("songs.artists", "artist")
             .select(["artist.id", "artist.name", "artwork.id", "artwork.accentColor", "songs.id", "songs.title", "songs.duration", "songs.released", "index.id"])
-            // Pagination
-            .offset((pageable?.page || 0) * (pageable?.size || 30))
-            .limit(pageable.size || 30)
             .where("albums.id = :albumId", { albumId })
             .andWhere("index.status = :status", { status: IndexStatus.OK })
             .getRawAndEntities();
