@@ -87,7 +87,7 @@ export class Song {
     @JoinTable({ name: "song2album" })
     public albums: Album[];
 
-    @OneToMany(() => SongAlbumOrder, (order) => order.song, { cascade: ["insert"] })
+    @OneToMany(() => SongAlbumOrder, (order) => order.song, { cascade: ["insert", "update", "remove"] })
     public albumOrders: SongAlbumOrder[];
 
     @ManyToMany(() => Genre)
@@ -110,5 +110,6 @@ export class Song {
     public likesCount?: number;
     public isLiked?: boolean;
     public likedAt?: Date;
+    public order?: number;
 
 }
