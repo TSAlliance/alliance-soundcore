@@ -27,27 +27,26 @@ export class LikeService {
         return !! await this.likeRepository.findOne({ where: { playlist: { id: playlistId, author: { id: userId }}}})
     }
 
-    public async likeSong(songId: string, user: User): Promise<void> {
+    public async likeSong(songId: string, user: User): Promise<boolean> {
         const existing = await this.findByUserAndSong(user.id, songId);
 
         // Remove like if exists.
         if(existing) {
-            await this.likeRepository.delete({ id: existing.id }).catch(() => {
+            return this.likeRepository.delete({ id: existing.id }).then(() => false).catch(() => {
                 throw new BadRequestException("Could not remove like from song.")
             })
-            return;
         }
 
         const like = new LikedSong()
         like.user = user;
         like.song = { id: songId } as Song;
 
-        await this.likeRepository.save(like).catch(() => {
+        return this.likeRepository.save(like).then(() => true).catch(() => {
             throw new BadRequestException("Could not like song.")
         })
     }
 
-    public async likePlaylist(playlistId: string, user: User): Promise<void> {
+    public async likePlaylist(playlistId: string, user: User): Promise<boolean> {
         const playlist = await this.playlistService.findById(playlistId);
         if(!playlist) throw new NotFoundException();
         if(playlist.author?.id == user?.id) throw new BadRequestException("Author cannot like his own playlists.");
@@ -56,17 +55,16 @@ export class LikeService {
         const existing = await this.findByUserAndPlaylist(user.id, playlistId);
         // Remove like if exists.
         if(existing) {
-            await this.likeRepository.delete({ id: existing.id }).catch(() => {
+            return this.likeRepository.delete({ id: existing.id }).then(() => false).catch(() => {
                 throw new BadRequestException("Could not remove like from playlist.")
             })
-            return;
         }
 
         const like = new LikedPlaylist()
         like.user = user;
         like.playlist = { id: playlistId } as Playlist;
 
-        await this.likeRepository.save(like).catch(() => {
+        return this.likeRepository.save(like).then(() => true).catch(() => {
             throw new BadRequestException("Could not like playlist.")
         })
     }
