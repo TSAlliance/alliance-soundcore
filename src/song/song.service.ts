@@ -491,7 +491,7 @@ export class SongService {
             // If it exists, just add it to song.
             if(!song.albums) song.albums = [];
             if(id3tags.album) {
-                const album = await this.albumService.createIfNotExists({ title: id3tags.album, artists: song.artists, mountForArtworkId: index.mount.id }).then((state) => state.album).catch((reason) => {
+                const album = await this.albumService.createIfNotExists({ title: id3tags.album, artist: song.artists[0], geniusSearchArtists: song.artists, mountForArtworkId: index.mount.id }).then((state) => state.album).catch((reason) => {
                     this.indexReportService.appendError(index.report, `Failed creating album '${id3tags.album}' for song: ${reason.message}`);
                     return null;
                 });

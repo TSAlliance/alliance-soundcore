@@ -159,16 +159,18 @@ export class AlbumService {
         return album
     }
 
-    public async findByTitle(title: string): Promise<Album> {
-        return await this.albumRepository.findOne({ where: { title }});
+    /**
+     * Find an album by its titel that also has a specific primary artist.
+     * @param title Title of the album to lookup
+     * @param artist Primary album artist
+     * @returns Album
+     */
+    public async findByTitleAndArtist(title: string, artist: Artist): Promise<Album> {
+        return await this.albumRepository.findOne({ where: { title, artist: { id: artist.id } }, relations: ["artist", "artwork", "distributor", "label", "publisher", "banner"]});
     }
 
     public async findByGeniusId(geniusId: string): Promise<Album> {
         return await this.albumRepository.findOne({ where: { geniusId }, relations: ["artist"]});
-    }
-
-    public async existsByTitle(title: string): Promise<boolean> {
-        return !!(await this.findByTitle(title));
     }
 
     private async create(createAlbumDto: CreateAlbumDTO): Promise<Album> {
@@ -176,7 +178,7 @@ export class AlbumService {
             geniusId: createAlbumDto.geniusId,
             title: createAlbumDto.title,
             released: createAlbumDto.released,
-            artist: createAlbumDto.artists[0],
+            artist: createAlbumDto.artist,
             distributor: createAlbumDto.distributor,
             label: createAlbumDto.label,
             publisher: createAlbumDto.publisher
@@ -216,11 +218,11 @@ export class AlbumService {
             // So we have to search a fitting resourceId by ourselves
             // by sending a search request providing the title we are looking for.
             // But first we can check if the title already exists in the database.
-            const album = await this.findByTitle(createAlbumDto.title);
+            const album = await this.findByTitleAndArtist(createAlbumDto.title, createAlbumDto.artist);
             if(album) return { album, artist: null };
 
             return this.create(createAlbumDto).then((album) => {
-                return this.geniusService.findAndApplyAlbumInfo(album, createAlbumDto.artists, createAlbumDto.mountForArtworkId).then(async (result) => {
+                return this.geniusService.findAndApplyAlbumInfo(album, createAlbumDto.geniusSearchArtists, createAlbumDto.mountForArtworkId).then(async (result) => {
                     await this.albumRepository.save(album)
     
                     return { album, artist: result.artist };

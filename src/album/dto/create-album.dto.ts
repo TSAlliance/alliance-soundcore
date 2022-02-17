@@ -1,4 +1,4 @@
-import { IsArray, IsDate, IsNotEmpty, IsOptional, Length } from "class-validator";
+import { IsArray, IsDate, IsNotEmpty, IsObject, IsOptional, Length } from "class-validator";
 import { Artist } from "../../artist/entities/artist.entity";
 import { Distributor } from "../../distributor/entities/distributor.entity";
 import { Label } from "../../label/entities/label.entity";
@@ -23,8 +23,8 @@ export class CreateAlbumDTO {
     public geniusId?: string;
 
     @IsOptional()
-    @IsArray()
-    public artists?: Artist[];
+    @IsObject()
+    public artist?: Artist;
 
     @IsOptional()
     @IsArray()
@@ -41,5 +41,8 @@ export class CreateAlbumDTO {
 
     @IsOptional()
     public mountForArtworkId?: string;
+
+
+    public geniusSearchArtists: Artist[];
 
 }
