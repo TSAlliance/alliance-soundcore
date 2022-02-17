@@ -10,13 +10,15 @@ export class SongController {
   constructor(private readonly songService: SongService) {}
 
   @Get("latest")
-  public async findLatest(): Promise<Page<Song>> {
-    return this.songService.findLatestPage();
+  @IsAuthenticated()
+  public async findLatest(@Authentication() user: User): Promise<Page<Song>> {
+    return this.songService.findLatestPage(user);
   }
 
   @Get("oldest")
-  public async findOldestRelease(): Promise<Page<Song>> {
-    return this.songService.findOldestReleasePage();
+  @IsAuthenticated()
+  public async findOldestRelease(@Authentication() user: User): Promise<Page<Song>> {
+    return this.songService.findOldestReleasePage(user);
   }
 
   @Get("/byCollection")

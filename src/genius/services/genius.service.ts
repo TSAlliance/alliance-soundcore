@@ -148,7 +148,7 @@ export class GeniusService {
         }
 
         // Filter albums that contain one of the artists as primary artist
-        const filteredExactAlbums = albums.filter((a) => a.name == album.title && (artistsWithGeniusIds.includes(a.artist.id) || artistsWithoutGeniusIdnames.includes(a.artist.name)))
+        const filteredExactAlbums = albums.filter((a) => artistsWithGeniusIds.includes(a.artist.id) || artistsWithoutGeniusIdnames.includes(a.artist.name))
         let bestMatch: { score: number, hit: GeniusAlbumDTO } = { score: 0, hit: null};
 
         for(const result of filteredExactAlbums) {
