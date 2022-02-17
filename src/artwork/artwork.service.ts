@@ -18,6 +18,7 @@ import Vibrant from "node-vibrant"
 import { v4 as uuidv4 } from "uuid"
 import sanitize from 'sanitize-filename';
 import { IndexReportService } from '../index-report/services/index-report.service';
+import { RandomUtil } from '@tsalliance/rest';
 
 @Injectable()
 export class ArtworkService {
@@ -118,7 +119,7 @@ export class ArtworkService {
         const artwork = await this.create({
             type: "song",
             mountId: index.mount.id,
-            dstFilename: index.filename,
+            dstFilename: index.filename + RandomUtil.randomString(6),
             autoDownload: false // There is nothing that could be downloaded
         }).catch((reason) => {
             this.indexReportService.appendError(index.report, `Unable to save artwork to database: ${reason.message}`);
