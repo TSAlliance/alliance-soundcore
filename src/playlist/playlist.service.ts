@@ -181,10 +181,12 @@ export class PlaylistService {
      */
     public async create(createPlaylistDto: CreatePlaylistDTO, author: User): Promise<Playlist> {
         if(await this.existsByTitleInUser(createPlaylistDto.title, author.id)) throw new BadRequestException("Playlist already exists.");
-        return this.playlistRepository.save({
-            ...createPlaylistDto,
-            author
-        })
+        const playlist = new Playlist();
+        playlist.author = author;
+        playlist.title = createPlaylistDto.title;
+        playlist.privacy = createPlaylistDto.privacy;
+
+        return this.playlistRepository.save(playlist)
     }
 
     public async update(playlistId: string, updatePlaylistDto: UpdatePlaylistDTO, requester: User): Promise<Playlist> {

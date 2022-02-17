@@ -38,17 +38,20 @@ export class GenreService {
      * @returns Genre
      */
      public async createIfNotExists(createGenreDto: CreateGenreDTO): Promise<Genre> {
-        const genre: Genre = await this.genreRepository.findOne({ where: { name: createGenreDto.name }})
+        let genre: Genre = await this.genreRepository.findOne({ where: { name: createGenreDto.name }})
         if(genre) return genre;
 
-        const genreResult = await this.genreRepository.save({ name: createGenreDto.name, geniusId: createGenreDto.geniusId })
+        genre = new Genre();
+        genre.name = createGenreDto.name;
+        genre.geniusId = createGenreDto.geniusId;
+        genre = await this.genreRepository.save(genre)
 
-        if(!genreResult) {
+        if(!genre) {
             this.logger.error("Could not create genre.")
             return null;
         }
 
-        return this.genreRepository.save(genreResult)
+        return this.genreRepository.save(genre)
     }
 
     public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Genre>> {

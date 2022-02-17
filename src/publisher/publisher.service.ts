@@ -2,7 +2,6 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
 import { ILike } from 'typeorm';
 import { ArtworkService } from '../artwork/artwork.service';
-import { Genre } from '../genre/entities/genre.entity';
 import { MOUNT_ID } from '../shared/shared.module';
 import { CreatePublisherDTO } from './dtos/create-publisher.dto';
 import { Publisher } from './entities/publisher.entity';
@@ -24,15 +23,15 @@ export class PublisherService {
      * @returns Publisher
      */
     public async createIfNotExists(createPublisherDto: CreatePublisherDTO): Promise<Publisher> {
-        const publisher: Publisher = await this.publisherRepository.findOne({ where: { name: createPublisherDto.name }})
+        let publisher: Publisher = await this.publisherRepository.findOne({ where: { name: createPublisherDto.name }})
         if(publisher) return publisher;
 
-        const publisherResult = await this.publisherRepository.save({
-            name: createPublisherDto.name,
-            geniusId: createPublisherDto.geniusId
-        })
+        publisher = new Publisher();
+        publisher.name = createPublisherDto.name;
+        publisher.geniusId = createPublisherDto.geniusId;
+        publisher = await this.publisherRepository.save(publisher)
 
-        if(!publisherResult) {
+        if(!publisher) {
             this.logger.error("Could not create publisher.")
             return null;
         }
@@ -42,13 +41,13 @@ export class PublisherService {
                 type: "publisher",
                 url: createPublisherDto.externalImgUrl,
                 autoDownload: true,
-                dstFilename: publisherResult.name,
+                dstFilename: publisher.name,
                 mountId: createPublisherDto.artworkMountId || this.mountId
             })
-            if(artwork) publisherResult.artwork = artwork
+            if(artwork) publisher.artwork = artwork
         }
 
-        return this.publisherRepository.save(publisherResult)
+        return this.publisherRepository.save(publisher)
     }
 
     public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Publisher>> {

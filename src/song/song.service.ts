@@ -417,10 +417,11 @@ export class SongService {
      * @returns Song
      */
     private async create(createSongDto: CreateSongDTO): Promise<Song> {
-        /*const song = await this.songRepository.findOne({ where: { title: createSongDto.title }, relations: ["artwork", "index"]})
-        if(song) return song;*/
-
-        return this.songRepository.save(createSongDto).catch((error) => {
+        const song = new Song();
+        song.title = createSongDto.title;
+        song.duration = createSongDto.duration;
+        
+        return this.songRepository.save(song).catch((error) => {
             this.logger.error(`Could not create song '${createSongDto.title}' in database: `, error)
             return null;
         });

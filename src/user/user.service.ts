@@ -45,19 +45,24 @@ export class UserService {
         return this.userRepository.findOne({ where: { id: user.id }}).then(async (result) => {
             // Create new user in database if there is no existing one for this id.
             if(!result) {
-              const soundcoreUser: User = user as User;
+              const soundcoreUser: User = new User();
+              soundcoreUser.id = user.id;
+              soundcoreUser.avatarResourceId = user.avatarResourceId;
+              soundcoreUser.username = user.username;
               soundcoreUser.accentColor = await this.artworkService.getAccentColorFromAvatar(user.avatarUrl).catch(() => null);
 
               return this.userRepository.save(soundcoreUser).catch(() => {
                 this.logger.warn("Could not save user info.")
               })
             } else {
+              
               // Update user in database if username has changed.
               if(user.username != result.username || user.avatarResourceId != result.avatarResourceId) {
-                const soundcoreUser: User = user as User;
-                soundcoreUser.accentColor = await this.artworkService.getAccentColorFromAvatar(user.avatarUrl).catch(() => null);
+                result.username = user.username;
+                result.avatarResourceId = user.avatarResourceId;
+                result.accentColor = await this.artworkService.getAccentColorFromAvatar(user.avatarUrl).catch(() => null);
 
-                return this.userRepository.save(soundcoreUser).catch(() => {
+                return this.userRepository.save(result).catch(() => {
                   this.logger.warn("Could not save user info.")
                 })
               }

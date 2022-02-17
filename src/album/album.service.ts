@@ -174,15 +174,17 @@ export class AlbumService {
     }
 
     private async create(createAlbumDto: CreateAlbumDTO): Promise<Album> {
-        return this.albumRepository.save({
-            geniusId: createAlbumDto.geniusId,
-            title: createAlbumDto.title,
-            released: createAlbumDto.released,
-            artist: createAlbumDto.artist,
-            distributor: createAlbumDto.distributor,
-            label: createAlbumDto.label,
-            publisher: createAlbumDto.publisher
-        })
+        const album = new Album();
+        album.geniusId = createAlbumDto.geniusId;
+        album.title = createAlbumDto.title;
+        album.released = createAlbumDto.released;
+        album.artist = createAlbumDto.artist;
+        album.description = createAlbumDto.description;
+        album.distributor = createAlbumDto.distributor;
+        album.label = createAlbumDto.label;
+        album.publisher = createAlbumDto.publisher;
+
+        return this.albumRepository.save(album)
     }
 
     public async createIfNotExists(createAlbumDto: CreateAlbumDTO): Promise<{ album: Album, artist: GeniusArtistDTO}> {

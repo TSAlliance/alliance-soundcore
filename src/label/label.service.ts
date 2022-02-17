@@ -23,15 +23,15 @@ export class LabelService {
      * @returns Label
      */
      public async createIfNotExists(createLabelDto: CreateLabelDTO): Promise<Label> {
-        const label: Label = await this.lableRepository.findOne({ where: { name: createLabelDto.name }})
+        let label: Label = await this.lableRepository.findOne({ where: { name: createLabelDto.name }})
         if(label) return label;
 
-        const labelResult = await this.lableRepository.save({
-            name: createLabelDto.name,
-            geniusId: createLabelDto.geniusId
-        })
+        label = new Label();
+        label.name = createLabelDto.name;
+        label.geniusId = createLabelDto.geniusId;
+        label = await this.lableRepository.save(label);
 
-        if(!labelResult) {
+        if(!label) {
             this.logger.error("Could not create label.")
             return null;
         }
@@ -42,12 +42,12 @@ export class LabelService {
                 url: createLabelDto.externalImgUrl ,
                 autoDownload: true,
                 mountId: createLabelDto.artworkMountId || this.mountId,
-                dstFilename: labelResult.name
+                dstFilename: label.name
             })
-            if(artwork) labelResult.artwork = artwork
+            if(artwork) label.artwork = artwork
         }
 
-        return this.lableRepository.save(labelResult)
+        return this.lableRepository.save(label)
     }
 
     public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Label>> {

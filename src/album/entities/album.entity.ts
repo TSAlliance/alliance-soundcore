@@ -1,17 +1,22 @@
+import { RandomUtil } from "@tsalliance/rest";
 import { CanRead } from "@tsalliance/sso-nest";
-import { Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Artist } from "../../artist/entities/artist.entity";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Distributor } from "../../distributor/entities/distributor.entity";
 import { Label } from "../../label/entities/label.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
 import { Song } from "../../song/entities/song.entity";
+import { Slug } from "../../utils/slugGenerator";
 
 @Entity()
 export class Album {
 
     @PrimaryGeneratedColumn("uuid")
     public id: string;
+
+    @Column({ nullable: true, unique: true, length: 120 })
+    public slug: string;
 
     @CanRead(false)
     @Column({ nullable: true })
@@ -60,4 +65,16 @@ export class Album {
     public songsCount?: number;
     public totalDuration?: number;
     public featuredArtists?: Artist[];
+
+    @BeforeInsert()
+    public onBeforeInsert() {
+        const title = `${this.title.toLowerCase().replace(/[^a-zA-Z ]/g, "").replace(/\s+/g, "-")}`        
+        this.slug = Slug.create(title);
+    }
+
+    @BeforeUpdate() 
+    public onBeforeUpdate() {
+        const title = `${this.title.toLowerCase().replace(/[^a-zA-Z ]/g, "").replace(/\s+/g, "-")}`        
+        this.slug = Slug.create(title);
+    }
 }

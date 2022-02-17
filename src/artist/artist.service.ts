@@ -72,12 +72,12 @@ export class ArtistService {
         if(!artist) {
 
             // Create new artist in database
-            artist = await this.artistRepository.save({ 
-                name: createArtistDto.name, 
-                description: createArtistDto.geniusId, 
-                geniusId: createArtistDto.geniusId, 
-                geniusUrl: createArtistDto.geniusUrl 
-            })
+            artist = new Artist();
+            artist.name = createArtistDto.name;
+            artist.description = createArtistDto.description;
+            artist.geniusId = createArtistDto.geniusId;
+            artist.geniusUrl = createArtistDto.geniusUrl;
+            artist = await this.artistRepository.save(artist)
 
             await this.geniusService.findAndApplyArtistInfo(artist, createArtistDto.mountForArtworkId).then(async () => {
                 await this.artistRepository.save(artist);

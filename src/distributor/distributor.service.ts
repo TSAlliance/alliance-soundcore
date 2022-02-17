@@ -23,15 +23,15 @@ export class DistributorService {
      * @returns Distributor
      */
     public async createIfNotExists(createDistributorDto: CreateDistributorDTO): Promise<Distributor> {
-        const distributor: Distributor = await this.distributorRepository.findOne({ where: { name: createDistributorDto.name }})
+        let distributor: Distributor = await this.distributorRepository.findOne({ where: { name: createDistributorDto.name }})
         if(distributor) return distributor;
 
-        const distributorResult = await this.distributorRepository.save({
-            name: createDistributorDto.name,
-            geniusId: createDistributorDto.geniusId
-        })
+        distributor = new Distributor();
+        distributor.name = createDistributorDto.name;
+        distributor.geniusId = createDistributorDto.geniusId;
+        distributor = await this.distributorRepository.save(distributor)
 
-        if(!distributorResult) {
+        if(!distributor) {
             this.logger.error("Could not create distributor.")
             return null;
         }
@@ -42,12 +42,12 @@ export class DistributorService {
                 url: createDistributorDto.externalImgUrl,
                 autoDownload: true,
                 mountId: createDistributorDto.artworkMountId || this.mountId,
-                dstFilename: distributorResult.name
+                dstFilename: distributor.name
             })
-            if(artwork) distributorResult.artwork = artwork
+            if(artwork) distributor.artwork = artwork
         }
 
-        return this.distributorRepository.save(distributorResult)
+        return this.distributorRepository.save(distributor)
     }
 
     public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Distributor>> {

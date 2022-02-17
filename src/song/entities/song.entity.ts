@@ -1,5 +1,5 @@
 import { CanRead } from "@tsalliance/sso-nest";
-import { Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Album } from "../../album/entities/album.entity";
 import { Artist } from "../../artist/entities/artist.entity";
 import { Artwork } from "../../artwork/entities/artwork.entity";
@@ -13,12 +13,17 @@ import { Song2Playlist } from "../../playlist/entities/song2playlist.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
 import { Stream } from "../../stream/entities/stream.entity";
 import { SongAlbumOrder } from "./song-order.entity";
+import { RandomUtil } from "@tsalliance/rest";
+import { Slug } from "../../utils/slugGenerator";
 
 @Entity()
 export class Song {
 
     @PrimaryGeneratedColumn("uuid")
     public id: string;
+
+    @Column({ nullable: true, length: 120 })
+    public slug: string;
 
     @CanRead(false)
     @Column({ nullable: true })
@@ -113,5 +118,17 @@ export class Song {
     public isLiked?: boolean;
     public likedAt?: Date;
     public order?: number;
+
+    @BeforeInsert()
+    public onBeforeInsert() {
+        const title = `${this.title.toLowerCase().replace(/[^a-zA-Z ]/g, "").replace(/\s+/g, "-")}`        
+        this.slug = Slug.create(title);
+    }
+
+    @BeforeUpdate() 
+    public onBeforeUpdate() {
+        const title = `${this.title.toLowerCase().replace(/[^a-zA-Z ]/g, "").replace(/\s+/g, "-")}`        
+        this.slug = Slug.create(title);
+    }
 
 }

@@ -1,8 +1,10 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { RandomUtil } from "@tsalliance/rest";
+import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Liked } from "../../collection/entities/like.entity";
 import { LikedPlaylist } from "../../collection/entities/liked-playlist.entity";
 import { User } from "../../user/entities/user.entity";
+import { Slug } from "../../utils/slugGenerator";
 import { PlaylistPrivacy } from "../enums/playlist-privacy.enum";
 import { Song2Playlist } from "./song2playlist.entity";
 
@@ -11,6 +13,9 @@ export class Playlist {
 
     @PrimaryGeneratedColumn("uuid")
     public id: string;
+
+    @Column({ nullable: true, unique: true, length: 120 })
+    public slug: string;
 
     @Column({ nullable: false })
     public title: string;
@@ -51,5 +56,17 @@ export class Playlist {
     public totalDuration?: number = undefined;
     public likesCount?: number = undefined;
     public isLiked?: boolean = false;
+
+    @BeforeInsert()
+    public onBeforeInsert() {
+        const title = `${this.title.toLowerCase().replace(/[^a-zA-Z ]/g, "").replace(/\s+/g, "-")}`        
+        this.slug = Slug.create(title);
+    }
+
+    @BeforeUpdate() 
+    public onBeforeUpdate() {
+        const title = `${this.title.toLowerCase().replace(/[^a-zA-Z ]/g, "").replace(/\s+/g, "-")}`        
+        this.slug = Slug.create(title);
+    }
 
 }
