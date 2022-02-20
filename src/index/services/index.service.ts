@@ -1,7 +1,7 @@
 import { BadRequestException, forwardRef, Inject, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
 import sanitize from 'sanitize-filename';
-import { In } from 'typeorm';
+import { FindConditions, In, Not, ObjectLiteral } from 'typeorm';
 import { MountedFile } from '../../bucket/entities/mounted-file.entity';
 import { BUCKET_ID } from '../../shared/shared.module';
 import { SongService } from '../../song/song.service';
@@ -13,6 +13,7 @@ import { IndexGateway } from '../gateway/index.gateway';
 import { IndexRepository } from '../repositories/index.repository';
 import { IndexReportService } from '../../index-report/services/index-report.service';
 import { QueueService } from './queue.service';
+import { IndexReport } from '../../index-report/entities/report.entity';
 
 @Injectable()
 export class IndexService {
@@ -34,7 +35,7 @@ export class IndexService {
      * @returns Index[]
      */
     public async findAllByMount(mountId: string): Promise<Index[]> {
-        return this.indexRepository.find({ where: { mount: mountId }});
+        return this.indexRepository.find({ where: { mount: mountId }, relations: ["report", "song", "mount", "uploader"]});
     }
 
     /**
@@ -63,14 +64,11 @@ export class IndexService {
         return this.indexRepository.findOne({ where: { id: indexId }});
     }
 
-    /**
-     * Find all indexed files by a certain status inside a whole bucket.
-     * @param bucketId Bucket's id
-     * @param status Statuses to look for
-     * @returns Index[]
-     */
-    public async findAllByStatusInBucket(bucketId: string, status: string[]): Promise<Index[]> {
-        return this.indexRepository.find({ where: { mount: { bucket: { id: bucketId } }, status: In(status) }, relations: ["mount", "mount.bucket"]});
+    public async findIndexForProcessing(where: string | ObjectLiteral | FindConditions<Index> | FindConditions<Index>[]) {
+        return this.findMultipleIndexForProcessing(where)[0];
+    }
+    public async findMultipleIndexForProcessing(where: string | ObjectLiteral | FindConditions<Index> | FindConditions<Index>[]) {
+        return this.indexRepository.find({ where, relations: ["mount", "mount.bucket", "report", "uploader", "song", "song.albums", "song.artists", "song.artwork", "song.banner", "song.label", "song.albumOrders", "song.distributor", "song.publisher", "song.genres"]})
     }
 
     /**
@@ -87,6 +85,53 @@ export class IndexService {
         return this.indexRepository.findOne({ where: { filename: sanitize(file.filename), directory: file.directory, mount: { id: file.mount.id }}, relations: ["mount", "song", "uploader"]})
     }
 
+    public async createForFiles(files: MountedFile[], uploader?: User): Promise<[Index[], IndexReport[]]> {
+        const indices: Index[] = [];
+        const reports: IndexReport[] = [];
+
+        // Check if file already exists as index
+
+        for(const file of files) {
+            // Check if path exists
+            const filepath = this.storageService.buildFilepathNonIndex(file);
+            if(!filepath) throw new InternalServerErrorException("Could not find file.");
+
+            // Get file stats (especially used for fileSize)
+            const fileStats = await this.storageService.getFileStats(filepath)
+            if(!fileStats) throw new InternalServerErrorException("Could not read file stats.");
+
+            // Create new index for file
+            const index = new Index();
+            index.filename = sanitize(file.filename);
+            index.mount = file.mount,
+            index.size = fileStats.size;
+            index.directory = file.directory;
+            index.uploader = uploader;
+            index.status = IndexStatus.PREPARING;
+
+            // Create report
+            const report = new IndexReport();
+            report.jsonContents = [
+                { timestamp: Date.now(), status: "info", message: `Report created for index '${index.id}'.` }
+            ]
+            reports.push(report);
+
+            // Bind report to index
+            index.report = report;
+            indices.push(index);
+
+            console.log(index)
+        }
+
+        const results = await this.indexRepository.save(indices).catch((reason) => {
+            console.error(reason)
+            return []
+        })
+        this.queueService.enqueueMultiple(results);
+
+        return [await this.indexRepository.save(indices).catch(() => []), reports]
+    }
+
     /**
      * Create index from a file inside a mount.
      * @param mount Mount
@@ -98,50 +143,11 @@ export class IndexService {
         let index = await this.findByMountedFileWithRelations(file);
 
         if(!index) {
-            const filepath = this.storageService.buildFilepathNonIndex(file);
-            if(!filepath) {
-                if(uploader) throw new InternalServerErrorException("Could not find file.");
-                return null;
-            }
-
-            const fileStats = await this.storageService.getFileStats(filepath)
-            if(!fileStats) {
-                if(uploader) throw new InternalServerErrorException("Could not read file stats.");
-                return null;
-            }
-
-            // Create index in database or fetch existing
-            if(!index) {
-                index = await this.indexRepository.save({
-                    mount: file.mount,
-                    filename: sanitize(file.filename),
-                    size: fileStats.size,
-                    directory: file.directory,
-                    uploader
-                }).catch(() => {
-                    this.logger.error("Could not create new index entry.")
-                    return null;
-                })
-            } else {
-                if(uploader) throw new BadRequestException("A similar file already exists.")
-            }
+            index = await this.createForFiles([file], uploader)[0][0];
         }
 
         if(!index) throw new BadRequestException("Could not create new index entry.")
-        index.status = IndexStatus.PREPARING;
-
-        // Create index report in background (no await)
-        this.indexReportService.createBlank(index).then(async (report) => {
-            // Connect report with index
-            index.report = report;
-            this.indexRepository.save(index);
-            this.queueService.enqueue(index);
-        }).catch(() => {
-            // Error occured, continue without a report
-            this.indexRepository.save(index);
-            this.queueService.enqueue(index);
-        });
-        
+        await this.queueService.enqueue(index);        
         return index;
     }
 
@@ -160,14 +166,18 @@ export class IndexService {
         return this.storageService.generateChecksumOfIndex(index).then(async (index) => {
             this.setStatus(index, index.status);
             if(index.status == IndexStatus.ERRORED) {
+                await this.indexReportService.appendError(index.report, `Failed calculating checksum of file.`);
                 this.queueService.onIndexEnded(index, "errored");
+                console.log("could not generate checksum")
                 return index;
             }
 
             // Check for duplicate files and abort if so
-            if(await this.existsByChecksum(index.checksum)) {
+            if(await this.existsByChecksum(index.checksum, index.id)) {
                 this.setStatus(index, IndexStatus.DUPLICATE);
+                await this.indexReportService.appendError(index.report, `Found two files with same checksum. It seems like the file already exists.`);
                 this.queueService.onIndexEnded(index, "errored");
+                console.log("file exists")
                 return index;
             }
 
@@ -208,7 +218,7 @@ export class IndexService {
         this.setStatus(index, IndexStatus.ERRORED);
 
         this.queueService.onIndexEnded(index, "errored");
-        this.indexReportService.appendStackTrace(index.report, `Failed on step 'generateChecksumOfIndex()': ${error.message}`, error.stack);
+        this.indexReportService.appendStackTrace(index.report, `Failed: ${error.message}`, error.stack);
     }
 
     /**
@@ -218,8 +228,8 @@ export class IndexService {
      * @param checksum Checksum to check
      * @returns True or False
      */
-    public async existsByChecksum(checksum: string): Promise<boolean> {
-        return !!(await this.indexRepository.findOne({ where: { checksum, status: In([IndexStatus.OK, IndexStatus.PROCESSING])}}));
+    public async existsByChecksum(checksum: string, indexId: string): Promise<boolean> {
+        return !!(await this.indexRepository.findOne({ where: { checksum, id: Not(indexId), status: In([IndexStatus.OK, IndexStatus.PROCESSING])}}));
     }
 
     /**
@@ -256,20 +266,7 @@ export class IndexService {
      * @returns DeleteResult
      */
     public async clearOrResumeProcessing(): Promise<void> {
-        const indices = await this.findAllByStatusInBucket(this.bucketId, [ IndexStatus.PROCESSING, IndexStatus.PREPARING ]);
-
-        const preparing = [];
-        const processing = [];
-
-        indices.forEach((i) => {
-            if(i.status == IndexStatus.PREPARING) preparing.push(i)
-            else processing.push(i)
-        })
-
-        for(const index of preparing) {
-            await this.queueService.enqueue(index);
-        }    
-        
-        await this.indexRepository.delete({ id: In(processing.map((index) => index.id)) });
+        const indices = await this.findMultipleIndexForProcessing({ mount: { bucket: { id: this.bucketId }}, status: In([ IndexStatus.PROCESSING, IndexStatus.PREPARING ])});
+        await this.queueService.enqueueMultiple(indices);
     }
 }

@@ -7,7 +7,7 @@ import { MountRepository } from '../repositories/mount.repository';
 import { Mount } from '../entities/mount.entity';
 import { CreateMountDTO } from '../dto/create-mount.dto';
 import { BucketRepository } from '../repositories/bucket.repository';
-import { DeleteResult } from 'typeorm';
+import { DeleteResult, Not } from 'typeorm';
 import { UpdateMountDTO } from '../dto/update-mount.dto';
 import { Index } from "../../index/entities/index.entity";
 import { IndexService } from "../../index/services/index.service";
@@ -241,16 +241,14 @@ export class MountService {
             mount
         }));
 
-        const indices: string[] = (await this.indexService.findAllByMount(mount.id)).filter((index) => index.status != IndexStatus.ERRORED).map((index) => index.filename);
+        const indices: string[] = (await this.indexService.findMultipleIndexForProcessing({ mount: { id: mount.id } })).filter((index) => index.status != IndexStatus.ERRORED).map((index) => index.filename);
         const notIndexedFiles: MountedFile[] = files.filter((file) => !indices.includes(file.filename));
             
         if(notIndexedFiles.length > 0) {
             this.setStatus(mount, MountStatus.INDEXING)
             this.logger.warn(`Found ${notIndexedFiles.length} files that require indexing. Indexing mount '${mount.name}'...`);
                 
-            for(const file of notIndexedFiles) {
-                this.indexService.createIndex(file)
-            }
+            this.indexService.createForFiles(notIndexedFiles);
         }
     }
 

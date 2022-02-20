@@ -4,6 +4,8 @@ import { Index } from "../entities/index.entity";
 import { IndexReportService } from "../../index-report/services/index-report.service";
 import { IndexService } from "./index.service";
 import { debounceTime, Observable, Subject } from "rxjs";
+import { IncomingMessage } from "http";
+import { IndexReport } from "../../index-report/entities/report.entity";
 
 export type QueueEndReason = "errored" | "done"
 
@@ -45,15 +47,31 @@ export class QueueService {
         // This is later used to send status updates on wether a mount
         // is currently processed or not
         if(!this._mounts[index.mount.id]) this._mounts[index.mount.id] = 1;
-        else this._mounts[index.mount.id] += 1;
+        else this._mounts[index.mount.id] = this._mounts[index.mount.id]+1;
 
         this.indexReportService.appendInfo(index.report, `Index has been added to queue. (Position #${this.size})`)
         this._onItemAddedSubject.next();
     }
 
+    public async enqueueMultiple(indices: Index[]) {
+        this._queue.push(...indices);
+        this.logger.log(`Enqueued ${indices.length} file(s) (Queue size: ${this._queue.length})`);
+        const reports: IndexReport[] = [];
+
+        for(const index of indices) {
+            if(index.report) reports.push(index.report)
+            if(!this._mounts[index.mount.id]) this._mounts[index.mount.id] = 1;
+            else this._mounts[index.mount.id] = this._mounts[index.mount.id]+1;
+        }
+
+        this.indexReportService.appendInfoMultiple(reports, `Index has been added to queue (Batch-Size: ${indices.length}, Queue-Size: ${this.size})`)
+        this._onItemAddedSubject.next();
+    }
+
     public async dequeue(): Promise<Index> {
         const item = this._queue.splice(0, 1)[0];
-        if(this._mounts[item.mount.id]) delete this._mounts[item.mount.id];
+        if(this._mounts[item.mount.id] <= 1) delete this._mounts[item.mount.id];
+        if(this._mounts[item.mount.id] > 1) this._mounts[item.mount.id] -= 1;
 
         if(item) await this.indexReportService.appendInfo(item.report, `Index has been taken from queue.`)
         return item;

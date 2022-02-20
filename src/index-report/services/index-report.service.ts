@@ -17,17 +17,22 @@ export class IndexReportService {
      * @returns 
      */
     public async createBlank(index: Index): Promise<IndexReport> {
-        await this.indexReportRepository.delete({ index: { id: index?.id } })
+        return this.createMultiple([index])[0];
+    }
 
-        return this.indexReportRepository.save({
-            index: index,
-            jsonContents: [
+    public async createMultiple(indices: Index[]): Promise<IndexReport[]> {
+        const reports: IndexReport[] = [];
+
+        for(const index of indices) {
+            const report = new IndexReport();
+            report.index = index;
+            report.jsonContents = [
                 { timestamp: Date.now(), status: "info", message: `Report created for index '${index.id}'.` }
             ]
-        }).catch((reason) => {
-            this.logger.error(`Could not create blank report for Index '${index.id}': `, reason);
-            return null;
-        })
+        }
+
+        await this.indexReportRepository.remove(indices.map((index) => index.report));
+        return this.indexReportRepository.save(reports).catch(() => [])
     }
 
     /**
@@ -53,8 +58,8 @@ export class IndexReportService {
      * @param report Report id or report entity
      * @param reportElement Element to be appended
      */
-     public async appendWarn(report: string | IndexReport, message: string, context?: Record<string, any>) {
-        await this.appendElement(report, {
+     public async appendWarn(report: IndexReport, message: string, context?: Record<string, any>) {
+        await this.appendElement([report], {
             message,
             status: "warn",
             context
@@ -66,7 +71,15 @@ export class IndexReportService {
      * @param report Report id or report entity
      * @param reportElement Element to be appended
      */
-     public async appendInfo(report: string | IndexReport, message: string, context?: Record<string, any>) {
+    public async appendInfo(report: IndexReport, message: string, context?: Record<string, any>) {
+        await this.appendElement([report], {
+            message,
+            status: "info",
+            context
+        })
+    }
+
+    public async appendInfoMultiple(report: IndexReport[], message: string, context?: Record<string, any>) {
         await this.appendElement(report, {
             message,
             status: "info",
@@ -79,8 +92,8 @@ export class IndexReportService {
      * @param report Report id or report entity
      * @param reportElement Element to be appended
      */
-    public async appendError(report: string | IndexReport, message: string, context?: Record<string, any>) {
-        await this.appendElement(report, {
+    public async appendError(report: IndexReport, message: string, context?: Record<string, any>) {
+        await this.appendElement([report], {
             message,
             status: "error",
             context
@@ -92,8 +105,8 @@ export class IndexReportService {
      * @param report Report id or report entity
      * @param reportElement Element to be appended
      */
-     public async appendStackTrace(report: string | IndexReport, message: string, stack: string, context?: Record<string, any>) {
-        await this.appendElement(report, {
+     public async appendStackTrace(report: IndexReport, message: string, stack: string, context?: Record<string, any>) {
+        await this.appendElement([report], {
             message,
             status: "error",
             stack,
@@ -106,23 +119,21 @@ export class IndexReportService {
      * @param report Report id or report entity
      * @param reportElement Element to be appended
      */
-    public async appendElement(report: string | IndexReport, reportElement: { status: "info" | "warn" | "error", message: string, stack?: string, context?: Record<string, any> }) {
-        if(!report) return;
+    public async appendElement(reports: IndexReport[], reportElement: { status: "info" | "warn" | "error", message: string, stack?: string, context?: Record<string, any> }) {
+        if(!reports || reports.length <= 0) return;
 
-        let reportEntity: IndexReport = report as IndexReport;
-        if(typeof report == "string") {
-            reportEntity = await this.findById(report);
+        for(const report of reports) {
+            if(!report) return;
+            const element = new IndexReportElement();
+            element.timestamp = Date.now();
+            element.status = reportElement.status || "info";
+            element.message = reportElement.message;
+            element.stack = reportElement.stack;
+            element.context = reportElement.context;
+
+            report.jsonContents.push(element);
         }
-
-        const element = new IndexReportElement();
-        element.timestamp = Date.now();
-        element.status = reportElement.status || "info";
-        element.message = reportElement.message;
-        element.stack = reportElement.stack;
-        element.context = reportElement.context;
-
-        reportEntity.jsonContents.push(element);
-        await this.indexReportRepository.save(reportEntity).catch((reason) => {
+        await this.indexReportRepository.save(reports).catch((reason) => {
             console.error(reason)
         });
     }

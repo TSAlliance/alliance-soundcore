@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { Index } from "../../index/entities/index.entity";
 
 @Entity()
@@ -8,7 +8,6 @@ export class IndexReport {
     public id: string;
 
     @OneToOne(() => Index, { onDelete: "CASCADE" })
-    @JoinColumn()
     public index: Index;
 
     @Column({ nullable: true, type: "json" })
