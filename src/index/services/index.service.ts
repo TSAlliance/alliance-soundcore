@@ -82,7 +82,7 @@ export class IndexService {
     }
 
     public async findByMountedFileWithRelations(file: MountedFile): Promise<Index> {
-        return this.indexRepository.findOne({ where: { filename: sanitize(file.filename), directory: file.directory, mount: { id: file.mount.id }}, relations: ["mount", "song", "uploader"]})
+        return this.indexRepository.findOne({ where: { filename: file.filename, directory: file.directory, mount: { id: file.mount.id }}, relations: ["mount", "song", "uploader"]})
     }
 
     public async createForFiles(files: MountedFile[], uploader?: User): Promise<Index[]> {
@@ -137,7 +137,7 @@ export class IndexService {
                 console.error(error)
                 return null;
             })
-            
+
             if(!fileStats) {
                 if(uploader) throw new InternalServerErrorException("Could not read file stats.");
                 console.error(new InternalServerErrorException("Could not read file stats."))

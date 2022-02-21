@@ -26,14 +26,15 @@ export class UploadService {
      * @returns Index
      */
     public async uploadAudio(file: Express.Multer.File, uploader: User): Promise<Index> {
+        file.originalname = sanitize(file.originalname)
         const mount = await this.mountService.findDefaultMount();
         if(!mount) throw new NotFoundException("Could not find default mount.");
 
         if(!await (await this.findSupportedFormats()).audio.includes(file.mimetype)) throw new BadRequestException("Unsupported file format.")
 
-        return this.storageService.writeBufferToMount(mount, file.buffer, sanitize(file.originalname)).catch((error) => error).then((error) => {
+        return this.storageService.writeBufferToMount(mount, file.buffer, file.originalname).catch((error) => error).then((error) => {
             if(error) throw new InternalServerErrorException("Could not upload file: Unexpected error.");
-            return this.mountService.indexFile({ mount, filename: sanitize(file.originalname) }, uploader)
+            return this.mountService.indexFile({ mount, filename: file.originalname }, uploader)
         });
     }
 
