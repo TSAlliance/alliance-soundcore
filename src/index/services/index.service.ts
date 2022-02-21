@@ -35,7 +35,7 @@ export class IndexService {
      * @returns Index[]
      */
     public async findAllByMount(mountId: string): Promise<Index[]> {
-        return this.indexRepository.find({ where: { mount: mountId }, relations: ["report", "song", "mount", "uploader"]});
+        return this.findMultipleIndices({ mount: mountId });
     }
 
     /**
@@ -64,10 +64,10 @@ export class IndexService {
         return this.indexRepository.findOne({ where: { id: indexId }});
     }
 
-    public async findIndexForProcessing(where: string | ObjectLiteral | FindConditions<Index> | FindConditions<Index>[]) {
-        return this.findMultipleIndexForProcessing(where)[0];
+    public async findIndex(where: string | ObjectLiteral | FindConditions<Index> | FindConditions<Index>[]): Promise<Index> {
+        return this.findMultipleIndices(where)[0];
     }
-    public async findMultipleIndexForProcessing(where: string | ObjectLiteral | FindConditions<Index> | FindConditions<Index>[]) {
+    public async findMultipleIndices(where: string | ObjectLiteral | FindConditions<Index> | FindConditions<Index>[]): Promise<Index[]> {
         return this.indexRepository.find({ where, relations: ["mount", "mount.bucket", "report", "uploader", "song", "song.albums", "song.artists", "song.artwork", "song.banner", "song.label", "song.albumOrders", "song.distributor", "song.publisher", "song.genres"]})
     }
 
@@ -89,8 +89,44 @@ export class IndexService {
         const indices: Index[] = [];
         const reports: IndexReport[] = [];
 
+        // Sanatize all filenames 
+        // to fit os conventions
+        files = files.map((file) => {
+            file.filename = sanitize(file.filename);
+            return file;
+        })
+
         // Check if file already exists as index
 
+        const existingIndices = await this.findMultipleIndices({ directory: In(files.map((file) => file.directory)), filename: In(In(files.map((file) => file.filename))), mount: { id: In(In(files.map((file) => file.mount.id)))} })
+        if(existingIndices.length > 0) {
+            const indexedFiles: Map<string, Index> = new Map();
+
+            // Map existing indices to mounted file
+            for(const index of existingIndices) {
+                // Generate unique identifier by appending all strings
+                const identifier = index.directory + index.filename + index.mount.id;
+                indexedFiles[identifier] = index;
+            }
+
+            // Filter files array and exclude existing ones.
+            files = files.filter((file) => {
+                // Generate unique identifier by appending all strings
+                const identifier = file.directory + file.filename + file.mount.id;
+                
+                // Check if identifier exists.
+                // If so, return false and add existing index to indices array
+                if(!!indexedFiles[identifier]) {
+                    indices.push(indexedFiles[identifier])
+                    return false;
+                }
+
+                // Does not exist, return true to create index in next step
+                return true;
+            })
+        }
+
+        // Create index for non-indexed files
         for(const file of files) {
             // Check if path exists
             const filepath = this.storageService.buildFilepathNonIndex(file);
@@ -102,7 +138,7 @@ export class IndexService {
 
             // Create new index for file
             const index = new Index();
-            index.filename = sanitize(file.filename);
+            index.filename = file.filename;
             index.mount = file.mount,
             index.size = fileStats.size;
             index.directory = file.directory;
@@ -119,14 +155,13 @@ export class IndexService {
             // Bind report to index
             index.report = report;
             indices.push(index);
-
-            console.log(index)
         }
 
         const results = await this.indexRepository.save(indices).catch((reason) => {
             console.error(reason)
             return []
         })
+
         this.queueService.enqueueMultiple(results);
 
         return [await this.indexRepository.save(indices).catch(() => []), reports]
@@ -266,7 +301,7 @@ export class IndexService {
      * @returns DeleteResult
      */
     public async clearOrResumeProcessing(): Promise<void> {
-        const indices = await this.findMultipleIndexForProcessing({ mount: { bucket: { id: this.bucketId }}, status: In([ IndexStatus.PROCESSING, IndexStatus.PREPARING ])});
+        const indices = await this.findMultipleIndices({ mount: { bucket: { id: this.bucketId }}, status: In([ IndexStatus.PROCESSING, IndexStatus.PREPARING ])});
         await this.queueService.enqueueMultiple(indices);
     }
 }

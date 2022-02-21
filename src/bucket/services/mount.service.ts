@@ -7,7 +7,7 @@ import { MountRepository } from '../repositories/mount.repository';
 import { Mount } from '../entities/mount.entity';
 import { CreateMountDTO } from '../dto/create-mount.dto';
 import { BucketRepository } from '../repositories/bucket.repository';
-import { DeleteResult, Not } from 'typeorm';
+import { DeleteResult } from 'typeorm';
 import { UpdateMountDTO } from '../dto/update-mount.dto';
 import { Index } from "../../index/entities/index.entity";
 import { IndexService } from "../../index/services/index.service";
@@ -218,7 +218,8 @@ export class MountService {
     }
 
     /**
-     * Check if files inside of mount are indexed or not. If not, then the reindexing process is triggered.
+     * Check if files inside of a mount are indexed or not. 
+     * If not, then the reindexing process is triggered.
      * @param mount Mount to check
      */
     public async checkIndicesOfMount(mount: Mount): Promise<void> {
@@ -241,7 +242,7 @@ export class MountService {
             mount
         }));
 
-        const indices: string[] = (await this.indexService.findMultipleIndexForProcessing({ mount: { id: mount.id } })).filter((index) => index.status != IndexStatus.ERRORED).map((index) => index.filename);
+        const indices: string[] = (await this.indexService.findMultipleIndices({ mount: { id: mount.id } })).filter((index) => index.status != IndexStatus.ERRORED).map((index) => index.filename);
         const notIndexedFiles: MountedFile[] = files.filter((file) => !indices.includes(file.filename));
             
         if(notIndexedFiles.length > 0) {
@@ -253,7 +254,8 @@ export class MountService {
     }
 
     /**
-     * Check if files inside of all mounts from this bucket are indexed or not. If not, then the reindexing process is triggered.
+     * Check if files inside of all mounts from this bucket are indexed or not. 
+     * If not, then the reindexing process is triggered.
      */
     public async checkLocalIndices(): Promise<void> {
         const mounts = await this.findByBucketId(this.bucketId);
