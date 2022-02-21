@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { In } from "typeorm";
 import { Index } from "../../index/entities/index.entity";
 import { IndexReport, IndexReportElement } from "../entities/report.entity";
 import { IndexReportRepository } from "../repositories/index-report.repository";
@@ -29,10 +30,14 @@ export class IndexReportService {
             report.jsonContents = [
                 { timestamp: Date.now(), status: "info", message: `Report created for index '${index.id}'.` }
             ]
+            reports.push(report);
         }
 
-        await this.indexReportRepository.remove(indices.map((index) => index.report));
-        return this.indexReportRepository.save(reports).catch(() => [])
+        await this.indexReportRepository.delete({ index: { id: In(reports.map((report) => report.index.id)) }});
+        return this.indexReportRepository.save(reports).catch((error) => {
+            console.error(error)
+            return []
+        })
     }
 
     /**

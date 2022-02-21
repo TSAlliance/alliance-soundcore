@@ -448,8 +448,6 @@ export class SongService {
             title: (id3tags.title || path.parse(filepath).name)?.replace(/^[ ]+|[ ]+$/g,'')
         });
 
-        // TODO: Check if song with title exists in album
-
         if(!song) {
             this.indexReportService.appendError(index.report, `Cannot create song entity for file '${filepath}'`);
             throw new NotFoundException("Cannot create song entity.");

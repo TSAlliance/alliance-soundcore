@@ -50,7 +50,7 @@ export class ImportService {
         })
 
         const title = createImportDto.title || info.videoDetails.title;
-        const file: MountedFile = { mount, filename: title + ".mp3", directory: "yt-import" }
+        const file: MountedFile = { mount, filename: sanitize(title) + ".mp3", directory: "yt-import" }
 
         const dstFilepath = this.storageService.buildFilepathNonIndex(file);
 

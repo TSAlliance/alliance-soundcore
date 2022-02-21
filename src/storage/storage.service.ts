@@ -49,7 +49,7 @@ export class StorageService {
      */
     public async writeBufferToMount(mount: Mount, buffer: Buffer, filename: string): Promise<void> {
         return new Promise((resolve, reject) => {
-            fs.writeFile(this.buildFilepathNonIndex({ mount, filename }), buffer, (err) => {
+            fs.writeFile(this.buildFilepathNonIndex({ mount, filename: sanitize(filename) }), buffer, (err) => {
                 if(err) reject(err)
                 else resolve()
             })
@@ -106,7 +106,7 @@ export class StorageService {
      * @returns string
      */
     public buildFilepath(index: Index): string {
-        return this.buildFilepathNonIndex({ mount: index.mount, directory: index.directory || ".", filename: sanitize(index.filename) })
+        return this.buildFilepathNonIndex({ mount: index.mount, directory: index.directory || ".", filename: index.filename })
     }
 
     /**
@@ -116,7 +116,7 @@ export class StorageService {
      * @returns string
      */
      public buildFilepathNonIndex(file: MountedFile): string {
-        return path.join(file.mount.path, file.directory || ".", sanitize(file.filename));
+        return path.join(file.mount.path, file.directory || ".", file.filename);
     }
 
     /**
@@ -177,10 +177,10 @@ export class StorageService {
      * @returns fs.Stats
      */
     public async getFileStats(filepath: string): Promise<fs.Stats> {
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
             fs.stat(filepath, (err, stats) => {
-                if(err) resolve(null)
-                else resolve(stats)
+                if(err) reject(err);
+                else resolve(stats);
             })
         })
     }

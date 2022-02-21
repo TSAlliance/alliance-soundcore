@@ -36,7 +36,7 @@ export class Index {
     @ManyToOne(() => User, { onDelete: "SET NULL" })
     public uploader: User;
 
-    @OneToOne(() => IndexReport, { onDelete: "SET NULL", cascade: ["insert"] })
+    @OneToOne(() => IndexReport, { onDelete: "SET NULL" })
     @JoinColumn()
     public report: IndexReport;
 

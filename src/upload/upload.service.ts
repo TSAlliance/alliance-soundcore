@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import sanitize from 'sanitize-filename';
 import { MountService } from '../bucket/services/mount.service';
 import { Index } from '../index/entities/index.entity';
 import { StorageService } from '../storage/storage.service';
@@ -30,9 +31,9 @@ export class UploadService {
 
         if(!await (await this.findSupportedFormats()).audio.includes(file.mimetype)) throw new BadRequestException("Unsupported file format.")
 
-        return this.storageService.writeBufferToMount(mount, file.buffer, file.originalname).catch((error) => error).then((error) => {
+        return this.storageService.writeBufferToMount(mount, file.buffer, sanitize(file.originalname)).catch((error) => error).then((error) => {
             if(error) throw new InternalServerErrorException("Could not upload file: Unexpected error.");
-            return this.mountService.indexFile({ mount, filename: file.originalname }, uploader)
+            return this.mountService.indexFile({ mount, filename: sanitize(file.originalname) }, uploader)
         });
     }
 

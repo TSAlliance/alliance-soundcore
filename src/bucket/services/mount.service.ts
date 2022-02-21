@@ -249,7 +249,9 @@ export class MountService {
             this.setStatus(mount, MountStatus.INDEXING)
             this.logger.warn(`Found ${notIndexedFiles.length} files that require indexing. Indexing mount '${mount.name}'...`);
                 
-            this.indexService.createForFiles(notIndexedFiles);
+            this.indexService.createForFiles(notIndexedFiles).catch((error)  => {
+                console.error(error);
+            });
         }
     }
 

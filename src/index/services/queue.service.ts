@@ -4,7 +4,6 @@ import { Index } from "../entities/index.entity";
 import { IndexReportService } from "../../index-report/services/index-report.service";
 import { IndexService } from "./index.service";
 import { debounceTime, Observable, Subject } from "rxjs";
-import { IncomingMessage } from "http";
 import { IndexReport } from "../../index-report/entities/report.entity";
 
 export type QueueEndReason = "errored" | "done"
@@ -107,6 +106,8 @@ export class QueueService {
                 this._hasCooldown = false;
                 this.next();
             }, 2000)
+        } else {
+            this.logger.log("Queue is empty.")
         }
 
         this.indexReportService.appendInfo(index.report, `Processing ended. (Reason: ${reason.toUpperCase()})`)
