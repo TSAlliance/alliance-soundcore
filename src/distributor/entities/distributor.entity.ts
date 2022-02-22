@@ -1,4 +1,3 @@
-import { RandomUtil } from "@tsalliance/rest";
 import { CanRead } from "@tsalliance/sso-nest";
 import { BeforeInsert, BeforeUpdate, Column, Entity, JoinColumn, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Artwork } from "../../artwork/entities/artwork.entity";
@@ -13,6 +12,9 @@ export class Distributor {
 
     @Column({ nullable: true, unique: true, length: 120 })
     public slug: string;
+
+    @Column({ nullable: true, default: false })
+    public hasGeniusLookupFailed: boolean;
 
     @CanRead(false)
     @Column({ nullable: true })

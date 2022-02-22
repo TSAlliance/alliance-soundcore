@@ -25,6 +25,9 @@ export class Album {
     @Column({ nullable: false })
     public title: string;
 
+    @Column({ nullable: true, default: false })
+    public hasGeniusLookupFailed: boolean;
+
     @Column({ nullable: true })
     public released: Date;
 

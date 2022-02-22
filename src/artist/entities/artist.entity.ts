@@ -1,4 +1,3 @@
-import { RandomUtil } from "@tsalliance/rest";
 import { CanRead } from "@tsalliance/sso-nest";
 import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Album } from "../../album/entities/album.entity";
@@ -18,6 +17,9 @@ export class Artist {
     @CanRead(false)
     @Column({ nullable: true, unique: true })
     public geniusId: string;
+
+    @Column({ nullable: true, default: false })
+    public hasGeniusLookupFailed: boolean;
 
     @Column({ nullable: true, type: "text" })
     public geniusUrl: string;

@@ -230,11 +230,14 @@ export class AlbumService {
 
             return this.create(createAlbumDto).then((album) => {
                 return this.geniusService.findAndApplyAlbumInfo(album, createAlbumDto.geniusSearchArtists, createAlbumDto.mountForArtworkId).then(async (result) => {
+                    album.hasGeniusLookupFailed = false;
+                    
                     await this.albumRepository.save(album)
-    
                     return { album, artist: result.artist };
                 }).catch(() => {
                     this.logger.warn("Could not find information for album '" + createAlbumDto.title + "'")
+                    album.hasGeniusLookupFailed = true;
+                    this.albumRepository.save(album)
                     return {album, artist: null};
                 })
             })

@@ -79,9 +79,12 @@ export class ArtistService {
             artist = await this.artistRepository.save(artist)
 
             await this.geniusService.findAndApplyArtistInfo(artist, createArtistDto.mountForArtworkId).then(async () => {
+                artist.hasGeniusLookupFailed = false;
                 await this.artistRepository.save(artist);
             }).catch((reason) => {
+                artist.hasGeniusLookupFailed = true;
                 this.logger.warn(`Something went wrong whilst gathering information on artist '${createArtistDto.name}': ${reason.message}`)
+                this.artistRepository.save(artist);
             })
         }
 
