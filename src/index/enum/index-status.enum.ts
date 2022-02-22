@@ -6,6 +6,8 @@ export enum IndexStatus {
     PREPARING = "preparing",
     PROCESSING = "processing",
     IGNORE = "ignore",
-    ERRORED = "errored"
+    ERRORED = "errored",
+    ERRORED_PATH = "errored_path"
+
 
 }

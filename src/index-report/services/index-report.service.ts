@@ -23,7 +23,12 @@ export class IndexReportService {
 
     public async createMultiple(indices: Index[]): Promise<IndexReport[]> {
         const reports: IndexReport[] = [];
+        const existingReports: IndexReport[] = await this.findByIndexIds(indices.map((index) => index.id));
 
+        // Filter out existing reports
+        indices = indices.filter((index) => !existingReports.find((report) => report.index.id == index.id));
+
+        // Create reports for indices that have no report yet
         for(const index of indices) {
             const report = new IndexReport();
             report.index = index;
@@ -33,11 +38,15 @@ export class IndexReportService {
             reports.push(report);
         }
 
-        await this.indexReportRepository.delete({ index: { id: In(reports.map((report) => report.index.id)) }});
-        return this.indexReportRepository.save(reports).catch((error) => {
+        // Save new reports
+        const result = await this.indexReportRepository.save(reports).catch((error) => {
             console.error(error)
             return []
         })
+
+        // Merge new with existing ones and return
+        result.push(...existingReports);
+        return result;
     }
 
     /**
@@ -54,8 +63,11 @@ export class IndexReportService {
      * @param reportId Report's id
      * @returns IndexReport
      */
-     public async findByIndexId(indexId: string): Promise<IndexReport> {
+    public async findByIndexId(indexId: string): Promise<IndexReport> {
         return this.indexReportRepository.findOne({ where: { index: { id: indexId } }, relations: ["index"]})
+    }
+    public async findByIndexIds(indexIds: string[]): Promise<IndexReport[]> {
+        return this.indexReportRepository.find({ where: { index: { id: In(indexIds) } }, relations: ["index"]})
     }
 
     /**

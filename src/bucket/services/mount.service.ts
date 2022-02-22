@@ -7,12 +7,11 @@ import { MountRepository } from '../repositories/mount.repository';
 import { Mount } from '../entities/mount.entity';
 import { CreateMountDTO } from '../dto/create-mount.dto';
 import { BucketRepository } from '../repositories/bucket.repository';
-import { DeleteResult } from 'typeorm';
+import { DeleteResult, In } from 'typeorm';
 import { UpdateMountDTO } from '../dto/update-mount.dto';
 import { Index } from "../../index/entities/index.entity";
 import { IndexService } from "../../index/services/index.service";
 import { BUCKET_ID, MOUNT_ID } from "../../shared/shared.module";
-import { IndexStatus } from '../../index/enum/index-status.enum';
 import { MountStatus } from '../enums/mount-status.enum';
 import { User } from '../../user/entities/user.entity';
 import { MountGateway } from '../gateway/mount-status.gateway';
@@ -20,6 +19,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { MOUNT_INDEX_END, MOUNT_INDEX_START } from '../../index/services/queue.service';
 import { glob } from 'glob';
 import { MountedFile } from '../entities/mounted-file.entity';
+import { IndexStatus } from '../../index/enum/index-status.enum';
 
 @Injectable()
 export class MountService {
@@ -234,16 +234,32 @@ export class MountService {
             mkdirSync(mountDir, { recursive: true })
         }
 
+        // Get statuses that are results of a indexing process being done
+        const statuses: IndexStatus[] = [ IndexStatus.OK, IndexStatus.IGNORE, IndexStatus.ERRORED, IndexStatus.ERRORED_PATH, IndexStatus.DUPLICATE ]
+        const indexedFiles: MountedFile[] = (await this.indexService.findMultipleIndices({ mount: { id: mount.id }, status: In(statuses) })).map((index) => {
+            const file = new MountedFile();
+            file.directory = index.directory;
+            file.filename = index.filename;
+            file.mount = index.mount;
+            return file;
+        });
+
+        // Build up array of paths that should be ignored, as they are already
+        // indexed
+        const ignorePaths = indexedFiles.map((file) => path.join(file.directory || "", file.filename))
+
         // Get files inside mount.
         // This also considers every file in subdirectories.
-        const files: MountedFile[] = glob.sync("**/*.mp3", { cwd: mountDir }).map((filepath) => ({
-            directory: path.dirname(filepath),
-            filename: path.basename(filepath),
-            mount
-        }));
+        const files: MountedFile[] = glob.sync("**/*.mp3", { cwd: mountDir, ignore: ignorePaths }).map((filepath) => {
+            const file = new MountedFile();
+            file.directory = path.dirname(filepath)
+            file.filename = path.basename(filepath)
+            file.mount = mount
 
-        const indices: string[] = (await this.indexService.findMultipleIndices({ mount: { id: mount.id } })).filter((index) => index.status != IndexStatus.ERRORED).map((index) => index.filename);
-        const notIndexedFiles: MountedFile[] = files.filter((file) => !indices.includes(file.filename));
+            return file;
+        });
+        
+        const notIndexedFiles: MountedFile[] = files.filter((file) => !indexedFiles.includes(file));
             
         if(notIndexedFiles.length > 0) {
             this.setStatus(mount, MountStatus.INDEXING)

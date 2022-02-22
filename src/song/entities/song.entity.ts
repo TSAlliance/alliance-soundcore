@@ -13,7 +13,6 @@ import { Song2Playlist } from "../../playlist/entities/song2playlist.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
 import { Stream } from "../../stream/entities/stream.entity";
 import { SongAlbumOrder } from "./song-order.entity";
-import { RandomUtil } from "@tsalliance/rest";
 import { Slug } from "../../utils/slugGenerator";
 
 @Entity()

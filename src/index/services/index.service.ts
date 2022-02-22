@@ -1,6 +1,5 @@
 import { BadRequestException, forwardRef, Inject, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
-import sanitize from 'sanitize-filename';
 import { FindConditions, In, Not, ObjectLiteral } from 'typeorm';
 import { MountedFile } from '../../bucket/entities/mounted-file.entity';
 import { BUCKET_ID } from '../../shared/shared.module';
@@ -14,6 +13,7 @@ import { IndexRepository } from '../repositories/index.repository';
 import { IndexReportService } from '../../index-report/services/index-report.service';
 import { QueueService } from './queue.service';
 import { IndexReport } from '../../index-report/entities/report.entity';
+import { sleep } from '../../utils/sleep';
 
 @Injectable()
 export class IndexService {
@@ -61,7 +61,7 @@ export class IndexService {
      * @returns Index
      */
     public async findById(indexId: string): Promise<Index> {
-        return this.indexRepository.findOne({ where: { id: indexId }});
+        return this.findIndex({ id: indexId });
     }
 
     public async findIndex(where: string | ObjectLiteral | FindConditions<Index> | FindConditions<Index>[]): Promise<Index> {
@@ -85,96 +85,122 @@ export class IndexService {
         return this.indexRepository.findOne({ where: { filename: file.filename, directory: file.directory, mount: { id: file.mount.id }}, relations: ["mount", "song", "uploader"]})
     }
 
-    public async createForFiles(files: MountedFile[], uploader?: User): Promise<Index[]> {
-        if(!files || files.length <= 0) return [];
-        const indices: Index[] = [];
-        const indicesWithoutReport: Index[] = [];
+    public async createForFiles(mountedFiles: MountedFile[], uploader?: User): Promise<Index[]> {
+        const sublists: MountedFile[][] = [];
+        const maxIndex = mountedFiles.length
 
-        // Check if file already exists as index
+        for(let i = 0; ; i += 500) {
+            const offset = i == 0 ? i : i + 1;
+            const limit = i + 500;
 
-        const existingIndices = await this.findMultipleIndices({ directory: In(files.map((file) => file.directory)), filename: In(In(files.map((file) => file.filename))), mount: { id: In(In(files.map((file) => file.mount.id)))} })
-        if(existingIndices.length > 0) {
-            const indexedFiles: Map<string, Index> = new Map();
-
-            // Map existing indices to mounted file
-            for(const index of existingIndices) {
-                // Generate unique identifier by appending all strings
-                const identifier = index.directory + index.filename + index.mount.id;
-                indexedFiles[identifier] = index;
+            if(limit >= maxIndex) {
+                sublists.push(mountedFiles.slice(offset, maxIndex));
+                break;
+            } else {
+                sublists.push(mountedFiles.slice(offset, limit));
             }
+        }
 
-            // Filter files array and exclude existing ones.
-            files = files.filter((file) => {
-                // Generate unique identifier by appending all strings
-                const identifier = file.directory + file.filename + file.mount.id;
-                const index: Index = indexedFiles[identifier];
-                
-                // Check if identifier exists.
-                // If so, return false and add existing index to indices array
-                if(!!index) {
-                    indices.push(indexedFiles[identifier])
-                    if(!index.report) indicesWithoutReport.push(index);
-                    return false;
+        const indices: Index[] = [];
+        for(const list of sublists) {
+            await sleep(2000);
+
+            let files = list;
+            if(!files || files.length <= 0) return [];
+            
+            const indicesWithoutReport: Index[] = [];
+
+            // Check if file already exists as index
+
+            const existingIndices = await this.findMultipleIndices({ directory: In(files.map((file) => file.directory)), filename: In(In(files.map((file) => file.filename))), mount: { id: In(In(files.map((file) => file.mount.id)))} })
+            if(existingIndices.length > 0) {
+                const indexedFiles: Map<string, Index> = new Map();
+
+                // Map existing indices to mounted file
+                for(const index of existingIndices) {
+                    // Generate unique identifier by appending all strings
+                    const identifier = index.directory + index.filename + index.mount.id;
+                    indexedFiles[identifier] = index;
                 }
 
-                // Does not exist, return true to create index in next step
-                return true;
-            })
-        }
+                // Filter files array and exclude existing ones.
+                files = files.filter((file) => {
+                    // Generate unique identifier by appending all strings
+                    const identifier = file.directory + file.filename + file.mount.id;
+                    const index: Index = indexedFiles[identifier];
+                    
+                    // Check if identifier exists.
+                    // If so, return false and add existing index to indices array
+                    if(!!index) {
+                        indices.push(indexedFiles[identifier])
+                        if(!index.report) indicesWithoutReport.push(index);
+                        return false;
+                    }
 
-        // Create index for non-indexed files
-        for(const file of files) {
-            // Check if path exists
-            const filepath = this.storageService.buildFilepathNonIndex(file);
-            if(!filepath) {
-                if(uploader) throw new InternalServerErrorException("Could not find file.");
-                console.error(new InternalServerErrorException("Could not find file."))
-                continue;
+                    // Does not exist, return true to create index in next step
+                    return true;
+                })
             }
 
-            // Get file stats (especially used for fileSize)
-            const fileStats = await this.storageService.getFileStats(filepath).catch((error) => {
-                console.error(error)
-                return null;
-            })
+            const createIndices: Index[] = [];
+            // Create index for non-indexed files
+            for(const file of files) {
 
-            if(!fileStats) {
-                if(uploader) throw new InternalServerErrorException("Could not read file stats.");
-                console.error(new InternalServerErrorException("Could not read file stats."))
-                continue;
+                const index = new Index();
+                index.filename = file.filename;
+                index.mount = file.mount,
+                index.uploader = uploader;
+                index.status = IndexStatus.PREPARING;
+                index.directory = file.directory;
+
+                // Check if path exists
+                const filepath = this.storageService.buildFilepathNonIndex(file);
+                if(!filepath) {
+                    if(uploader) throw new InternalServerErrorException("Could not find file.");
+                    console.error("Could not find file.")
+                    index.status = IndexStatus.ERRORED_PATH;
+                }
+
+                // Get file stats (especially used for fileSize)
+                const fileStats = await this.storageService.getFileStats(filepath).catch((error) => {
+                    console.error(error)
+                    return null;
+                })
+
+                if(!fileStats) {
+                    if(uploader) throw new InternalServerErrorException("Could not read file stats.");
+                    console.error("Could not read file stats.")
+                    index.status = IndexStatus.ERRORED_PATH;
+                }
+
+                // Set file size
+                index.size = fileStats?.size || 0;
+                createIndices.push(index);
             }
 
-            // Create new index for file
-            const index = new Index();
-            index.filename = file.filename;
-            index.mount = file.mount,
-            index.size = fileStats.size;
-            index.directory = file.directory;
-            index.uploader = uploader;
-            index.status = IndexStatus.PREPARING;
-            indices.push(index);
+            // Save indices to database
+            const results = await this.indexRepository.save(createIndices).catch((reason) => {
+                console.error(reason);
+                return [];
+            })
+
+            // Create reports for indices
+            const reports = await this.indexReportService.createMultiple(results).catch((reason) => {
+                console.error(reason)
+                return [];
+            });
+
+            results.map((result: Index) => {
+                result.report = reports.find((report: IndexReport) => report.index.id == result.id)
+            })
+
+            indices.push(...results)
         }
-
-        // Save indices to database
-        const results = await this.indexRepository.save(indices).catch((reason) => {
-            console.error(reason);
-            return [];
-        })
-
-        // Create reports for indices
-        const reports = await this.indexReportService.createMultiple(results).catch((reason) => {
-            console.error(reason)
-            return [];
-        });
-
-        results.map((result: Index) => {
-            result.report = reports.find((report: IndexReport) => report.index.id == result.id)
-        })
 
         // Enqueue indices
-        this.queueService.enqueueMultiple(results);
-
+        this.queueService.enqueueMultiple(indices);
         return indices
+        
     }
 
     /**
@@ -206,8 +232,17 @@ export class IndexService {
      * @returns Index
      */
     public async processIndex(index: Index): Promise<Index> {
+        console.log("processing index...")
         if(!index.report) {
             index.report = await this.indexReportService.createBlank(index).catch(() => null);
+        }
+
+        if(index.status == IndexStatus.ERRORED || index.status == IndexStatus.ERRORED_PATH) {
+            this.setStatus(index, index.status);
+            this.queueService.onIndexEnded(index, "errored");
+            console.log("index errored before processing started.")
+            this.indexReportService.appendError(index.report, "Index errored before processing started.")
+            return index;
         }
 
         this.queueService.onIndexStart(index)
@@ -248,6 +283,7 @@ export class IndexService {
                 console.log("Creating song from index...")
                 // Continue with next step: Create song metadata from index
                 this.songService.createFromIndex(index).then(async (song) => {
+                    console.log("createFromIndex(): done.")
                     index = await this.setStatus(song.index, song.index.status)
 
                     // Done at this point. The createFromIndex() in song service handles all required
@@ -314,30 +350,5 @@ export class IndexService {
         index.status = status;
         this.indexGateway.sendUpdateToUploader(index)
         return this.indexRepository.save(index);
-    }
-
-    /**
-     * Clear all indexed files, that may be stuck in PROCESSING or PREPARING status.
-     * This should only be called on the application startup. This only clears indexed files
-     * inside bucket of the current machine.
-     * @returns DeleteResult
-     */
-    public async clearOrResumeProcessing(): Promise<void> {
-        const indices = await this.findMultipleIndices({ mount: { bucket: { id: this.bucketId }}, status: In([ IndexStatus.PROCESSING, IndexStatus.PREPARING ])}).catch(() => []);
-        if(!indices || indices.length <= 0) return;
-
-        // This is not the best solution, as this causes the indices to be mapped to files
-        // and later be checked in database if they exist and mapped back to an index.
-        // All of the first steps are obsolete, but helps keeping the system consistent
-        // and reduces multiple points that would need future maintenance
-        await this.createForFiles(indices.map((index: Index) => {
-            const file = new MountedFile();
-            file.mount = index.mount;
-            file.directory = index.directory;
-            file.filename = index.filename;
-            return file;
-        })).catch((error) => {
-            console.error(error)
-        })
     }
 }

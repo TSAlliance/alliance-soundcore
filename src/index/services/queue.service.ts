@@ -4,7 +4,6 @@ import { Index } from "../entities/index.entity";
 import { IndexReportService } from "../../index-report/services/index-report.service";
 import { IndexService } from "./index.service";
 import { debounceTime, Observable, Subject } from "rxjs";
-import { IndexReport } from "../../index-report/entities/report.entity";
 
 export type QueueEndReason = "errored" | "done"
 
@@ -33,6 +32,7 @@ export class QueueService {
         @Inject(forwardRef(() => IndexService)) private indexService: IndexService
     ) {
         this.$onItemAdded.subscribe(() => {
+            this.logger.log("Found new items in queue.")
             this.next();
         })
     }
@@ -40,7 +40,6 @@ export class QueueService {
     public async enqueue(index: Index) {
         // Add to queue
         this._queue.push(index);
-        this.logger.log("Enqueued file " + index?.filename + " (" + this._queue.length + ")")
 
         // Update amount of queued indices per mount
         // This is later used to send status updates on wether a mount
@@ -50,21 +49,23 @@ export class QueueService {
 
         this.indexReportService.appendInfo(index.report, `Index has been added to queue. (Position #${this.size})`)
         this._onItemAddedSubject.next();
+        this.logger.log("Enqueued file " + index?.filename + " (" + this._queue.length + ")")
     }
 
     public async enqueueMultiple(indices: Index[]) {
+        this.logger.log(`Adding ${indices.length} items to queue. Depending on the amount this could take some time.`)
         this._queue.push(...indices);
-        this.logger.log(`Enqueued ${indices.length} file(s) (Queue size: ${this._queue.length})`);
-        const reports: IndexReport[] = [];
+        // const reports: IndexReport[] = [];
 
         for(const index of indices) {
-            if(index.report) reports.push(index.report)
+            // if(index.report) reports.push(index.report)
             if(!this._mounts[index.mount.id]) this._mounts[index.mount.id] = 1;
             else this._mounts[index.mount.id] = this._mounts[index.mount.id]+1;
         }
 
-        this.indexReportService.appendInfoMultiple(reports, `Index has been added to queue (Batch-Size: ${indices.length}, Queue-Size: ${this.size})`)
+        // this.indexReportService.appendInfoMultiple(reports, `Index has been added to queue (Batch-Size: ${indices.length}, Queue-Size: ${this.size})`)
         this._onItemAddedSubject.next();
+        this.logger.log(`Enqueued ${indices.length} file(s) (Queue size: ${this._queue.length})`);
     }
 
     public async dequeue(): Promise<Index> {
@@ -122,7 +123,9 @@ export class QueueService {
     }
 
     private async next() {
+        console.log("next(): isEmpty? " + this.isEmpty() + "; cooldown? " + this._hasCooldown + "; isProcessing? " + !!this._currentlyProcessing);
         if(this.isEmpty() || this._hasCooldown || !!this._currentlyProcessing) return;
+        console.log("next()");
 
         const nextItem = await this.dequeue();
         this._currentlyProcessing = nextItem;

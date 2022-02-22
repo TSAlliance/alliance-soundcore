@@ -44,11 +44,16 @@ export class GeniusService {
             query = song.title
         }
 
+        console.log("find song on genius for query: ", query)
+
         return this.searchResourceIdOfType("song", query).then((resourceId) => {
+            console.log("found id: ", resourceId)
             if(!resourceId) return { song };
+
 
             // Request more detailed song data
             return this.fetchResourceByIdAndType<GeniusSongDTO>("song", resourceId).then(async (songDto) => {
+                console.log("found dto data? ", !!songDto)
                 if(!songDto) return { song };
 
                 // Create distributor if not exists
@@ -85,7 +90,7 @@ export class GeniusService {
 
                 song.geniusId = songDto.id;
                 song.geniusUrl = songDto.url;
-                song.banner = await this.artworkService.create({ autoDownload: true, type: "banner_song", mountId: song.index.mount.id, url: songDto.header_image_url, dstFilename: song.index.filename });
+                if(!song.banner) song.banner = await this.artworkService.create({ autoDownload: true, type: "banner_song", mountId: song.index.mount.id, url: songDto.header_image_url, dstFilename: song.index.filename });
                 song.location = songDto.recording_location;
                 song.released = songDto.release_date;
                 song.youtubeUrl = songDto.youtube_url;

@@ -1,4 +1,4 @@
-import { Module, OnModuleInit } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { IndexService } from './services/index.service';
 import { IndexController } from './index.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -30,12 +30,5 @@ import { IndexReportModule } from '../index-report/index-report.module';
     IndexService
   ]
 })
-export class IndexModule implements OnModuleInit {
-
-  constructor(private indexService: IndexService){}
-  
-  public async onModuleInit() {
-    await this.indexService.clearOrResumeProcessing();
-  }
-
+export class IndexModule {
 }
