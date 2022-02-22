@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
-import { ILike } from 'typeorm';
 import { GeniusService } from '../genius/services/genius.service';
 import { User } from '../user/entities/user.entity';
 import { CreateArtistDTO } from './dtos/create-artist.dto';
@@ -96,7 +95,21 @@ export class ArtistService {
             query = `%${query.replace(/\s/g, '%')}%`;
         }
 
-        return this.artistRepository.findAll(pageable, { where: { name: ILike(query) }, relations: ["artwork"]})
+        let qb = this.artistRepository.createQueryBuilder("artist")
+            .leftJoinAndSelect("artist.artwork", "artwork")
+            .leftJoinAndSelect("artist.banner", "banner")
+
+            .limit(pageable.size)
+            .offset(pageable.page * pageable.size)
+
+            .where("artist.name LIKE :query", { query });
+
+        if(query == "%") {
+            qb = qb.orderBy("rand()");
+        }
+
+        const result = await qb.getManyAndCount();
+        return Page.of(result[0], result[1], pageable.page);
     }
 
 }

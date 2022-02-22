@@ -1,6 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
-import { ILike } from 'typeorm';
 import { Artist } from '../artist/entities/artist.entity';
 import { GeniusArtistDTO } from '../genius/dtos/genius-artist.dto';
 import { GeniusAlbumResponse } from '../genius/dtos/genius-response.dto';
@@ -22,8 +21,9 @@ export class AlbumService {
         const result = await this.albumRepository.createQueryBuilder("albums")
             .leftJoinAndSelect("albums.artwork", "artwork")
             .leftJoinAndSelect("albums.banner", "banner")
-            .leftJoinAndSelect("albums.artist", "artist")
+            .leftJoin("albums.artist", "artist")
 
+            .addSelect(["artwork.id", "artwork.accentColor", "banner.id", "banner.accentColor", "artist.id", "artist.name"])
             .where("artist.id = :artistId", { artistId })
             .orderBy("albums.released", "DESC")
             .addOrderBy("albums.createdAt", "DESC")
@@ -45,7 +45,7 @@ export class AlbumService {
             .leftJoin("album.songs", "song")
             .leftJoin("song.artists", "featuredArtist")
 
-            .select(["album.id", "album.title", "album.released", "artwork.id", "artwork.accentColor", "banner.id", "banner.accentColor", "artist.id", "artist.name", "featuredArtist.id", "featuredArtist.name"])
+            .addSelect(["artwork.id", "artwork.accentColor", "banner.id", "banner.accentColor", "artist.id", "artist.name", "featuredArtist.id", "featuredArtist.name"])
 
             .where("featuredArtist.id = :artistId", { artistId })
             .andWhere("artist.id != :artistId", { artistId })
@@ -72,7 +72,7 @@ export class AlbumService {
             .leftJoinAndSelect("album.artist", "artist")
             .where("artist.id = :artistId", { artistId })
             .andWhere("album.id NOT IN(:except)", { except: exceptAlbumIds })
-            .select(["album.id", "album.title", "album.released", "artist.id", "artist.name", "artwork.id", "artwork.accentColor"])
+            .addSelect(["artist.id", "artist.name", "artwork.id", "artwork.accentColor"])
             .limit(10)
             .getMany();
 
@@ -86,7 +86,7 @@ export class AlbumService {
             .leftJoin("album.songs", "song")
             .leftJoin("song.genres", "genre")
 
-            .select(["album.id", "album.title", "album.released", "artwork.id", "artwork.accentColor", "artist.id", "artist.name"])
+            .addSelect(["artwork.id", "artwork.accentColor", "artist.id", "artist.name"])
 
             // Pagination
             .offset((pageable?.page || 0) * (pageable?.size || 30))
@@ -107,6 +107,7 @@ export class AlbumService {
     public async findProfileById(albumId: string): Promise<Album> {
         const result = await this.albumRepository.createQueryBuilder("album")
                 .where("album.id = :albumId", { albumId })
+                .orWhere("album.slug = :albumId", { albumId })
 
                 // Relation for counting and summing up duration
                 .leftJoin("album.songs", "song")
@@ -123,6 +124,8 @@ export class AlbumService {
                 .leftJoinAndSelect("album.artist", "artist")
                 .leftJoinAndSelect("artist.artwork", "albumArtwork")
 
+                .groupBy("album.id")
+
                 // Counting the songs
                 .addSelect('COUNT(song.id)', 'songsCount')
 
@@ -134,12 +137,14 @@ export class AlbumService {
         if(!album) throw new NotFoundException("Album not found.")
 
         const featuredArtists = await this.albumRepository.createQueryBuilder("album")
+            .where("album.id = :albumId", { albumId })
+            .orWhere("album.slug = :albumId", { albumId })
+            .andWhere("artist.id != :artistId", { artistId: album.artist?.id })
+
             .leftJoin("album.songs", "song")
             .leftJoinAndSelect("song.artists", "artist")
             .leftJoinAndSelect("artist.artwork", "artwork")
-
-            .where("album.id = :albumId", { albumId })
-            .andWhere("artist.id != :artistId", { artistId: album.artist?.id })
+            
             .select(["artist.id", "artist.name", "artwork.id", "artwork.accentColor"])
             .distinct()
             .getRawAndEntities()
@@ -243,7 +248,22 @@ export class AlbumService {
             query = `%${query.replace(/\s/g, '%')}%`;
         }
 
-        return this.albumRepository.findAll(pageable, { where: { title: ILike(query) }, relations: ["artwork", "artist"]})
+        let qb = this.albumRepository.createQueryBuilder("album")
+            .leftJoinAndSelect("album.artwork", "artwork")
+            .leftJoin("album.artist", "artist")
+
+            .limit(pageable.size)
+            .offset(pageable.page * pageable.size)
+
+            .addSelect(["artist.id", "artist.name", "artist.slug"])
+            .where("album.title LIKE :query", { query });
+
+        if(query == "%") {
+            qb = qb.orderBy("rand()");
+        }
+
+        const result = await qb.getManyAndCount();
+        return Page.of(result[0], result[1], pageable.page);
     }
 
     public async setArtistOfAlbum(album: Album, artist: Artist): Promise<Album> {
