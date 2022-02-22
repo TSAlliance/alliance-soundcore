@@ -107,6 +107,7 @@ export class ArtworkService {
      * @returns Artwork
      */
     public async createFromIndexAndBuffer(index: Index, buffer: Buffer): Promise<Artwork> {
+        console.log("creating artwork")
         const dstDirectory = this.storageService.getArtworksDir(index.mount);
         mkdirSync(dstDirectory, { recursive: true });
 
@@ -115,11 +116,16 @@ export class ArtworkService {
             return null;
         }
 
+        // Somehow there are duplicates on banner images
+        // Test again if indexing is done. If error persists, then its a real thing
+        // and the image files are somehow same (but how is that possible? Random string is appended every time)
+
         // Create new artwork instance in database
+
         const artwork = await this.create({
             type: "song",
             mountId: index.mount.id,
-            dstFilename: index.filename + RandomUtil.randomString(6),
+            dstFilename: index.filename,
             autoDownload: false // There is nothing that could be downloaded
         }).catch((reason) => {
             this.indexReportService.appendError(index.report, `Unable to save artwork to database: ${reason.message}`);
@@ -138,18 +144,21 @@ export class ArtworkService {
      * @returns Artwork
      */
      public async create(createArtworkDto: CreateArtworkDTO): Promise<Artwork> {
-        if(createArtworkDto.url && createArtworkDto.url.includes("default_avatar")) return;
+        console.log("creating artwork")
+        if(createArtworkDto.url && createArtworkDto.url.includes("default_avatar")) return null;
 
-        const existsResult = await this.findByTypeAndFilename(createArtworkDto.type, createArtworkDto.dstFilename);
-        if(existsResult) return existsResult;
-
-        const artworkCreatResult = await this.artworkRepository.save({
+        const artworkCreateResult = await this.artworkRepository.save({
             mount: { id: createArtworkDto.mountId || this.mountId },
             type: createArtworkDto.type,
             externalUrl: createArtworkDto.url,
-            dstFilename: createArtworkDto.dstFilename
+            dstFilename: createArtworkDto.dstFilename + RandomUtil.randomString(6) // Prevent naming duplicates
+        }).catch((error) => {
+            console.error(error)
+            return null;
         });
-        const artwork = await this.artworkRepository.findOne({ where: { id: artworkCreatResult.id }, relations: ["mount"]})
+
+        if(!artworkCreateResult) return null;
+        const artwork = await this.artworkRepository.findOne({ where: { id: artworkCreateResult.id }, relations: ["mount"]})
 
         // Check if a url was specified and the image should be
         // downloaded automatically.
@@ -265,6 +274,7 @@ export class ArtworkService {
      * @returns 
      */
     private async downloadAndWriteArtworkByUrl(artwork: Artwork) {
+        console.log("downloading external artwork")
         return axios.get(artwork.externalUrl, { responseType: "arraybuffer" }).then((response) => {
             if(response.status == 200 && response.data) {
                 return this.writeArtwork(Buffer.from(response.data), artwork)
