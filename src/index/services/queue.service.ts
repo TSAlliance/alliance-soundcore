@@ -109,6 +109,7 @@ export class QueueService {
             }, 2000)
         } else {
             this.logger.log("Queue is empty.")
+            this._currentlyProcessing = null;
         }
 
         this.indexReportService.appendInfo(index.report, `Processing ended. (Reason: ${reason.toUpperCase()})`)

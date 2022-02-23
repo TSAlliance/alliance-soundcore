@@ -68,7 +68,8 @@ export class IndexService {
         return this.findMultipleIndices(where)[0];
     }
     public async findMultipleIndices(where: string | ObjectLiteral | FindConditions<Index> | FindConditions<Index>[]): Promise<Index[]> {
-        return this.indexRepository.find({ where, relations: ["mount", "mount.bucket", "report", "uploader", "song", "song.albums", "song.artists", "song.artwork", "song.banner", "song.label", "song.albumOrders", "song.distributor", "song.publisher", "song.genres"]})
+        // TODO: Possible this could result in cyclic dependency?! Because of song.index relation
+        return this.indexRepository.find({ where, relations: ["mount", "mount.bucket", "report", "uploader", "song", "song.index", "song.albums", "song.artists", "song.artwork", "song.banner", "song.label", "song.albumOrders", "song.distributor", "song.publisher", "song.genres"]})
     }
 
     /**
