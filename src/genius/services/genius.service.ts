@@ -317,7 +317,12 @@ export class GeniusService {
     }
 
     private searchPage(page: number, type: "song" | "album" | "artist", query: string): Promise<{ result: (GeniusArtistDTO | GeniusSongDTO | GeniusAlbumDTO)[], hasNextPage: boolean }> {
-        return axios.get<GeniusReponseDTO<GeniusSearchResponse>>(`${GENIUS_BASE_URL}/search/${type}?page=${page+1}&q=${encodeURIComponent(query)}`).then((response: AxiosResponse<GeniusReponseDTO<GeniusSearchResponse>>) => {
+        const source = axios.CancelToken.source();
+        const timeout = setTimeout(() => {
+            source.cancel();
+        }, 30000)
+        
+        return axios.get<GeniusReponseDTO<GeniusSearchResponse>>(`${GENIUS_BASE_URL}/search/${type}?page=${page+1}&q=${encodeURIComponent(query)}`, { cancelToken: source.token }).then((response: AxiosResponse<GeniusReponseDTO<GeniusSearchResponse>>) => {
             if(!response || response.data.meta.status != 200 || !response.data.response.sections) return { result: [], hasNextPage: false };
 
             // Get matching section of response
@@ -338,7 +343,7 @@ export class GeniusService {
             }
 
             return { result: [], hasNextPage: false };
-        })
+        }).finally(() => clearTimeout(timeout))
     }
 
     /**
@@ -348,12 +353,17 @@ export class GeniusService {
      * @returns <T>
      */
     public async fetchResourceByIdAndType<T>(type: "song" | "album" | "artist", id: string): Promise<T> {
-        return axios.get<GeniusReponseDTO<T>>(`${GENIUS_BASE_URL}/${type}s/${id}`).then(async (response) => {
+        const source = axios.CancelToken.source();
+        const timeout = setTimeout(() => {
+            source.cancel();
+        }, 10000);
+
+        return axios.get<GeniusReponseDTO<T>>(`${GENIUS_BASE_URL}/${type}s/${id}`, { cancelToken: source.token }).then(async (response) => {
             // If there is an invalid response (e.g.: errors etc.) then returned unmodified song.
             if(!response || response.data.meta.status != 200 || !response.data.response[type]) return null;
 
             return response.data.response[type];
-        })
+        }).finally(() => clearTimeout(timeout))
     }
 
 }
