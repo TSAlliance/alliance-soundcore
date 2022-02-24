@@ -1,4 +1,5 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import { Index } from "../../index/entities/index.entity";
 import { MountStatus } from "../enums/mount-status.enum";
 import { Bucket } from "./bucket.entity";
 
@@ -20,5 +21,15 @@ export class Mount {
     @ManyToOne(() => Bucket, { onDelete: "CASCADE" })
     @JoinColumn()
     public bucket: Bucket;
+
+    @OneToMany(() => Index, (i) => i.mount)
+    public indices: Index[];
+
+    public indexCount?: number;
+    public driveStats?: {
+        driveTotalSpace?: number,
+        driveUsedSpace?: number,
+        mountUsedSpace?: number
+    }
 
 }

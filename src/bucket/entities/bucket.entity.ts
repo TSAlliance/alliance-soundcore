@@ -13,4 +13,6 @@ export class Bucket {
     @OneToMany(() => Mount, (mount) => mount.bucket)
     public mounts: Mount[];
 
+    public mountsCount?: number;
+
 }

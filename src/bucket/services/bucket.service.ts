@@ -18,8 +18,16 @@ export class BucketService {
      * @param pageable Page settings
      * @returns Page<Bucket>
      */
-    public async findPage(pageable: Pageable): Promise<Page<Bucket>> {
-        return this.bucketRepository.findAll(pageable);
+    public async findAll(pageable: Pageable): Promise<Page<Bucket>> {
+        const result = await this.bucketRepository.createQueryBuilder("bucket")
+            .loadRelationCountAndMap("bucket.mountsCount", "bucket.mounts", "mountsCount")
+
+            .offset((pageable?.page || 0) * (pageable?.size || 30))
+            .limit(pageable?.size || 30)
+
+            .getManyAndCount()
+
+        return Page.of(result[0], result[1], pageable.page);
     }
 
     /**
@@ -28,7 +36,12 @@ export class BucketService {
      * @returns Bucket
      */
     public async findById(bucketId: string): Promise<Bucket> {
-        return this.bucketRepository.findOne({ where: { id: bucketId }});
+        const result = await this.bucketRepository.createQueryBuilder("bucket")
+            .loadRelationCountAndMap("bucket.mountsCount", "bucket.mounts", "mountsCount")
+            .where("bucket.id = :bucketId", { bucketId })
+            .getOne()
+
+        return result;
     }
 
     /**

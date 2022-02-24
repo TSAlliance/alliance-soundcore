@@ -17,7 +17,7 @@ export class BucketController {
   @Get()
   @IsAuthenticated()
   public async findAll(@Pageable() pageable: Pageable): Promise<Page<Bucket>> {
-    return this.bucketService.findPage(pageable);
+    return this.bucketService.findAll(pageable);
   }
 
 }

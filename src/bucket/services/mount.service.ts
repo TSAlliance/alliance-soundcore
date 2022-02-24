@@ -49,7 +49,12 @@ export class MountService {
      * @returns Mount
      */
     public async findById(mountId: string): Promise<Mount> {
-        return this.mountRepository.findOne({ where: { id: mountId }});
+        const result = await this.mountRepository.createQueryBuilder("mount")
+            .loadRelationCountAndMap("mount.indexCount", "mount.indices", "indexCount")
+            .where("mount.id = :mountId", { mountId })
+            .getOne();
+
+        return result;
     }
 
     /**
