@@ -1,3 +1,7 @@
+## Prerequisites
+- Redis installation (REQUIRED)
+- NodeJS 14
+
 ## Notes when using Nginx as Proxy
 Please do not forget to support websocket connections via proxied nginx connections.
 This is done by adding these lines inside a location block (where `proxy_pass` is called):

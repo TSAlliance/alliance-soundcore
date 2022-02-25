@@ -26,6 +26,7 @@ import { ImportModule } from './import/import.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { CollectionModule } from './collection/collection.module';
 import { IndexReportModule } from './index-report/index-report.module';
+import { BullModule } from '@nestjs/bull';
 
 @Module({
   imports: [
@@ -65,6 +66,14 @@ import { IndexReportModule } from './index-report/index-report.module';
       logging: false,
       disableErrorHandling: true,
       disableValidation: false
+    }),
+    BullModule.forRoot({
+      redis: {
+        host: process.env.REDIS_HOST,
+        port: parseInt(process.env.REDIS_PORT),
+        password: process.env.REDIS_AUTH_PASS,
+        
+      }
     }),
     EventEmitterModule.forRoot({ global: true, ignoreErrors: true }),
     SharedModule,

@@ -14,6 +14,8 @@ import { IndexReportService } from '../../index-report/services/index-report.ser
 import { QueueService } from './queue.service';
 import { IndexReport } from '../../index-report/entities/report.entity';
 import { sleep } from '../../utils/sleep';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
 
 @Injectable()
 export class IndexService {
@@ -25,6 +27,7 @@ export class IndexService {
         private indexReportService: IndexReportService,
         private indexRepository: IndexRepository,
         private indexGateway: IndexGateway,
+        @InjectQueue("index") private indexQueue: Queue<Index>,
         @Inject(BUCKET_ID) private bucketId: string,
         @Inject(forwardRef(() => QueueService)) private queueService: QueueService
     ){}
@@ -43,13 +46,19 @@ export class IndexService {
      * @param mountId Mount's id
      * @returns Index[]
      */
-     public async findPagebyMount(mountId: string, pageable: Pageable): Promise<Page<Index>> {
+     public async findByMountId(mountId: string, pageable: Pageable): Promise<Page<Index>> {
         const result = await this.indexRepository.createQueryBuilder("index")
             .leftJoin("index.mount", "mount")
-            .leftJoinAndSelect("index.report", "report")
+            .leftJoinAndSelect("index.uploader", "uploader")
 
+            .offset((pageable?.page || 0) * (pageable?.size || 30))
+            .limit(pageable?.size || 30)
+
+            .addSelect(["mount.path"])
             .where("mount.id = :mountId", { mountId })
-            .andWhere("index.status NOT IN(:status)", { status: [IndexStatus.PREPARING, IndexStatus.PROCESSING] })
+            .andWhere("index.status != :status", { status: IndexStatus.IGNORE.toString() })
+
+            .orderBy("index.indexedAt", "DESC")
             .getManyAndCount();
 
         return Page.of(result[0], result[1], pageable?.page);
@@ -61,7 +70,7 @@ export class IndexService {
      * @returns Index
      */
     public async findById(indexId: string): Promise<Index> {
-        return this.findIndex({ id: indexId });
+        return this.indexRepository.findOne({ where: { id: indexId }})
     }
 
     public async findIndex(where: string | ObjectLiteral | FindConditions<Index> | FindConditions<Index>[]): Promise<Index> {
@@ -79,7 +88,7 @@ export class IndexService {
      * @returns Page<Index>
      */
     public async findPageByUploader(uploaderId: string, pageable: Pageable): Promise<Page<Index>> {
-        return this.indexRepository.findAll(pageable, { where: { uploader: { id: uploaderId}}, relations: ["song", "song.artists", "song.artwork"]})
+        return this.indexRepository.findAll(pageable, { where: { uploader: { id: uploaderId }, status: Not(IndexStatus.IGNORE)}, relations: ["song", "song.artists", "song.artwork"]})
     }
 
     public async findByMountedFileWithRelations(file: MountedFile): Promise<Index> {
@@ -199,9 +208,18 @@ export class IndexService {
         }
 
         // Enqueue indices
-        this.queueService.enqueueMultiple(indices);
+        this.indexQueue.addBulk(indices.map((index) => {
+            if(index.report?.index) index.report.index = undefined;
+            return {
+                data: index
+            }
+        })).then((jobs) => {
+            this.logger.log(`Enqueued ${jobs.length} indices for processing.`)
+        }).catch((error) => {
+            this.logger.error(error)
+        })
+
         return indices
-        
     }
 
     /**
@@ -326,6 +344,13 @@ export class IndexService {
         return !!(await this.indexRepository.findOne({ where: { checksum, id: Not(indexId), status: In([IndexStatus.OK, IndexStatus.PROCESSING])}}));
     }
 
+    public async deleteById(indexId: string): Promise<Index> {
+        console.log(indexId)
+        return this.setIgnored(indexId);
+    }
+
+
+
     /**
      * Set an index to be ignored. This means that unlike delete, they will still be stored in database,
      * but do not go through indexing processes in the future. So once indexed and set to ignored, they
@@ -338,6 +363,8 @@ export class IndexService {
         if(!index) throw new NotFoundException("Index not found.")
 
         index.status = IndexStatus.IGNORE;
+
+        console.log(index)
         return this.indexRepository.save(index);
     }
 
@@ -351,5 +378,41 @@ export class IndexService {
         index.status = status;
         this.indexGateway.sendUpdateToUploader(index)
         return this.indexRepository.save(index);
+    }
+
+    /**
+     * Execute search query for a song. This looks up songs that match the query.
+     * The search includes looking for songs with a specific artist's name.
+     * @param query Query string
+     * @param pageable Page settings
+     * @returns Page<Song>
+     */
+     public async findBySearchQueryInMount(query: string, mountId: string, pageable: Pageable): Promise<Page<Index>> {
+        if(!query || query == "") {
+            query = "%"
+        } else {
+            query = `%${query.replace(/\s/g, '%')}%`;
+        }
+
+        // Find song by title or if the artist has similar name
+        const result = this.indexRepository.createQueryBuilder("index")
+            .leftJoin("index.song", "song")
+            .leftJoin("song.artists", "artist")
+            .leftJoin("index.mount", "mount")
+            .leftJoin("index.report", "report")
+            .leftJoinAndSelect("index.uploader", "uploader")
+            .leftJoinAndSelect("song.artwork", "song")
+
+            .addSelect(["song.id", "song.title", "song.slug", "report.id", "artist.id", "artist.name", "artist.slug"])
+
+            .where("index.filename LIKE :query", { query })
+            .orWhere("song.title LIKE :query", { query })
+            .andWhere("mount.id = :mountId", { mountId })
+
+            .offset((pageable?.page || 0) * (pageable?.size || 30))
+            .limit(pageable.size || 30)
+            .getManyAndCount();
+
+        return Page.of(result[0], result[1], pageable.page);
     }
 }
