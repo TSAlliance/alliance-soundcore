@@ -50,11 +50,17 @@ export class MountService {
      */
     public async findById(mountId: string): Promise<Mount> {
         const result = await this.mountRepository.createQueryBuilder("mount")
+            .leftJoin("mount.indices", "index")
+            .addSelect("SUM(index.size) AS usedSpace")
             .loadRelationCountAndMap("mount.indexCount", "mount.indices", "indexCount")
             .where("mount.id = :mountId", { mountId })
-            .getOne();
+            .getRawAndEntities();
 
-        return result;
+        const mount = result.entities[0];
+        mount.driveStats = {
+            mountUsedSpace: result.raw[0]?.usedSpace || 0
+        }
+        return result.entities[0];
     }
 
     /**
