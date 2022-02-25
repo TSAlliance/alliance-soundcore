@@ -19,7 +19,7 @@ export class Artwork {
     @Column({ default: "song" })
     public type: ArtworkType;
 
-    @Column({ nullable: true })
+    @Column({ nullable: true, type: "text" })
     public externalUrl: string;
 
     @Column({ nullable: true })
