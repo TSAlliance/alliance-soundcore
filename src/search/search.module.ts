@@ -9,6 +9,7 @@ import { LabelModule } from '../label/label.module';
 import { DistributorModule } from '../distributor/distributor.module';
 import { AlbumModule } from '../album/album.module';
 import { UserModule } from '../user/user.module';
+import { IndexModule } from '../index/index.module';
 
 @Module({
   controllers: [SearchController],
@@ -21,7 +22,8 @@ import { UserModule } from '../user/user.module';
     LabelModule,
     DistributorModule,
     AlbumModule,
-    UserModule
+    UserModule,
+    IndexModule
   ]
 })
 export class SearchModule {}

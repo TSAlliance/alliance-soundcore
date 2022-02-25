@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { Pageable } from 'nestjs-pager';
+import { Page, Pageable } from 'nestjs-pager';
 import { AlbumService } from '../album/album.service';
 import { ArtistService } from '../artist/artist.service';
 import { DistributorService } from '../distributor/distributor.service';
 import { GenreService } from '../genre/genre.service';
+import { Index } from '../index/entities/index.entity';
+import { IndexService } from '../index/services/index.service';
 import { LabelService } from '../label/label.service';
 import { PublisherService } from '../publisher/publisher.service';
 import { SongService } from '../song/song.service';
@@ -26,7 +28,8 @@ export class SearchService {
         private distributorService: DistributorService,
         private labelService: LabelService,
         private albumService: AlbumService,
-        private userService: UserService
+        private userService: UserService,
+        private indexService: IndexService
     ) {}
 
     public async complexSearch(query: string, searcher?: User): Promise<ComplexSearchResult> {
@@ -58,6 +61,10 @@ export class SearchService {
         }
         
         return searchResult
+    }
+
+    public async searchIndexInMount(query: string, mountId: string, pageable: Pageable): Promise<Page<Index>> {       
+        return this.indexService.findBySearchQueryInMount(query, mountId, pageable)
     }
 
     public async findBestMatch(needle: string, haystack: ComplexSearchResult): Promise<SearchBestMatch> {
