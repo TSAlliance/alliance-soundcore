@@ -1,4 +1,4 @@
-import { Controller, Delete, Get, Param } from '@nestjs/common';
+import { Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import { IsAuthenticated } from '@tsalliance/sso-nest';
 import { Page, Pageable } from 'nestjs-pager';
 import { Index } from './entities/index.entity';
@@ -12,6 +12,14 @@ export class IndexController {
   @IsAuthenticated()
   public async findById(@Param("indexId") indexId: string): Promise<Index> {
     return this.indexService.findById(indexId)
+  }
+
+  @Post("/reindex/:indexId")
+  @IsAuthenticated()
+  public async reindex(@Param("indexId") indexId: string): Promise<void> {
+    return this.indexService.reindex(indexId).then(() => {
+      return;
+    })
   }
 
   @Get("/byUploader/:uploaderId")
