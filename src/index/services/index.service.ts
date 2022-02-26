@@ -74,7 +74,7 @@ export class IndexService {
     }
 
     public async findIndex(where: string | ObjectLiteral | FindConditions<Index> | FindConditions<Index>[]): Promise<Index> {
-        return this.findMultipleIndices(where)[0];
+        return (await this.findMultipleIndices(where))[0];
     }
     public async findMultipleIndices(where: string | ObjectLiteral | FindConditions<Index> | FindConditions<Index>[]): Promise<Index[]> {
         // TODO: Possible this could result in cyclic dependency?! Because of song.index relation
@@ -211,6 +211,9 @@ export class IndexService {
         this.indexQueue.addBulk(indices.map((index) => {
             if(index.report?.index) index.report.index = undefined;
             return {
+                opts: {
+                    jobId: index.id
+                },
                 data: index
             }
         })).then((jobs) => {
@@ -241,6 +244,13 @@ export class IndexService {
 
         if(!index) throw new BadRequestException("Could not create new index entry.")
         return index;
+    }
+
+    public async reindex(indexId: string) {
+        const index = await this.findIndex({ id: indexId })
+        if(!index) throw new NotFoundException("Index not found");
+
+        return this.indexQueue.add(index);
     }
 
     /**

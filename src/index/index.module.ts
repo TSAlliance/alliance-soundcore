@@ -30,18 +30,15 @@ import { BullModule } from '@nestjs/bull';
     TypeOrmModule.forFeature([ IndexRepository ]),
     BullModule.registerQueue({
       name: "index",
-      settings: {
-        drainDelay: 3000
-      },
       defaultJobOptions: {
         removeOnFail: true,
-        removeOnComplete: true,
-        timeout: 30000
+        removeOnComplete: true
       }
     }),
   ],
   exports: [
-    IndexService
+    IndexService,
+    BullModule
   ]
 })
 export class IndexModule {}

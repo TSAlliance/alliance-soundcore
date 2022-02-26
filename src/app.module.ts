@@ -72,7 +72,10 @@ import { BullModule } from '@nestjs/bull';
         host: process.env.REDIS_HOST,
         port: parseInt(process.env.REDIS_PORT),
         password: process.env.REDIS_AUTH_PASS,
-        
+      },
+      defaultJobOptions: {
+        removeOnFail: true,
+        removeOnComplete: true
       }
     }),
     EventEmitterModule.forRoot({ global: true, ignoreErrors: true }),

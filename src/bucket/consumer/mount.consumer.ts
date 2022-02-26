@@ -1,27 +1,28 @@
-import { OnGlobalQueueError, OnQueueActive, OnQueueCompleted, OnQueueFailed, Process, Processor } from "@nestjs/bull";
+import { OnQueueActive, OnQueueProgress, Process, Processor } from "@nestjs/bull";
 import { Job } from "bull";
-import { setTimeout } from "timers/promises";
-import { IndexReportService } from "../../index-report/services/index-report.service";
-import { Index } from "../entities/index.entity";
-import { IndexService } from "../services/index.service";
+import { Mount } from "../entities/mount.entity";
+import { MountGateway } from "../gateway/mount-status.gateway";
+import { MountService } from "../services/mount.service";
 
 @Processor("index")
 export class IndexConsumer {
 
     constructor(
-        private indexService: IndexService,
-        private indexReportService: IndexReportService
+        private mountService: MountService,
+        private gateway: MountGateway
     ) {}
 
     @Process()
-    public async transcode(job: Job<Index>) {
-        return setTimeout(20000).then(() => {
-            return this.indexService.processIndex(job.data)
-        })
+    public async scanMount(job: Job<Mount>) {
+        
+        return;
     }
 
+    @OnQueueProgress()
+    public onProgress(job: Job<Mount>)
+
     @OnQueueActive()
-    public onActive(job: Job<Index>) {
+    public onActive(job: Job<Mount>) {
         console.log("Now processing file " + job.data.filename);
     }
 
