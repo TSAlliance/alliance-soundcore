@@ -9,7 +9,6 @@ import { Index } from "../index/entities/index.entity";
 import { Mount } from "../bucket/entities/mount.entity";
 import { BUCKET_ID } from "../shared/shared.module";
 import { IndexStatus } from "../index/enum/index-status.enum";
-import sanitize from "sanitize-filename";
 
 import { v4 as uuidv4 } from "uuid"
 import { MountedFile } from "../bucket/entities/mounted-file.entity";
@@ -49,7 +48,7 @@ export class StorageService {
      */
     public async writeBufferToMount(mount: Mount, buffer: Buffer, filename: string): Promise<void> {
         return new Promise((resolve, reject) => {
-            fs.writeFile(this.buildFilepathNonIndex({ mount, filename: sanitize(filename) }), buffer, (err) => {
+            fs.writeFile(this.buildFilepathNonIndex(new MountedFile(null, filename, mount)), buffer, (err) => {
                 if(err) reject(err)
                 else resolve()
             })
@@ -106,7 +105,11 @@ export class StorageService {
      * @returns string
      */
     public buildFilepath(index: Index): string {
-        return this.buildFilepathNonIndex({ mount: index.mount, directory: index.directory || ".", filename: index.filename })
+        return this.buildFilepathNonIndex(new MountedFile(index.directory, index.filename, index.mount))
+    }
+
+    public getMountPath(mount: Mount): string {
+        return path.join(mount.path);
     }
 
     /**

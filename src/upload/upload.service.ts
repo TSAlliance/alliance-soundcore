@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import sanitize from 'sanitize-filename';
+import { MountedFile } from '../bucket/entities/mounted-file.entity';
 import { MountService } from '../bucket/services/mount.service';
 import { Index } from '../index/entities/index.entity';
 import { StorageService } from '../storage/storage.service';
@@ -34,7 +35,7 @@ export class UploadService {
 
         return this.storageService.writeBufferToMount(mount, file.buffer, file.originalname).catch((error) => error).then((error) => {
             if(error) throw new InternalServerErrorException("Could not upload file: Unexpected error.");
-            return this.mountService.indexFile({ mount, filename: file.originalname }, uploader)
+            return this.mountService.indexFile(new MountedFile(".", file.originalname, mount), uploader)
         });
     }
 

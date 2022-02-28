@@ -16,8 +16,8 @@ import { MountController } from './controllers/mount.controller';
 import { MountGateway } from './gateway/mount-status.gateway';
 import { BullModule, InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
-import { Index } from '../index/entities/index.entity';
-import { IndexService } from '../index/services/index.service';
+import { Mount } from './entities/mount.entity';
+import { MountConsumer } from './consumer/mount.consumer';
 
 @Module({
   controllers: [
@@ -27,7 +27,8 @@ import { IndexService } from '../index/services/index.service';
   providers: [
     BucketService, 
     MountService,
-    MountGateway
+    MountGateway,
+    MountConsumer
   ],
   exports: [ BucketService, MountService ],
   imports: [
@@ -46,10 +47,11 @@ export class BucketModule implements OnModuleInit {
     private bucketService: BucketService,
     private mountService: MountService,
     private storageService: StorageService,
-    private indexService: IndexService,
+    private mountConsumer: MountConsumer,
+
     @Inject(BUCKET_ID) private bucketId: string,
     @Inject(MOUNT_ID) private mountId: string,
-    @InjectQueue("index") private indexQueue: Queue<Index>
+    @InjectQueue("mount-queue") private mountQueue: Queue<Mount>
   ){ }
   
   public async onModuleInit(): Promise<void> {
@@ -65,31 +67,14 @@ export class BucketModule implements OnModuleInit {
       // Do nothing
     }).then(() => {
       this.mountService.findByBucketId(this.bucketId).then((mounts) => {
-        this.logger.verbose(`Found ${mounts.length} Mount(s) on this bucket.`);
-
-        this.indexQueue.clean(0, "completed")
-          .then(() => this.indexQueue.clean(0, "active"))
-          .then(() => this.indexQueue.clean(0, "delayed"))
-          .then(() => this.indexQueue.clean(0, "failed"))
-          .then(() => this.indexQueue.clean(0, "paused"))
-          .then(() => {
-            this.logger.verbose(`Cleaned all jobs from queue, that were not active or waiting.`)
-
-            this.indexQueue.getJobCountByTypes(["waiting"]).then((jobCount) => {
-              const count: number = Object.values(jobCount).reduce((count, current) => count += current, 0);
-              if(count > 0) {
-                this.logger.verbose(`Found ${count} active/waiting jobs in queue.`);
-                // TODO:
-              }
-
-              this.mountService.checkLocalIndices();
-    
-              // this.mountService.checkIndicesOfMount()
-            })
-          })
+        this.logger.verbose(`Found ${mounts.length} Mount(s) connected with this bucket (Bucket-ID: ${this.bucketId}).`);
         
+        this.mountConsumer.clearQueue().then(() => {
+          this.mountQueue.addBulk(mounts.map((mount) => {
+            return { data: mount, opts: { jobId: mount.id }}
+          }))
+        })
       })
-      // this.mountService.checkLocalIndices();
     })
   }
 

@@ -247,7 +247,7 @@ export class MountService {
 
         // Get statuses that are results of a indexing process being done
         const statuses: IndexStatus[] = [ IndexStatus.OK, IndexStatus.IGNORE, IndexStatus.ERRORED, IndexStatus.ERRORED_PATH, IndexStatus.DUPLICATE ]
-        const indexedFiles: MountedFile[] = (await this.indexService.findMultipleIndices({ mount: { id: mount.id }, status: In(statuses) }));
+        const indexedFiles: MountedFile[] = (await this.indexService.findMultipleIndices({ mount: { id: mount.id }, status: In(statuses) })) as MountedFile[];
 
         // Build up array of paths that should be ignored, as they are already
         // indexed
@@ -256,10 +256,7 @@ export class MountService {
         // Get files inside mount.
         // This also considers every file in subdirectories.
         const files: MountedFile[] = glob.sync("**/*.mp3", { cwd: mountDir, ignore: ignorePaths }).filter((filepath) => !ignorePaths.includes(filepath)).map((filepath) => {
-            const file = new MountedFile();
-            file.directory = path.dirname(filepath)
-            file.filename = path.basename(filepath)
-            file.mount = mount
+            const file = new MountedFile(path.dirname(filepath), path.basename(filepath), mount);
             return file;
         });
         

@@ -1,48 +1,96 @@
-import { OnQueueActive, OnQueueProgress, Process, Processor } from "@nestjs/bull";
-import { Job } from "bull";
+import fs from "node:fs";
+
+import { InjectQueue, OnQueueActive, OnQueueCompleted, OnQueueError, OnQueueFailed, OnQueueProgress, Process, Processor } from "@nestjs/bull";
+import { Logger } from "@nestjs/common";
+import { Job, Queue } from "bull";
+import { StorageService } from "../../storage/storage.service";
 import { Mount } from "../entities/mount.entity";
 import { MountGateway } from "../gateway/mount-status.gateway";
 import { MountService } from "../services/mount.service";
+import { MountedFile } from "../entities/mounted-file.entity";
+import glob from "glob";
+import path from "node:path";
+import { IndexService } from "../../index/services/index.service";
 
-@Processor("index")
-export class IndexConsumer {
+export interface MountScanResult {
+    time: number;
+    totalFiles: number;
+}
+
+@Processor("mount-queue")
+export class MountConsumer {
+    private logger: Logger = new Logger(MountService.name);
 
     constructor(
         private mountService: MountService,
-        private gateway: MountGateway
+        private storageService: StorageService,
+        private gateway: MountGateway,
+        private indexService: IndexService,
+        @InjectQueue("mount-queue") private mountQueue: Queue<Mount>
     ) {}
 
+    public async clearQueue() {
+        return this.mountQueue.clean(0, "active")
+            .then(() => this.mountQueue.clean(0, "completed"))
+            .then(() => this.mountQueue.clean(0, "delayed"))
+            .then(() => this.mountQueue.clean(0, "failed"))
+            .then(() => this.mountQueue.clean(0, "paused"))
+            .then(() => this.mountQueue.clean(0, "wait"))
+    }
+
     @Process()
-    public async scanMount(job: Job<Mount>) {
+    public async scanMount(job: Job<Mount>): Promise<MountScanResult> {
+        // Just for time calculations
+        const start = Date.now();
         
-        return;
+        // Build directory path for mount
+        const mountDirectory: string = await this.storageService.getMountPath(job.data);
+
+        if(!fs.existsSync(mountDirectory)) {
+            this.logger.warn(`Directory for mount '${job.data.name}' not found. Was looking for: ${mountDirectory}. Creating it...`);
+            fs.mkdirSync(mountDirectory, { recursive: true })
+        }
+
+        // Scan files inside mount.
+        // This also considers every file in subdirectories.
+        const files: MountedFile[] = glob.sync("**/*.mp3", { cwd: mountDirectory }).map((filepath) => {
+            const file = new MountedFile(path.dirname(filepath), path.basename(filepath), job.data);
+            return file;
+        });
+
+        return this.indexService.indexQueue.addBulk(files.map((index) => {
+            return { data: index }
+        })).then(() => {
+            return { time: Date.now() - start, totalFiles: files.length };
+        })
     }
 
-    @OnQueueProgress()
-    public onProgress(job: Job<Mount>)
-
-    @OnQueueActive()
-    public onActive(job: Job<Mount>) {
-        console.log("Now processing file " + job.data.filename);
-    }
-
-    @OnQueueFailed()
-    public onFailed(job: Job<Index>, err: Error) {
-        if(err && job?.data) {
-            this.indexService.setError(job.data, err);
-            this.indexReportService.appendStackTrace(job.data.report, err.message, err.stack)
-            console.log(err)
+    @OnQueueError()
+    public onError(err: Error) {
+        if(err["code"] == "ECONNREFUSED") {
+            this.logger.error(`Error on redis connection: ${err.message}`);
+        } else {
+            this.logger.error(err)
         }
     }
 
-    @OnGlobalQueueError()
-    public onError(error: Error) {
-        console.error(error)
+    @OnQueueActive()
+    public onActive(job: Job<Mount>) {
+        this.logger.verbose(`Scanning mount '${job.data.name}' for mp3 files.`);
+    }
+
+    @OnQueueFailed()
+    public onFailed(job: Job<Mount>, err: Error) {
+        this.logger.error(err);
     }
 
     @OnQueueCompleted()
-    public onComplete(job: Job<Index>, result: any) {
-        //
-        console.log("completed")
+    public onComplete(job: Job<Mount>, result: MountScanResult) {
+        this.logger.verbose(`Scanned mount '${job.data.name}' in ${result?.time || 0}ms. Found '${result?.totalFiles || 0}' files in total.`);
+    }
+
+    @OnQueueProgress()
+    public onProgress(job: Job<Mount>) {
+        // TODO
     }
 }
