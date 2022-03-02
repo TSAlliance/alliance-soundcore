@@ -1,5 +1,5 @@
 import { CanRead } from "@tsalliance/sso-nest";
-import { BeforeInsert, BeforeUpdate, Column, Entity, JoinColumn, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { BeforeInsert, BeforeUpdate, Column, Entity, Index, JoinColumn, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Song } from "../../song/entities/song.entity";
 import { Slug } from "../../utils/slugGenerator";
@@ -20,6 +20,7 @@ export class Label {
     @Column({ nullable: true })
     public geniusId: string;
 
+    @Index()
     @Column({ nullable: false })
     public name: string;
 

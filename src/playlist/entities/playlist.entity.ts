@@ -1,5 +1,5 @@
 import { RandomUtil } from "@tsalliance/rest";
-import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, Index, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Liked } from "../../collection/entities/like.entity";
 import { LikedPlaylist } from "../../collection/entities/liked-playlist.entity";
@@ -17,6 +17,7 @@ export class Playlist {
     @Column({ nullable: true, unique: true, length: 120 })
     public slug: string;
 
+    @Index()
     @Column({ nullable: false })
     public title: string;
 

@@ -1,6 +1,5 @@
-import { RandomUtil } from "@tsalliance/rest";
 import { CanRead } from "@tsalliance/sso-nest";
-import { BeforeInsert, BeforeUpdate, Column, Entity, JoinTable, ManyToMany, PrimaryGeneratedColumn } from "typeorm";
+import { BeforeInsert, BeforeUpdate, Column, Entity, Index, JoinTable, ManyToMany, PrimaryGeneratedColumn } from "typeorm";
 import { Song } from "../../song/entities/song.entity";
 import { Slug } from "../../utils/slugGenerator";
 
@@ -17,6 +16,7 @@ export class Genre {
     @Column({ nullable: true })
     public geniusId: string;
 
+    @Index()
     @Column({ nullable: false })
     public name: string;
 

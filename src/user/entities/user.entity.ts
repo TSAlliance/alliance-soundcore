@@ -1,6 +1,5 @@
-import { RandomUtil } from "@tsalliance/rest";
 import { CanRead, SSOUser } from "@tsalliance/sso-nest";
-import { BeforeInsert, BeforeUpdate, Column, Entity, OneToMany } from "typeorm";
+import { BeforeInsert, BeforeUpdate, Column, Entity, Index, OneToMany } from "typeorm";
 import { LikedSong } from "../../collection/entities/liked-song.entity";
 import { Playlist } from "../../playlist/entities/playlist.entity";
 import { Stream } from "../../stream/entities/stream.entity";
@@ -9,6 +8,7 @@ import { Slug } from "../../utils/slugGenerator";
 @Entity()
 export class User extends SSOUser {
 
+    @Index()
     @Column({ nullable: true })
     public username: string;
 
