@@ -27,7 +27,7 @@ export class IndexService {
         private indexReportService: IndexReportService,
         private indexRepository: IndexRepository,
         private indexGateway: IndexGateway,
-        @InjectQueue("index") private indexQueue: Queue<Index>,
+        @InjectQueue("index-queue") public indexQueue: Queue<MountedFile>,
         @Inject(BUCKET_ID) private bucketId: string,
         @Inject(forwardRef(() => QueueService)) private queueService: QueueService
     ){}
@@ -92,7 +92,29 @@ export class IndexService {
     }
 
     public async findByMountedFileWithRelations(file: MountedFile): Promise<Index> {
-        return this.indexRepository.findOne({ where: { filename: file.filename, directory: file.directory, mount: { id: file.mount.id }}, relations: ["mount", "song", "uploader"]})
+        return this.findIndex({ filename: file.filename, directory: file.directory, mount: { id: file.mount.id }})
+    }
+
+    public async findByMountedFile(file: MountedFile): Promise<Index> {
+        return this.indexRepository.findOne({ filename: file.filename, directory: file.directory, mount: { id: file.mount.id }})
+    }
+
+    public async findIdsByMountedFiles(files: MountedFile[]): Promise<Index[]> {
+        const dirs: string[] = [];
+        const filenames: string[] = [];
+        const mounts: string[] = [];
+
+        const length = files.length;
+        let x = 0;
+
+        while(x < length) {
+            dirs.push(files[x].directory);
+            filenames.push(files[x].filename || ".");
+            mounts.push(files[x].mount.id);
+            x++;
+        }
+
+        return this.indexRepository.find({ where: { filename: In(filenames), directory: In(dirs), mount: { id: In(mounts) }}, select: ["id", "directory", "filename"]})
     }
 
     public async createForFiles(mountedFiles: MountedFile[], uploader?: User): Promise<Index[]> {
@@ -208,7 +230,7 @@ export class IndexService {
         }
 
         // Enqueue indices
-        this.indexQueue.addBulk(indices.map((index) => {
+        /*this.indexQueue.addBulk(indices.map((index) => {
             if(index.report?.index) index.report.index = undefined;
             return {
                 opts: {
@@ -220,7 +242,7 @@ export class IndexService {
             this.logger.log(`Enqueued ${jobs.length} indices for processing.`)
         }).catch((error) => {
             this.logger.error(error)
-        })
+        })*/
 
         return indices
     }
@@ -232,7 +254,7 @@ export class IndexService {
      * @param uploader User that uploaded the file (optional, only used if this process is triggered by upload)
      * @returns Index
      */
-    public async createIndex(file: MountedFile, uploader?: User): Promise<Index> {
+    public async createIndexIfNotExists(file: MountedFile, uploader?: User): Promise<Index> {
         let index = await this.findByMountedFileWithRelations(file);
 
         if(!index) {
@@ -261,63 +283,48 @@ export class IndexService {
      * @returns Index
      */
     public async processIndex(index: Index): Promise<Index> {
-        console.log("processing index...")
         if(!index.report) {
             index.report = await this.indexReportService.createBlank(index).catch(() => null);
         }
 
         if(index.status == IndexStatus.ERRORED || index.status == IndexStatus.ERRORED_PATH) {
             this.setStatus(index, index.status);
-            this.queueService.onIndexEnded(index, "errored");
-            console.log("index errored before processing started.")
             this.indexReportService.appendError(index.report, "Index errored before processing started.")
             return index;
         }
 
-        this.queueService.onIndexStart(index)
         await this.indexReportService.appendInfo(index.report, "Started processing...")
 
         // Do indexing tasks in background
-        console.log("generating checksum")
         return this.storageService.generateChecksumOfIndex(index).then(async (index) => {
             this.setStatus(index, index.status);
             if(index.status == IndexStatus.ERRORED) {
                 await this.indexReportService.appendError(index.report, `Failed calculating checksum of file.`);
-                this.queueService.onIndexEnded(index, "errored");
-                console.log("could not generate checksum")
                 return index;
             }
 
-            console.log("checking for duplicate based on checksum")
             // Check for duplicate files and abort if so
             if(await this.existsByChecksum(index.checksum, index.id)) {
                 this.setStatus(index, IndexStatus.DUPLICATE);
                 await this.indexReportService.appendError(index.report, `Found two files with same checksum. It seems like the file already exists.`);
-                this.queueService.onIndexEnded(index, "errored");
-                console.log("file exists")
                 return index;
             }
 
 
             // Continue with next step: Create optimized mp3 files
-            console.log("creating optimized file (does nothing in current build)")
             this.storageService.createOptimizedMp3File(index).then(async (index) => {
                 index = await this.setStatus(index, index.status)
                 if(index.status == IndexStatus.ERRORED){
-                    this.queueService.onIndexEnded(index, "errored");
-                    console.log("failed creating optimized file")
+
                     return;
                 }
 
-                console.log("Creating song from index...")
                 // Continue with next step: Create song metadata from index
                 this.songService.createFromIndex(index).then(async (song) => {
-                    console.log("createFromIndex(): done.")
                     index = await this.setStatus(song.index, song.index.status)
 
                     // Done at this point. The createFromIndex() in song service handles all required
                     // steps to gather information like artists, album and cover artwork
-                    this.queueService.onIndexEnded(index, "done");
                     return index;
                 }).catch((reason) => {
                     this.setError(index, reason);
@@ -339,7 +346,6 @@ export class IndexService {
         index.status = IndexStatus.ERRORED;
         this.setStatus(index, IndexStatus.ERRORED);
 
-        this.queueService.onIndexEnded(index, "errored");
         this.indexReportService.appendStackTrace(index.report, `Failed: ${error.message}`, error.stack);
     }
 

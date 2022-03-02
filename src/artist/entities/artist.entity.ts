@@ -1,5 +1,5 @@
 import { CanRead } from "@tsalliance/sso-nest";
-import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, Index, JoinColumn, JoinTable, ManyToMany, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Album } from "../../album/entities/album.entity";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Song } from "../../song/entities/song.entity";
@@ -27,7 +27,8 @@ export class Artist {
     @Column({ nullable: true, type: "text" })
     public description: string;
 
-    @Column({ nullable: false, unique: true })
+    @Index({ unique: true })
+    @Column({ nullable: false })
     public name: string;
 
     @CreateDateColumn()

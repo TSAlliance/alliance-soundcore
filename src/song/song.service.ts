@@ -420,8 +420,6 @@ export class SongService {
         const song = new Song();
         song.title = createSongDto.title;
         song.duration = createSongDto.duration;
-
-        console.log("creating song db entry")
         
         return this.songRepository.save(song).catch((error) => {
             this.logger.error(`Could not create song '${createSongDto.title}' in database: `, error)
@@ -457,7 +455,6 @@ export class SongService {
 
             // As there is no song on the current index at this point in code, maybe there is a song with exactly that index
 
-
             song = await this.create({
                 duration: id3tags.duration,
                 title: (id3tags.title || path.parse(filepath).name)?.replace(/^[ ]+|[ ]+$/g,'')
@@ -466,7 +463,6 @@ export class SongService {
             song.index = index;
             index.song = song;
 
-            console.log("saving index <-> song relation")
             await this.songRepository.save(song).catch((reason) => {
                 this.logger.error(`Could not save index relations in database for song ${filepath}: `, reason);
                 this.indexReportService.appendError(index.report, `Could not save index relations in database: ${reason.message}`)
@@ -490,7 +486,6 @@ export class SongService {
             // Otherwise they will be retrieved and added to the song.
             if(!song.artists) song.artists = [];
             if(id3tags.artists && id3tags.artists.length > 0) {
-                console.log("creating artists")
                 // Create all artists found on id3tags, but
                 // only if they do not exist
                 await Promise.all(id3tags.artists.map(async (id3Artist) => {
@@ -509,7 +504,6 @@ export class SongService {
             // If it exists, just add it to song.
             if(!song.albums) song.albums = [];
             if(id3tags.album) {
-                console.log("creating albums")
 
                 const album = await this.albumService.createIfNotExists({ title: id3tags.album, artist: song.artists[0], geniusSearchArtists: song.artists, mountForArtworkId: index.mount.id }).then((state) => state.album).catch((reason) => {
                     this.indexReportService.appendError(index.report, `Failed creating album '${id3tags.album}' for song: ${reason.message}`);
@@ -537,7 +531,6 @@ export class SongService {
                 }
             }
 
-            console.log("preparing genius search")
             await this.geniusService.findAndApplySongInfo(song).then(() => {
                 song.hasGeniusLookupFailed = false;
             }).catch((error: Error) => {
@@ -546,14 +539,12 @@ export class SongService {
             })
 
             // Save relations to database
-            console.log("saving final relations")
             await this.songRepository.save(song).catch((reason) => {
                 this.logger.error(`Could not save relations in database for song ${filepath}: `, reason);
                 this.indexReportService.appendError(index.report, `Could not save relations in database: ${reason.message}`)
             });
 
             // Set status to OK, as this is the last step of the indexing process
-            console.log("done")
             index.status = IndexStatus.OK;
         } catch (error) {
             this.logger.error(error);
@@ -573,7 +564,6 @@ export class SongService {
      * @returns ID3TagsDTO
      */
     private async readId3Tags(filepath: string, indexContext: Index): Promise<ID3TagsDTO> {
-        console.log("reading id3 tags")
         const id3Tags = NodeID3.read(fs.readFileSync(filepath));
 
         // Get duration in seconds
@@ -608,7 +598,6 @@ export class SongService {
         const context = {...result};
         context.artwork = undefined
         this.indexReportService.appendInfo(indexContext.report, `Read ID3Tags from file '${filepath}'`, context);
-        console.log("result: ", context)
         return result
     }
 

@@ -107,7 +107,6 @@ export class ArtworkService {
      * @returns Artwork
      */
     public async createFromIndexAndBuffer(index: Index, buffer: Buffer): Promise<Artwork> {
-        console.log("creating artwork")
         const dstDirectory = this.storageService.getArtworksDir(index.mount);
         mkdirSync(dstDirectory, { recursive: true });
 
@@ -144,7 +143,6 @@ export class ArtworkService {
      * @returns Artwork
      */
      public async create(createArtworkDto: CreateArtworkDTO): Promise<Artwork> {
-        console.log("creating artwork")
         if(createArtworkDto.url && createArtworkDto.url.includes("default_avatar")) return null;
 
         const artworkCreateResult = await this.artworkRepository.save({
@@ -274,7 +272,6 @@ export class ArtworkService {
      * @returns 
      */
     private async downloadAndWriteArtworkByUrl(artwork: Artwork) {
-        console.log("downloading external artwork")
         return axios.get(artwork.externalUrl, { responseType: "arraybuffer" }).then((response) => {
             if(response.status == 200 && response.data) {
                 return this.writeArtwork(Buffer.from(response.data), artwork)

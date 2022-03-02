@@ -29,7 +29,7 @@ import { BullModule } from '@nestjs/bull';
     IndexReportModule,
     TypeOrmModule.forFeature([ IndexRepository ]),
     BullModule.registerQueue({
-      name: "index",
+      name: "index-queue",
       defaultJobOptions: {
         removeOnFail: true,
         removeOnComplete: true
@@ -38,7 +38,6 @@ import { BullModule } from '@nestjs/bull';
   ],
   exports: [
     IndexService,
-    BullModule
   ]
 })
 export class IndexModule {}

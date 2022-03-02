@@ -225,7 +225,7 @@ export class MountService {
      * @returns Index
      */
     public async indexFile(file: MountedFile, uploader?: User): Promise<Index> {
-        return this.indexService.createIndex(file, uploader);
+        return this.indexService.createIndexIfNotExists(file, uploader);
     }
 
     /**

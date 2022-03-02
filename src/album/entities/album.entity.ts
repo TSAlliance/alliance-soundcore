@@ -1,6 +1,5 @@
-import { RandomUtil } from "@tsalliance/rest";
 import { CanRead } from "@tsalliance/sso-nest";
-import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, Index, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Artist } from "../../artist/entities/artist.entity";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Distributor } from "../../distributor/entities/distributor.entity";
@@ -22,6 +21,7 @@ export class Album {
     @Column({ nullable: true })
     public geniusId: string;
 
+    @Index()
     @Column({ nullable: false })
     public title: string;
 

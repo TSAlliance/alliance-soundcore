@@ -1,47 +1,61 @@
-import { OnGlobalQueueError, OnQueueActive, OnQueueCompleted, OnQueueFailed, Process, Processor } from "@nestjs/bull";
-import { Job } from "bull";
-import { setTimeout } from "timers/promises";
+import { InjectQueue, OnGlobalQueueError, Process, Processor } from "@nestjs/bull";
+import { Logger } from "@nestjs/common";
+import { Job, Queue } from "bull";
+import { MountedFile } from "../../bucket/entities/mounted-file.entity";
 import { IndexReportService } from "../../index-report/services/index-report.service";
 import { Index } from "../entities/index.entity";
+import { IndexStatus } from "../enum/index-status.enum";
 import { IndexService } from "../services/index.service";
 
-@Processor("index")
+export interface IndexResult {
+    time: number;
+    index: Index;
+}
+
+@Processor("index-queue")
 export class IndexConsumer {
+    private logger: Logger = new Logger(IndexConsumer.name);
 
     constructor(
         private indexService: IndexService,
-        private indexReportService: IndexReportService
+        private indexReportService: IndexReportService,
+        @InjectQueue("index-queue") private indexQueue: Queue<MountedFile>
     ) {}
 
+    public async clearQueue() {
+        return this.indexQueue.clean(0, "active")
+            .then(() => this.indexQueue.clean(0, "completed"))
+            .then(() => this.indexQueue.clean(0, "delayed"))
+            .then(() => this.indexQueue.clean(0, "failed"))
+            .then(() => this.indexQueue.clean(0, "paused"))
+    }
+
     @Process()
-    public async transcode(job: Job<Index>) {
-        return setTimeout(20000).then(() => {
-            return this.indexService.processIndex(job.data)
-        })
-    }
+    public async transcode(job: Job<MountedFile>): Promise<void> {
+        const start = Date.now();
+        const existsIndex = await this.indexService.findByMountedFile(job.data);
 
-    @OnQueueActive()
-    public onActive(job: Job<Index>) {
-        console.log("Now processing file " + job.data.filename);
-    }
-
-    @OnQueueFailed()
-    public onFailed(job: Job<Index>, err: Error) {
-        if(err && job?.data) {
-            this.indexService.setError(job.data, err);
-            this.indexReportService.appendStackTrace(job.data.report, err.message, err.stack)
-            console.log(err)
+        // Only process items that are either PREPARING or PROCESSING
+        if(existsIndex && existsIndex.status != IndexStatus.PROCESSING && existsIndex.status != IndexStatus.PREPARING) {
+            return null;
         }
+
+        this.logger.verbose(`Indexing file '${job.data.filename}'.`);
+        const index = await this.indexService.createIndexIfNotExists(job.data, null);
+        const cooldownMs = 3000;
+
+        return new Promise((resolve, reject) => {
+            setTimeout(() => {
+
+
+                this.logger.verbose(`Finished indexing file '${job?.data?.filename}' in ${Date.now() - start || 0}ms.`);
+                resolve()
+            }, cooldownMs)
+        })
     }
 
     @OnGlobalQueueError()
     public onError(error: Error) {
         console.error(error)
-    }
-
-    @OnQueueCompleted()
-    public onComplete(job: Job<Index>, result: any) {
-        //
-        console.log("completed")
     }
 }

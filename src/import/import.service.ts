@@ -110,7 +110,7 @@ export class ImportService {
 
                     setTimeout(() => {
                         // trigger indexing
-                        this.indexService.createIndex(file, importer).then((index) => {
+                        this.indexService.createIndexIfNotExists(file, importer).then((index) => {
                             importEntity.upgradeIndex = index
                             importEntity.status = "upgradeIndex"
 

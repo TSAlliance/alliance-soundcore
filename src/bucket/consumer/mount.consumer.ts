@@ -13,7 +13,7 @@ import path from "node:path";
 import { IndexService } from "../../index/services/index.service";
 
 export interface MountScanResult {
-    time: number;
+    totalTime: number;
     totalFiles: number;
 }
 
@@ -58,10 +58,31 @@ export class MountConsumer {
             return file;
         });
 
-        return this.indexService.indexQueue.addBulk(files.map((index) => {
-            return { data: index }
+        const existingIndices = await this.indexService.findIdsByMountedFiles(files);
+        const notIndexedFiles: MountedFile[] = [];
+        const filesLength = files.length;
+        let i = 0;
+
+        while(i < filesLength) {
+            const file = files[i];
+            const index = existingIndices.findIndex((index) => index.fullPath == file.fullPath);
+
+            if(!index || index == -1) {
+                notIndexedFiles.push(file)
+            } else {
+                // Remove from array, so we shrink the search range
+                existingIndices.splice(index, 1);
+            }
+
+            i++;
+        }
+
+        return;
+
+        return this.indexService.indexQueue.addBulk(notIndexedFiles.map((file) => {
+            return { data: file, opts: { jobId: file.mount.id+file.fullPath } }
         })).then(() => {
-            return { time: Date.now() - start, totalFiles: files.length };
+            return { totalFiles: files.length, totalTime: Date.now() - start };
         })
     }
 
@@ -86,7 +107,7 @@ export class MountConsumer {
 
     @OnQueueCompleted()
     public onComplete(job: Job<Mount>, result: MountScanResult) {
-        this.logger.verbose(`Scanned mount '${job.data.name}' in ${result?.time || 0}ms. Found '${result?.totalFiles || 0}' files in total.`);
+        this.logger.verbose(`Scanned mount '${job.data.name}' in ${result?.totalTime || 0}ms. Found '${result?.totalFiles || 0}' files in total.`);
     }
 
     @OnQueueProgress()
