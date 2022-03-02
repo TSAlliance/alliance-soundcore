@@ -1,5 +1,5 @@
 import path from 'path';
-import fs, { mkdirSync } from 'fs';
+import fs from 'fs';
 
 import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
@@ -7,7 +7,7 @@ import { MountRepository } from '../repositories/mount.repository';
 import { Mount } from '../entities/mount.entity';
 import { CreateMountDTO } from '../dto/create-mount.dto';
 import { BucketRepository } from '../repositories/bucket.repository';
-import { DeleteResult, In } from 'typeorm';
+import { DeleteResult } from 'typeorm';
 import { UpdateMountDTO } from '../dto/update-mount.dto';
 import { Index } from "../../index/entities/index.entity";
 import { IndexService } from "../../index/services/index.service";
@@ -17,9 +17,9 @@ import { User } from '../../user/entities/user.entity';
 import { MountGateway } from '../gateway/mount-status.gateway';
 import { OnEvent } from '@nestjs/event-emitter';
 import { MOUNT_INDEX_END, MOUNT_INDEX_START } from '../../index/services/queue.service';
-import { glob } from 'glob';
 import { MountedFile } from '../entities/mounted-file.entity';
-import { IndexStatus } from '../../index/enum/index-status.enum';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
 
 @Injectable()
 export class MountService {
@@ -31,7 +31,8 @@ export class MountService {
         private bucketRepository: BucketRepository,
         private gateway: MountGateway,
         @Inject(BUCKET_ID) private bucketId: string,
-        @Inject(MOUNT_ID) private mountId: string
+        @Inject(MOUNT_ID) private mountId: string,
+        @InjectQueue("mount-queue") private mountQueue: Queue<Mount>
     ){}
 
     /**
@@ -146,7 +147,7 @@ export class MountService {
         fs.mkdirSync(createMountDto.path, { recursive: true })
 
         const mount = await this.mountRepository.save(createMountDto);
-        this.checkIndicesOfMount(mount)
+        if(mount) this.mountQueue.add(mount, { jobId: mount.id });
         return mount;    
     }
 
@@ -226,63 +227,6 @@ export class MountService {
      */
     public async indexFile(file: MountedFile, uploader?: User): Promise<Index> {
         return this.indexService.createIndexIfNotExists(file, uploader);
-    }
-
-    /**
-     * Check if files inside of a mount are indexed or not. 
-     * If not, then the reindexing process is triggered.
-     * @param mount Mount to check
-     */
-    public async checkIndicesOfMount(mount: Mount): Promise<void> {
-        // This function is only to check health of the files in a mount.
-        // So if new files are detected, they automatically get indexed.
-        // If you look for the method that resumes indices stuck on status PREPARING
-        // go to index.service.ts and have a look on clearOrResumeProcessing() 
-        const mountDir = path.join(mount.path);
-
-        if(!fs.existsSync(mountDir)) {
-            this.logger.warn(`Directory for mount '${mount.name}' not found. Was looking for: ${mountDir}. Creating it...`);
-            mkdirSync(mountDir, { recursive: true })
-        }
-
-        // Get statuses that are results of a indexing process being done
-        const statuses: IndexStatus[] = [ IndexStatus.OK, IndexStatus.IGNORE, IndexStatus.ERRORED, IndexStatus.ERRORED_PATH, IndexStatus.DUPLICATE ]
-        const indexedFiles: MountedFile[] = (await this.indexService.findMultipleIndices({ mount: { id: mount.id }, status: In(statuses) })) as MountedFile[];
-
-        // Build up array of paths that should be ignored, as they are already
-        // indexed
-        const ignorePaths = indexedFiles.map((file) => path.join(file.directory || "", file.filename))
-
-        // Get files inside mount.
-        // This also considers every file in subdirectories.
-        const files: MountedFile[] = glob.sync("**/*.mp3", { cwd: mountDir, ignore: ignorePaths }).filter((filepath) => !ignorePaths.includes(filepath)).map((filepath) => {
-            const file = new MountedFile(path.dirname(filepath), path.basename(filepath), mount);
-            return file;
-        });
-        
-        const notIndexedFiles: MountedFile[] = files.filter((file) => !indexedFiles.includes(file));
-            
-        if(notIndexedFiles.length > 0) {
-            this.setStatus(mount, MountStatus.INDEXING)
-            this.logger.warn(`Found ${notIndexedFiles.length} files that require indexing. Indexing mount '${mount.name}'...`);
-                
-            this.indexService.createForFiles(notIndexedFiles).catch((error)  => {
-                console.error(error);
-            });
-        }
-    }
-
-    /**
-     * Check if files inside of all mounts from this bucket are indexed or not. 
-     * If not, then the reindexing process is triggered.
-     */
-    public async checkLocalIndices(): Promise<void> {
-        const mounts = await this.findByBucketId(this.bucketId);
-        if(!mounts || mounts.length <= 0) return;
-
-        for(const mount of mounts) {
-            await this.checkIndicesOfMount(mount);
-        }
     }
 
     /**
