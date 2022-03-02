@@ -15,6 +15,7 @@ import { IndexService } from "../../index/services/index.service";
 export interface MountScanResult {
     totalTime: number;
     totalFiles: number;
+    notIndexedFiles: number;
 }
 
 @Processor("mount-queue")
@@ -67,7 +68,8 @@ export class MountConsumer {
             const file = files[i];
             const index = existingIndices.findIndex((index) => index.fullPath == file.fullPath);
 
-            if(!index || index == -1) {
+            if(index == null || typeof index == "undefined" || index == -1) {
+                // console.log(file.fullPath)
                 notIndexedFiles.push(file)
             } else {
                 // Remove from array, so we shrink the search range
@@ -77,12 +79,10 @@ export class MountConsumer {
             i++;
         }
 
-        return;
-
         return this.indexService.indexQueue.addBulk(notIndexedFiles.map((file) => {
             return { data: file, opts: { jobId: file.mount.id+file.fullPath } }
         })).then(() => {
-            return { totalFiles: files.length, totalTime: Date.now() - start };
+            return { totalFiles: files.length, totalTime: Date.now() - start, notIndexedFiles: notIndexedFiles.length };
         })
     }
 
@@ -107,7 +107,7 @@ export class MountConsumer {
 
     @OnQueueCompleted()
     public onComplete(job: Job<Mount>, result: MountScanResult) {
-        this.logger.verbose(`Scanned mount '${job.data.name}' in ${result?.totalTime || 0}ms. Found '${result?.totalFiles || 0}' files in total.`);
+        this.logger.verbose(`Scanned mount '${job.data.name}' in ${result?.totalTime || 0}ms. Found '${result?.totalFiles || 0}' files in total. '${result?.notIndexedFiles || 0}' files need to be indexed.`);
     }
 
     @OnQueueProgress()

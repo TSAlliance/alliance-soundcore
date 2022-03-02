@@ -114,7 +114,8 @@ export class IndexService {
             x++;
         }
 
-        return this.indexRepository.find({ where: { filename: In(filenames), directory: In(dirs), mount: { id: In(mounts) }}, select: ["id", "directory", "filename"]})
+        const status = Object.values(IndexStatus).filter((status) => status != IndexStatus.PREPARING && status != IndexStatus.PROCESSING)
+        return this.indexRepository.find({ where: { filename: In(filenames), directory: In(dirs), mount: { id: In(mounts), status: In(status) }}, select: ["id", "directory", "filename"]})
     }
 
     public async createForFiles(mountedFiles: MountedFile[], uploader?: User): Promise<Index[]> {
@@ -264,7 +265,6 @@ export class IndexService {
             });
         }
 
-        if(!index) throw new BadRequestException("Could not create new index entry.")
         return index;
     }
 
@@ -288,7 +288,7 @@ export class IndexService {
         }
 
         if(index.status == IndexStatus.ERRORED || index.status == IndexStatus.ERRORED_PATH) {
-            this.setStatus(index, index.status);
+            // this.setStatus(index, index.status);
             this.indexReportService.appendError(index.report, "Index errored before processing started.")
             return index;
         }
@@ -297,7 +297,7 @@ export class IndexService {
 
         // Do indexing tasks in background
         return this.storageService.generateChecksumOfIndex(index).then(async (index) => {
-            this.setStatus(index, index.status);
+            // this.setStatus(index, index.status);
             if(index.status == IndexStatus.ERRORED) {
                 await this.indexReportService.appendError(index.report, `Failed calculating checksum of file.`);
                 return index;
@@ -305,7 +305,7 @@ export class IndexService {
 
             // Check for duplicate files and abort if so
             if(await this.existsByChecksum(index.checksum, index.id)) {
-                this.setStatus(index, IndexStatus.DUPLICATE);
+                // this.setStatus(index, IndexStatus.DUPLICATE);
                 await this.indexReportService.appendError(index.report, `Found two files with same checksum. It seems like the file already exists.`);
                 return index;
             }
@@ -313,7 +313,7 @@ export class IndexService {
 
             // Continue with next step: Create optimized mp3 files
             this.storageService.createOptimizedMp3File(index).then(async (index) => {
-                index = await this.setStatus(index, index.status)
+                // index = await this.setStatus(index, index.status)
                 if(index.status == IndexStatus.ERRORED){
 
                     return;
@@ -321,32 +321,23 @@ export class IndexService {
 
                 // Continue with next step: Create song metadata from index
                 this.songService.createFromIndex(index).then(async (song) => {
-                    index = await this.setStatus(song.index, song.index.status)
+                    // index = await this.setStatus(song.index, song.index.status)
 
                     // Done at this point. The createFromIndex() in song service handles all required
                     // steps to gather information like artists, album and cover artwork
                     return index;
                 }).catch((reason) => {
-                    this.setError(index, reason);
+                    // this.setError(index, reason);
                     return index;
                 });
             }).catch((reason: Error) => {
-                this.setError(index, reason);
+                // this.setError(index, reason);
                 return index;
             })
         }).catch((error: Error) => {
-            this.setError(index, error);
+            // this.setError(index, error);
             return index;
         })
-    }
-
-    public async setError(index: Index, error: Error) {
-        this.logger.error(error);
-
-        index.status = IndexStatus.ERRORED;
-        this.setStatus(index, IndexStatus.ERRORED);
-
-        this.indexReportService.appendStackTrace(index.report, `Failed: ${error.message}`, error.stack);
     }
 
     /**
@@ -390,8 +381,8 @@ export class IndexService {
      * @param status Updated status
      * @returns Index
      */
-    private async setStatus(index: Index, status: IndexStatus): Promise<Index> {
-        index.status = status;
+    public async updateIndex(index: Index): Promise<Index> {
+        // index.status = status;
         this.indexGateway.sendUpdateToUploader(index)
         return this.indexRepository.save(index);
     }

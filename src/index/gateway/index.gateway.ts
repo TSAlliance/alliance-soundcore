@@ -40,6 +40,7 @@ export class IndexGateway implements OnGatewayConnection, OnGatewayDisconnect {
             delete indexCopy?.song?.artists;
             delete indexCopy?.song?.artwork?.mount;
             delete indexCopy?.song?.index;
+            delete indexCopy?.report;
 
             if(indexCopy?.uploader?.id) {
                 this.findSocketsByUserId(indexCopy.uploader.id).then((sockets) => {

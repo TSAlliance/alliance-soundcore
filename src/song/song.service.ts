@@ -442,7 +442,6 @@ export class SongService {
         }
 
         const id3tags = await this.readId3Tags(filepath, index);
-
         let song = null;
 
         if(index.song) {
@@ -458,11 +457,13 @@ export class SongService {
             song = await this.create({
                 duration: id3tags.duration,
                 title: (id3tags.title || path.parse(filepath).name)?.replace(/^[ ]+|[ ]+$/g,'')
+            }).catch((error: Error) => {
+                this.logger.error(`Could not save index relations in database for song ${filepath}: `, error);
+                this.indexReportService.appendError(index.report, `Could not create song: ${error.message}`)
+                throw error;
             });
 
             song.index = index;
-            index.song = song;
-
             await this.songRepository.save(song).catch((reason) => {
                 this.logger.error(`Could not save index relations in database for song ${filepath}: `, reason);
                 this.indexReportService.appendError(index.report, `Could not save index relations in database: ${reason.message}`)
@@ -531,12 +532,13 @@ export class SongService {
                 }
             }
 
-            await this.geniusService.findAndApplySongInfo(song).then(() => {
+            // TODO: Make this sync
+            /*await this.geniusService.findAndApplySongInfo(song).then(() => {
                 song.hasGeniusLookupFailed = false;
             }).catch((error: Error) => {
                 song.hasGeniusLookupFailed = true;
                 this.indexReportService.appendError(index.report, `Something went wrong on Genius.com lookup: ${error.message}`);
-            })
+            })*/
 
             // Save relations to database
             await this.songRepository.save(song).catch((reason) => {
@@ -547,10 +549,8 @@ export class SongService {
             // Set status to OK, as this is the last step of the indexing process
             index.status = IndexStatus.OK;
         } catch (error) {
-            this.logger.error(error);
-            console.error(error)
-            index.status = IndexStatus.ERRORED;
             await this.songRepository.delete({ id: song.id });
+            throw error;
         }
 
         // Make sure the index is updated to the song for future internal processing.

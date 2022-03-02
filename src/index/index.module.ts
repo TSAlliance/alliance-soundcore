@@ -40,4 +40,14 @@ import { BullModule } from '@nestjs/bull';
     IndexService,
   ]
 })
-export class IndexModule {}
+export class IndexModule implements OnModuleInit {
+
+  constructor(
+    private indexConsumer: IndexConsumer
+  ) {}
+  
+  public async onModuleInit() {
+    return await this.indexConsumer.clearQueue()
+  }
+
+}

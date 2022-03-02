@@ -150,6 +150,7 @@ export class IndexReportService {
 
             report.jsonContents.push(element);
         }
+
         await this.indexReportRepository.save(reports).catch((reason) => {
             console.error(reason)
         });
