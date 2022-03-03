@@ -51,7 +51,7 @@ export class SongService {
             .leftJoin("song.index", "index")
 
             // Count how many likes. This takes user's id in count
-            .loadRelationCountAndMap("song.likesCount", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
+            .loadRelationCountAndMap("song.liked", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
 
             .addSelect(["artist.id", "artist.name", "index.id"])
 
@@ -80,7 +80,7 @@ export class SongService {
             .leftJoin("song.index", "index")
 
             // Count how many likes. This takes user's id in count
-            .loadRelationCountAndMap("song.likesCount", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
+            .loadRelationCountAndMap("song.liked", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
 
             .addSelect(["artist.id", "artist.name", "index.id"])
 
@@ -102,8 +102,29 @@ export class SongService {
      * @param songId Song's id
      * @returns Song
      */
-     public async findById(songId: string): Promise<Song> {
-        return this.songRepository.findOne({ where: { id: songId }})
+    public async findById(songId: string, user?: User): Promise<Song> {
+        const qb = this.songRepository.createQueryBuilder("song")
+            .leftJoinAndSelect("song.artwork", "artwork")
+            .leftJoinAndSelect("song.label", "label")
+            .leftJoinAndSelect("song.publisher", "publisher")
+            .leftJoinAndSelect("song.distributor", "distributor")
+            .leftJoinAndSelect("song.genres", "genre")
+            .leftJoinAndSelect("song.artists", "artist")
+            .leftJoin("song.albums", "album")
+
+            // Count how many likes. This takes user's id in count
+            .loadRelationCountAndMap("song.liked", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
+
+            .addSelect(["album.id", "album.title"])
+            .where("song.id = :songId", { songId })
+            .orWhere("song.slug = :songId", { songId })
+
+        const result = await qb.getOne();
+        return result;
+    }
+
+    public async existsById(songId: string): Promise<Song> {
+        return await this.songRepository.findOne({ where: { id: songId }});
     }
 
     /**
@@ -137,13 +158,16 @@ export class SongService {
             .addSelect(["artist.id", "artist.name", "artwork.id", "artwork.accentColor", "index.id", "featArtist.id", "featArtist.name"])
 
             // Count how many likes. This takes user's id in count
-            .loadRelationCountAndMap("song.likesCount", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
+            .loadRelationCountAndMap("song.liked", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
             
             .addSelect('SUM(streams.streamCount)', 'streamCount')
             .addSelect("COUNT(likedByAll.id)", "likedByAllCount")
+
             .groupBy('song.id')
             .addGroupBy("album.id")
             .addGroupBy("featArtist.id")
+            .addGroupBy("artist.id")
+
             .orderBy('streamCount', 'DESC')
             .addOrderBy('likedByAllCount', "DESC")
             .distinct(true)
@@ -153,11 +177,12 @@ export class SongService {
             .take(pageable?.size || 30)
 
             .where("artist.id = :artistId", { artistId: [ artistId ] })
+            .orWhere("artist.slug = :artistId", { artistId: [ artistId ] })
+
             
         const result = await qb.getRawAndEntities();
 
         result.entities.map((song, index) => {
-            song.isLiked = song.likesCount > 0;
             song.streamCount = parseInt(result.raw[index].streamCount || 0)
             return song;
         })
@@ -185,7 +210,7 @@ export class SongService {
             .leftJoin('song.streams', 'streams')
 
             // Count how many likes. This takes user's id in count
-            .loadRelationCountAndMap("song.likesCount", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
+            .loadRelationCountAndMap("song.liked", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
 
             // Sum up streams and order by highest
             .select(["song.id", "song.title", "song.duration", "featArtist.id", "featArtist.name", "artwork.id", "artwork.accentColor", "album.id", "album.title", "index.id"])
@@ -193,6 +218,8 @@ export class SongService {
             .groupBy('song.id')
             .addGroupBy("album.id")
             .addGroupBy("featArtist.id")
+            .addGroupBy("artist.id")
+
             .orderBy('song.released', 'DESC')
             .addOrderBy("song.createdAt", "DESC")
 
@@ -201,12 +228,12 @@ export class SongService {
             .limit(pageable.size || 30)
 
             .where("artist.id = :artistId", { artistId })
+            .orWhere("artist.slug = :artistId", { artistId: [ artistId ] })
             
         const result = await qb.getRawAndEntities();
         const totalElements = await qb.getCount();
 
         result.entities.map((song, index) => {
-            song.isLiked = song.likesCount > 0;
             song.streamCount = parseInt(result.raw[index].streamCount || 0)
             return song;
         })
@@ -231,7 +258,7 @@ export class SongService {
             .leftJoin("song.index", "index.id")
 
             // Count how many likes. This takes user's id in count
-            .loadRelationCountAndMap("song.likesCount", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
+            .loadRelationCountAndMap("song.liked", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
 
             // Pagination
             .offset((pageable?.page || 0) * (pageable?.size || 30))
@@ -239,15 +266,12 @@ export class SongService {
 
             .select(["song.id", "song.title", "song.duration", "artwork.id", "artwork.accentColor", "artist.id", "artist.name", "album.id", "album.title"])
             
-        if(genreId) qb = qb.andWhere("genre.id = :genreId", { genreId })
-        if(artistId) qb = qb.andWhere("artist.id = :artistId", { artistId })
+        if(genreId) qb = qb.andWhere("genre.id = :genreId", { genreId }).orWhere("genre.slug = :genreId", { genreId })
+        if(artistId) qb = qb.andWhere("artist.id = :artistId", { artistId }).orWhere("artist.slug = :artistId", { artistId })
 
         const result = await qb.getManyAndCount();
 
-        return Page.of(result[0].map((s) => {
-            s.isLiked = s.likesCount > 0;
-            return s;
-        }), result[1], pageable.page);
+        return Page.of(result[0], result[1], pageable.page);
     }
 
     /**
@@ -268,7 +292,7 @@ export class SongService {
             .orderBy("orders.nr", "ASC")
 
             // Stats like streamCount and if user has liked the song
-            .loadRelationCountAndMap("song.likesCount", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
+            .loadRelationCountAndMap("song.liked", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
             .addSelect(['SUM(IFNULL(streams.streamCount, 0)) AS streamCount'])
             .groupBy('song.id')
             .addGroupBy("artist.id")
@@ -286,7 +310,6 @@ export class SongService {
 
         return Page.of(result.entities.map((s, i) => {
             s.streamCount = parseInt(result.raw[i].streamCount)
-            s.isLiked = result.entities[i].likesCount > 0
 
             return s;
         }), totalElements, pageable.page)
@@ -334,7 +357,7 @@ export class SongService {
 
         return Page.of(result.entities.map((s, i) => {
             s.likedAt = result.raw[i].likedAt
-            s.isLiked = true
+            s.liked = true
             return s;
         }), totalElements, pageable.page)
     }
@@ -354,7 +377,7 @@ export class SongService {
             .leftJoinAndSelect("song.albums", "albums")
 
             // Count how many likes. This takes user's id in count
-            .loadRelationCountAndMap("song.likesCount", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
+            .loadRelationCountAndMap("song.liked", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
 
             .where("playlist.id = :playlistId", { playlistId })
             .select(["song.id", "song.title", "song.duration", "artwork.id", "artwork.accentColor", "artist.id", "artist.name", "albums.id", "albums.title", "index.id"])
@@ -368,7 +391,6 @@ export class SongService {
 
         const elements = result.entities.map((song, index) => {
             song.song2playlist = result.raw[index].song2playlist
-            song.isLiked = result.entities[index].likesCount > 0
             return song;
         });
 
@@ -392,15 +414,6 @@ export class SongService {
                 }
             }
         })
-    }
-
-    /**
-     * Find song by its id including all relations that contain information that may be interesting for users.
-     * @param songId Songs' id
-     * @returns Song
-     */
-    public async findByIdInfoWithRelations(songId: string): Promise<Song> {
-        return this.songRepository.findOne({ where: { id: songId }, relations: ["label", "publisher", "artists", "artwork", "banner", "distributor", "albums", "genres"]})
     }
 
     public async findByTitleAndAlbum(title: string, albums: string[]): Promise<Song> {
@@ -629,7 +642,7 @@ export class SongService {
             .orWhere("artist.name LIKE :query", { query })
 
             // Count how many likes. This takes user's id in count
-            .loadRelationCountAndMap("song.likesCount", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
+            .loadRelationCountAndMap("song.liked", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
 
             .offset((pageable?.page || 0) * (pageable?.size || 10))
             .limit(pageable.size || 10)
@@ -639,10 +652,7 @@ export class SongService {
         }
 
         const result = await qb.getManyAndCount();
-        return Page.of(result[0].map((s) => {
-            s.isLiked = s.likesCount > 0;
-            return s;
-        }), result[1], pageable.page);
+        return Page.of(result[0], result[1], pageable.page);
     }
 
 }

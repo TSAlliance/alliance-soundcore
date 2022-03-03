@@ -92,7 +92,7 @@ export class IndexService {
     }
 
     public async findByMountedFileWithRelations(file: MountedFile): Promise<Index> {
-        return this.findIndex({ filename: file.filename, directory: file.directory, mount: { id: file.mount.id }})
+        return this.findIndex({ filename: file.filename, directory: file.directory, mount: { id: file.mount?.id }})
     }
 
     public async findByMountedFile(file: MountedFile): Promise<Index> {

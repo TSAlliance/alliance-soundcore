@@ -70,8 +70,9 @@ export class SongController {
   }
 
   @Get(":songId")
-  public async findById(@Param("songId") songId: string): Promise<Song> {
-    return this.songService.findByIdInfoWithRelations(songId);
+  @IsAuthenticated()
+  public async findById(@Param("songId") songId: string, @Authentication() user: User): Promise<Song> {
+    return this.songService.findById(songId, user);
   }
 
 }
