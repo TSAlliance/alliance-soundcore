@@ -352,7 +352,6 @@ export class IndexService {
     }
 
     public async deleteById(indexId: string): Promise<Index> {
-        console.log(indexId)
         return this.setIgnored(indexId);
     }
 
@@ -368,10 +367,7 @@ export class IndexService {
     public async setIgnored(indexId: string): Promise<Index> {
         const index = await this.findById(indexId);
         if(!index) throw new NotFoundException("Index not found.")
-
         index.status = IndexStatus.IGNORE;
-
-        console.log(index)
         return this.indexRepository.save(index);
     }
 
