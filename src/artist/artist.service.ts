@@ -18,18 +18,20 @@ export class ArtistService {
 
     public async findProfileById(artistId: string, user: User): Promise<Artist> {
         const result = await this.artistRepository.createQueryBuilder("artist")
-            .leftJoin("artist.artwork", "artwork")
-            .leftJoin("artist.banner", "banner")
+            .leftJoinAndSelect("artist.artwork", "artwork")
+            .leftJoinAndSelect("artist.banner", "banner")
             .leftJoin("artist.songs", "song")
             .leftJoin("song.streams", "stream")
 
-            .select(["artist.id", "artist.name", "artist.description", "artwork.id", "artwork.accentColor", "banner.id", "banner.accentColor"])
             .addSelect("SUM(stream.streamCount) as streamCount")
 
             .loadRelationCountAndMap("artist.songCount", "artist.songs")
             .loadRelationCountAndMap("artist.albumCount", "artist.albums")
 
+            .groupBy("artist.id")
             .where("artist.id = :artistId", { artistId })
+            .orWhere("artist.slug = :artistId", { artistId })
+
             .getRawAndEntities();
 
         // TODO: Separate stats and artist info
@@ -39,9 +41,14 @@ export class ArtistService {
             .leftJoin("song.likedBy", "likedBy", "likedBy.userId = :userId", { userId: user.id })
 
             .groupBy("likedBy.userId")
+            .addGroupBy("artist.id")
+
+
             .select(["artist.id", "COUNT(likedBy.id) AS likedCount"])
 
             .where("artist.id = :artistId", { artistId })
+            .orWhere("artist.slug = :artistId", { artistId })
+
             .getRawMany()
         
         if(!result.entities[0]) return null;

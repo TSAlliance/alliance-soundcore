@@ -12,7 +12,12 @@ export class GenreService {
     constructor(private genreRepository: GenreRepository) {}
 
     public async findGenreById(genreId: string): Promise<Genre> {
-        return this.genreRepository.findOne({ where: { id: genreId }})
+        const result = await this.genreRepository.createQueryBuilder("genre")
+            .where("genre.id = :genreId", { genreId })
+            .orWhere("genre.slug = :genreId", { genreId })
+            .getOne();
+
+        return result;
     }
 
     public async findGenreByArtist(artistId: string, pageable: Pageable): Promise<Page<Genre>> {
@@ -23,10 +28,12 @@ export class GenreService {
             .select(["genre.id", "genre.name"])
             .distinct(true)
 
-            .limit(pageable.size)
-            .offset(pageable.page * pageable.size)
+            .limit(pageable.size || 30)
+            .offset((pageable.page || 0) * (pageable.size || 30))
 
             .where("artist.id = :artistId", { artistId })
+            .orWhere("artist.slug = :artistId", { artistId })
+
             .getManyAndCount();
 
         return Page.of(result[0], result[1], pageable.page);

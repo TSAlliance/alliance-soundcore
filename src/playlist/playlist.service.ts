@@ -22,7 +22,13 @@ export class PlaylistService {
     ) {}
 
     public async findById(playlistId: string): Promise<Playlist> {
-        return this.playlistRepository.findOne({ where: { id: playlistId }, relations: ["author"]})
+        const result = await this.playlistRepository.createQueryBuilder("playlist")
+            .leftJoinAndSelect("playlist.author", "author")
+            .where("playlist.id = :playlistId", { playlistId })
+            .orWhere("playlist.slug = :playlistId", { playlistId })
+            .getOne();
+
+        return result;
     }
 
     /**
@@ -235,7 +241,7 @@ export class PlaylistService {
 
             // Check if the songs exist in databse to prevent
             // errors.
-            const song = await this.songService.findById(key);
+            const song = await this.songService.existsById(key);
             if(!song) continue;
 
             const relation = new Song2Playlist()
@@ -357,6 +363,8 @@ export class PlaylistService {
 
             .select(["playlist.id", "playlist.privacy", "author.id", "collaborator.id"])
             .where("playlist.id = :playlistId", { playlistId })
+            .orWhere("playlist.slug = :playlistId", { playlistId })
+
             .getOne()
 
         if(!result) return false;
