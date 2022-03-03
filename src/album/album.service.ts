@@ -62,20 +62,24 @@ export class AlbumService {
     }
 
     public async findRecommendedProfilesByArtist(artistId: string, exceptAlbumIds: string | string[] = []): Promise<Page<Album>> {
+        if(!exceptAlbumIds) exceptAlbumIds = []
         if(!Array.isArray(exceptAlbumIds)) {
             exceptAlbumIds = [ exceptAlbumIds ];
         }
 
-        const result = await this.albumRepository.createQueryBuilder("album")
+        let qb = await this.albumRepository.createQueryBuilder("album")
             .leftJoinAndSelect("album.artwork", "artwork")
             .leftJoinAndSelect("album.banner", "banner")
             .leftJoinAndSelect("album.artist", "artist")
             .where("artist.id = :artistId", { artistId })
-            .andWhere("album.id NOT IN(:except)", { except: exceptAlbumIds })
             .addSelect(["artist.id", "artist.name", "artwork.id", "artwork.accentColor"])
-            .limit(10)
-            .getMany();
+            .limit(10);
 
+        if(exceptAlbumIds && exceptAlbumIds.length > 0) {
+            qb = qb.andWhere("album.id NOT IN(:except)", { except: exceptAlbumIds || [] })
+        }
+
+        const result = await qb.getMany();
         return Page.of(result, 10, 0);
     }
 
