@@ -114,21 +114,18 @@ export class Song {
     // are fetched
     public playlistAdded: Date;
     public streamCount?: number;
-    public likesCount?: number;
-    public isLiked?: boolean;
+    public liked?: boolean;
     public likedAt?: Date;
     public order?: number;
 
     @BeforeInsert()
     public onBeforeInsert() {
-        const title = `${this.title.toLowerCase().replace(/[^a-zA-Z ]/g, "").replace(/\s+/g, "-")}`        
-        this.slug = Slug.create(title);
+        this.slug = Slug.create(this.title);
     }
 
     @BeforeUpdate() 
     public onBeforeUpdate() {
-        const title = `${this.title.toLowerCase().replace(/[^a-zA-Z ]/g, "").replace(/\s+/g, "-")}`        
-        this.slug = Slug.create(title);
+        this.slug = Slug.create(this.title);
     }
 
 }

@@ -60,14 +60,12 @@ export class Playlist {
 
     @BeforeInsert()
     public onBeforeInsert() {
-        const title = `${this.title.toLowerCase().replace(/[^a-zA-Z ]/g, "").replace(/\s+/g, "-")}`        
-        this.slug = Slug.create(title);
+        this.slug = Slug.create(this.title);
     }
 
     @BeforeUpdate() 
     public onBeforeUpdate() {
-        const title = `${this.title.toLowerCase().replace(/[^a-zA-Z ]/g, "").replace(/\s+/g, "-")}`        
-        this.slug = Slug.create(title);
+        this.slug = Slug.create(this.title);
     }
 
 }

@@ -57,14 +57,12 @@ export class Artist {
 
     @BeforeInsert()
     public onBeforeInsert() {
-        const title = `${this.name.toLowerCase().replace(/[^a-zA-Z ]/g, "").replace(/\s+/g, "-")}`
-        this.slug = Slug.create(title);
+        this.slug = Slug.create(this.name);
     }
 
     @BeforeUpdate() 
     public onBeforeUpdate() {
-        const title = `${this.name.toLowerCase().replace(/[^a-zA-Z ]/g, "").replace(/\s+/g, "-")}`        
-        this.slug = Slug.create(title);
+        this.slug = Slug.create(this.name);
     }
 
 }

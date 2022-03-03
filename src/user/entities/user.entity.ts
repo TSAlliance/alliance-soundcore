@@ -35,13 +35,11 @@ export class User extends SSOUser {
 
     @BeforeInsert()
     public onBeforeInsert() {
-        const title = `${this.username.toLowerCase().replace(/[^a-zA-Z ]/g, "").replace(/\s+/g, "-")}`        
-        this.slug = Slug.create(title);
+        this.slug = Slug.create(this.username);
     }
 
     @BeforeUpdate() 
     public onBeforeUpdate() {
-        const title = `${this.username.toLowerCase().replace(/[^a-zA-Z ]/g, "").replace(/\s+/g, "-")}`        
-        this.slug = Slug.create(title);
+        this.slug = Slug.create(this.username);
     }
 }
