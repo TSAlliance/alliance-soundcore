@@ -25,6 +25,8 @@ export class AlbumService {
 
             .addSelect(["artwork.id", "artwork.accentColor", "banner.id", "banner.accentColor", "artist.id", "artist.name"])
             .where("artist.id = :artistId", { artistId })
+            .orWhere("artist.slug = :artistId", { artistId })
+
             .orderBy("albums.released", "DESC")
             .addOrderBy("albums.createdAt", "DESC")
 
@@ -47,8 +49,7 @@ export class AlbumService {
 
             .addSelect(["artwork.id", "artwork.accentColor", "banner.id", "banner.accentColor", "artist.id", "artist.name", "featuredArtist.id", "featuredArtist.name"])
 
-            .where("featuredArtist.id = :artistId", { artistId })
-            .andWhere("artist.id != :artistId", { artistId })
+            .where("artist.id != :artistId AND (featuredArtist.id = :featArtistId OR featuredArtist.slug = :slug)", { artistId, featArtistId: artistId, slug: artistId })
             .orderBy("album.released", "DESC")
             .addOrderBy("album.createdAt", "DESC")
 
@@ -56,7 +57,7 @@ export class AlbumService {
             .offset((pageable?.page || 0) * (pageable?.size || 30))
             .limit(pageable.size || 30)
 
-            .getManyAndCount();
+            .getManyAndCount();        
 
         return Page.of(result[0], result[1], pageable.page);
     }
@@ -71,13 +72,13 @@ export class AlbumService {
             .leftJoinAndSelect("album.artwork", "artwork")
             .leftJoinAndSelect("album.banner", "banner")
             .leftJoinAndSelect("album.artist", "artist")
-            .where("artist.id = :artistId", { artistId })
-            .addSelect(["artist.id", "artist.name", "artwork.id", "artwork.accentColor"])
+            .addSelect(["artist.id", "artist.name"])
             .limit(10);
 
         if(exceptAlbumIds && exceptAlbumIds.length > 0) {
-            qb = qb.andWhere("album.id NOT IN(:except)", { except: exceptAlbumIds || [] })
+            qb = qb.where("album.id NOT IN(:except)", { except: exceptAlbumIds || [] })
         }
+        qb = qb.andWhere("(artist.id = :artistId OR artist.slug = :artistId)", { artistId })
 
         const result = await qb.getMany();
         return Page.of(result, 10, 0);
@@ -96,7 +97,7 @@ export class AlbumService {
             .offset((pageable?.page || 0) * (pageable?.size || 30))
             .limit(pageable.size || 30)
 
-            .where("genre.id = :genreId", { genreId })
+            .where("genre.id = :genreId OR genre.slug = :genreId", { genreId })
             .getMany()
 
         return Page.of(result, result.length, pageable.page);
