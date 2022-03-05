@@ -1,4 +1,4 @@
-import { BadRequestException, forwardRef, Inject, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
 import { FindConditions, In, Not, ObjectLiteral } from 'typeorm';
 import { MountedFile } from '../../bucket/entities/mounted-file.entity';
@@ -11,7 +11,6 @@ import { IndexStatus } from '../enum/index-status.enum';
 import { IndexGateway } from '../gateway/index.gateway';
 import { IndexRepository } from '../repositories/index.repository';
 import { IndexReportService } from '../../index-report/services/index-report.service';
-import { QueueService } from './queue.service';
 import { IndexReport } from '../../index-report/entities/report.entity';
 import { sleep } from '../../utils/sleep';
 import { InjectQueue } from '@nestjs/bull';
@@ -29,7 +28,6 @@ export class IndexService {
         private indexGateway: IndexGateway,
         @InjectQueue("index-queue") public indexQueue: Queue<MountedFile>,
         @Inject(BUCKET_ID) private bucketId: string,
-        @Inject(forwardRef(() => QueueService)) private queueService: QueueService
     ){}
 
     /**
@@ -230,21 +228,6 @@ export class IndexService {
             indices.push(...results)
         }
 
-        // Enqueue indices
-        /*this.indexQueue.addBulk(indices.map((index) => {
-            if(index.report?.index) index.report.index = undefined;
-            return {
-                opts: {
-                    jobId: index.id
-                },
-                data: index
-            }
-        })).then((jobs) => {
-            this.logger.log(`Enqueued ${jobs.length} indices for processing.`)
-        }).catch((error) => {
-            this.logger.error(error)
-        })*/
-
         return indices
     }
 
@@ -272,71 +255,12 @@ export class IndexService {
         const index = await this.findIndex({ id: indexId })
         if(!index) throw new NotFoundException("Index not found");
 
-        return this.indexQueue.add(index);
-    }
-
-    /**
-     * Create index from a file inside a mount.
-     * @param mount Mount
-     * @param filename Filename in that mount
-     * @param uploader User that uploaded the file (optional, only used if this process is triggered by upload)
-     * @returns Index
-     */
-    public async processIndex(index: Index): Promise<Index> {
-        if(!index.report) {
-            index.report = await this.indexReportService.createBlank(index).catch(() => null);
-        }
-
-        if(index.status == IndexStatus.ERRORED || index.status == IndexStatus.ERRORED_PATH) {
-            // this.setStatus(index, index.status);
-            this.indexReportService.appendError(index.report, "Index errored before processing started.")
-            return index;
-        }
-
-        await this.indexReportService.appendInfo(index.report, "Started processing...")
-
-        // Do indexing tasks in background
-        return this.storageService.generateChecksumOfIndex(index).then(async (index) => {
-            // this.setStatus(index, index.status);
-            if(index.status == IndexStatus.ERRORED) {
-                await this.indexReportService.appendError(index.report, `Failed calculating checksum of file.`);
-                return index;
-            }
-
-            // Check for duplicate files and abort if so
-            if(await this.existsByChecksum(index.checksum, index.id)) {
-                // this.setStatus(index, IndexStatus.DUPLICATE);
-                await this.indexReportService.appendError(index.report, `Found two files with same checksum. It seems like the file already exists.`);
-                return index;
-            }
-
-
-            // Continue with next step: Create optimized mp3 files
-            this.storageService.createOptimizedMp3File(index).then(async (index) => {
-                // index = await this.setStatus(index, index.status)
-                if(index.status == IndexStatus.ERRORED){
-
-                    return;
-                }
-
-                // Continue with next step: Create song metadata from index
-                this.songService.createFromIndex(index).then(async (song) => {
-                    // index = await this.setStatus(song.index, song.index.status)
-
-                    // Done at this point. The createFromIndex() in song service handles all required
-                    // steps to gather information like artists, album and cover artwork
-                    return index;
-                }).catch((reason) => {
-                    // this.setError(index, reason);
-                    return index;
-                });
-            }).catch((reason: Error) => {
-                // this.setError(index, reason);
-                return index;
+        index.status = IndexStatus.PREPARING;
+        return this.indexRepository.save(index).then((index) => {
+            const file = new MountedFile(index.directory, index.filename, index.mount);
+            return this.indexQueue.add(file, { jobId: file.bullJobId }).then(() => {
+                return true;
             })
-        }).catch((error: Error) => {
-            // this.setError(index, error);
-            return index;
         })
     }
 
@@ -378,8 +302,7 @@ export class IndexService {
      * @returns Index
      */
     public async updateIndex(index: Index): Promise<Index> {
-        // index.status = status;
-        this.indexGateway.sendUpdateToUploader(index)
+        this.indexGateway.broadcastUpdate(index)
         return this.indexRepository.save(index);
     }
 

@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
 import { DeleteResult, In, Not } from 'typeorm';
+import { IndexStatus } from '../index/enum/index-status.enum';
 import { Song } from '../song/entities/song.entity';
 import { SongService } from '../song/song.service';
 import { User } from '../user/entities/user.entity';
@@ -44,11 +45,12 @@ export class PlaylistService {
         }
 
         const result = await this.playlistRepository.createQueryBuilder("playlist")
-                .where("playlist.id = :playlistId", { playlistId })
 
                 // This is for relations
                 .leftJoin("playlist.song2playlist", "song2playlist")
                 .leftJoin("song2playlist.song", "song")
+                .leftJoin("song.index", "index")
+
 
                 .leftJoinAndSelect("playlist.artwork", "artwork")
                 .leftJoinAndSelect("playlist.author", "author")
@@ -58,9 +60,12 @@ export class PlaylistService {
 
                 // Counting the songs
                 .addSelect('COUNT(song2playlist.songId)', 'songsCount')
-
+                
                 // SUM up the duration of every song to get total duration of the playlist
                 .addSelect('SUM(song.duration)', 'totalDuration')
+
+                .groupBy("playlist.id")
+                .where("index.status = :status AND (playlist.id = :playlistId OR playlist.slug = :playlistId)", { status: IndexStatus.OK, playlistId })
                 .getRawAndEntities()
 
         const playlist = result.entities[0];
@@ -154,23 +159,12 @@ export class PlaylistService {
             .offset(pageable.page * pageable.size)
             .limit(pageable.size)
 
-            .where("genre.id = :genreId", { genreId })
+            .where("genre.id = :genreId OR genre.slug = :genreId", { genreId })
             .getMany()
 
             // TODO: Check if user has access to playlist
 
         return Page.of(result, result.length, pageable.page);
-    }
-
-    public async findSongsInPlaylist(playlistId: string, requester: User, pageable: Pageable): Promise<Page<Song>> {
-        const playlist = await this.playlistRepository.findOne({ where: { id: playlistId }});
-        if(!playlist) throw new NotFoundException("Playlist not found.")
-
-        if(!await this.hasUserAccessToPlaylist(playlist.id, requester)) {
-            throw new NotFoundException("No access")
-        }
-
-        return this.songService.findByPlaylist(playlistId, requester, pageable);
     }
 
     public async existsByTitleInUser(title: string, userId: string, playlistId?: string): Promise<boolean> {

@@ -15,8 +15,6 @@ import { BUCKET_ID, MOUNT_ID } from "../../shared/shared.module";
 import { MountStatus } from '../enums/mount-status.enum';
 import { User } from '../../user/entities/user.entity';
 import { MountGateway } from '../gateway/mount-status.gateway';
-import { OnEvent } from '@nestjs/event-emitter';
-import { MOUNT_INDEX_END, MOUNT_INDEX_START } from '../../index/services/queue.service';
 import { MountedFile } from '../entities/mounted-file.entity';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
@@ -240,18 +238,6 @@ export class MountService {
         this.mountRepository.save(mount);
         this.gateway.sendUpdate(mount);
         return mount;
-    }
-
-    @OnEvent(MOUNT_INDEX_START)
-    public async onMountIndexStart(mount: Mount) {
-        if(mount.status == MountStatus.INDEXING) return
-        this.setStatus(mount, MountStatus.INDEXING)
-    }
-
-    @OnEvent(MOUNT_INDEX_END)
-    public async onMountIndexEnd(mount: Mount) {
-        if(mount.status == MountStatus.OK) return
-        this.setStatus(mount, MountStatus.OK)
     }
 
 }

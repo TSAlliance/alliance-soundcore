@@ -34,12 +34,6 @@ export class PlaylistController {
     return this.playlistService.removeSongs(playlistId, songIds, requester)
   }
 
-  @Get(":playlistId/songs") 
-  @IsAuthenticated()
-  public async findSongInPlaylist(@Param("playlistId") playlistId: string, @Authentication() requester: User, @Pageable() pageable: Pageable) {
-    return this.playlistService.findSongsInPlaylist(playlistId, requester, pageable)
-  }
-
   @Put(":playlistId/collaborators/add") 
   @IsAuthenticated()
   public async addCollaborators(@Param("playlistId") playlistId: string, @Body() collaboratorIds: string[], @Authentication() requester: User) {
@@ -82,13 +76,7 @@ export class PlaylistController {
     return this.playlistService.update(playlistId, updatePlaylistDto, requester);
   }
 
-  @Get("/song-list/byPlaylist/:playlistId") 
-  @IsAuthenticated()
-  public async findSongListOfPlaylist(@Param("playlistId") playlistId: string, @Authentication() requester: User, @Pageable() pageable: Pageable) {
-    return this.playlistService.findSongsInPlaylist(playlistId, requester, pageable)
-  }
-
-  @Get("/song-list/byArtist/:artistId") 
+  /*@Get("/song-list/byArtist/:artistId") 
   @IsAuthenticated()
   public async findSongListOfArtist(@Param("artistId") artistId: string, @Authentication() requester: User) {
     // TODO:
@@ -116,7 +104,7 @@ export class PlaylistController {
   @IsAuthenticated()
   public async findSongListOfAlbum(@Param("albumId") albumId: string,@Authentication() user: User) {
     // TODO:
-  }
+  }*/
 
   
 }

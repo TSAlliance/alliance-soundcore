@@ -80,7 +80,7 @@ export class MountConsumer {
         }
 
         return this.indexService.indexQueue.addBulk(notIndexedFiles.map((file) => {
-            return { data: file, opts: { jobId: file.mount.id+file.fullPath } }
+            return { data: file, opts: { jobId: file.bullJobId } }
         })).then(() => {
             return { totalFiles: files.length, totalTime: Date.now() - start, notIndexedFiles: notIndexedFiles.length };
         })

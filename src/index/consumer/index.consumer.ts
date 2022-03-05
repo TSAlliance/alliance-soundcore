@@ -50,11 +50,12 @@ export class IndexConsumer {
             return result;
         }
 
-        this.logger.verbose(`Indexing file '${job.data.filename}'.`);
-        const cooldownMs = 3000;
-
         return new Promise((resolve, reject) => {
             setTimeout(() => {
+                // Update index, this also causes to send an update event to the socket
+                this.indexService.updateIndex(index);
+                this.logger.verbose(`Indexing file '${job.data.filename}'.`);
+
                 // Generate checksum
                 this.storageService.generateChecksumOfIndex(index).then(() => {
 
@@ -100,7 +101,7 @@ export class IndexConsumer {
                     this.setError(index, error, "Error occured while generating checksum");
                     reject(error);
                 })
-            }, cooldownMs)
+            }, 2000)
         })
     }
 
@@ -119,13 +120,13 @@ export class IndexConsumer {
     }
 
     @OnQueueFailed()
-    public onFailed(job: Job<Index>, error: Error) {
+    public onFailed(job: Job<MountedFile>, error: Error) {
         console.error(error);
     }
 
     @OnQueueCompleted()
-    public onComplete(job: Job<Index>, result: IndexResult) {
-        this.indexReportService.appendInfo(result.index.report, `Finished indexing in ${result.time || 0}ms. Index status: ${result.index.status.toString().toUpperCase()}`)
+    public onComplete(job: Job<MountedFile>, result: IndexResult) {
+        this.indexReportService.appendInfo(result.index.report, `Finished indexing file '${job.data.filename}' in ${result.time || 0}ms. Index status: ${result.index.status.toString().toUpperCase()}`)
         this.indexService.updateIndex(result.index);
     }
 }

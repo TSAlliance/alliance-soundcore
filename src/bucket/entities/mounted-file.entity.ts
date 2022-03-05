@@ -15,4 +15,8 @@ export class MountedFile {
     public get fullPath(): string | null {
         return path.join(this.directory || ".", this.filename);
     }
+
+    public get bullJobId(): string {
+        return this.mount.id+this.directory+this.filename
+    }
 }

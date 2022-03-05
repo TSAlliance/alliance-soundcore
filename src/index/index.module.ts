@@ -7,7 +7,6 @@ import { StorageModule } from '../storage/storage.module';
 import { SongModule } from '../song/song.module';
 import { SharedModule } from '../shared/shared.module';
 import { IndexGateway } from './gateway/index.gateway';
-import { QueueService } from './services/queue.service';
 import { IndexReportModule } from '../index-report/index-report.module';
 import { IndexConsumer } from './consumer/index.consumer';
 import { BullModule } from '@nestjs/bull';
@@ -19,7 +18,6 @@ import { BullModule } from '@nestjs/bull';
   providers: [
     IndexService, 
     IndexGateway, 
-    QueueService,
     IndexConsumer
   ],
   imports: [
