@@ -383,34 +383,71 @@ export class SongService {
      * @returns Page<Song>
      */
     public async findByPlaylist(playlistId: string, user?: User, pageable?: Pageable): Promise<Page<Song>> {
+        /*console.log("offset: ", (pageable?.size || 50) * (pageable?.page || 0))
+        console.log("limit: ", (pageable?.size || 50))
+
+        pageable.size = 2;
+
+        // TODO: Check if user has access to playlist
         const qb = this.songRepository.createQueryBuilder("song")
+            .leftJoin("song.artwork", "artwork")
+            .leftJoinAndSelect("song.genres", "genre")
+            // .leftJoin("song.artists", "artist")
+            .leftJoin("song.albums", "album")
+            .leftJoin("song.index", "index")
             .leftJoin("song.song2playlist", "song2playlist")
             .leftJoin("song2playlist.playlist", "playlist")
-            .leftJoin("song.index", "index")
-            .leftJoinAndSelect("song.artwork", "artwork")
-            .leftJoinAndSelect("song.artists", "artist")
-            .leftJoinAndSelect("song.albums", "albums")
 
             // Count how many likes. This takes user's id in count
             .loadRelationCountAndMap("song.liked", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
 
-            .where("index.status = :status", { status: IndexStatus.OK })
-            .andWhere("playlist.id = :playlistId", { playlistId })
-            .addSelect(["artist.id", "artist.name", "albums.id", "albums.title", "index.id"])
+            // .addSelect(["album.id", "album.title", "album.slug", "index.id", "artist.id", "artist.slug", "artist.name"])
             .addSelect("song2playlist.createdAt", "song2playlist")
 
-            .skip((pageable?.page || 0) * (pageable?.size || 50))
-            .take(pageable.size || 50)
+            .where("index.status = :status AND (playlist.id = :playlistId OR playlist.slug = :playlistId)", { status: IndexStatus.OK, playlistId })
+            .orderBy("song2playlist.createdAt", "DESC")
+
+            .offset((pageable?.size || 50) * (pageable?.page || 0))
+            .limit((pageable?.size || 50))
+            // .distinct(true)
+
+        // console.log(pageable)
+
+        console.log(qb.getSql())
 
         const result = await qb.getRawAndEntities();
         const totalElements = await qb.getCount();
-
+    
         const elements = result.entities.map((song, index) => {
+            console.log(song.title)
             song.song2playlist = result.raw[index].song2playlist
             return song;
         });
+    
+        return Page.of(elements, totalElements, pageable?.page);*/
+        
+        return null;
+    }
 
-        return Page.of(elements, totalElements, pageable?.page);
+    /**
+     * Find all songs that are contained in specific playlist.
+     * @param playlistId Playlist's id
+     * @returns Page<Song>
+     */
+     public async findIdsByPlaylist(playlistId: string, user?: User): Promise<Page<Song>> {
+        // TODO: Check if user has access to playlist
+        const qb = this.songRepository.createQueryBuilder("song")
+            .leftJoin("song.song2playlist", "song2playlist")
+            .leftJoin("song2playlist.playlist", "playlist")
+            .leftJoin("song.index", "index")
+
+            .orderBy("song2playlist.createdAt", "DESC")
+
+            .where("index.status = :status AND (playlist.id = :playlistId OR playlist.slug = :playlistId)", { status: IndexStatus.OK, playlistId })
+            .select(["song.id"])
+
+        const result = await qb.getManyAndCount();
+        return Page.of(result[0], result[1], 0);
     }
 
     /**
@@ -430,14 +467,6 @@ export class SongService {
                 }
             }
         })
-    }
-
-    public async findByTitleAndAlbum(title: string, albums: string[]): Promise<Song> {
-        return this.songRepository.createQueryBuilder("song")
-            .leftJoin("song.albums", "albums")
-            .where("albums.title IN(:titles)", { titles: albums })
-            .andWhere("song.title = :title", { title })
-            .getOne()
     }
 
     /**
@@ -562,21 +591,18 @@ export class SongService {
             }
 
             // TODO: Make this sync
-            /*await this.geniusService.findAndApplySongInfo(song).then(() => {
+            await this.geniusService.findAndApplySongInfo(song).then(() => {
                 song.hasGeniusLookupFailed = false;
             }).catch((error: Error) => {
                 song.hasGeniusLookupFailed = true;
                 this.indexReportService.appendError(index.report, `Something went wrong on Genius.com lookup: ${error.message}`);
-            })*/
+            })
 
             // Save relations to database
             await this.songRepository.save(song).catch((reason) => {
                 this.logger.error(`Could not save relations in database for song ${filepath}: `, reason);
                 this.indexReportService.appendError(index.report, `Could not save relations in database: ${reason.message}`)
             });
-
-            // Set status to OK, as this is the last step of the indexing process
-            index.status = IndexStatus.OK;
         } catch (error) {
             await this.songRepository.delete({ id: song.id });
             throw error;

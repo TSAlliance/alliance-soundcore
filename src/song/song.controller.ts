@@ -69,6 +69,18 @@ export class SongController {
     return this.songService.findByAlbum(albumId, pageable, user)
   }
 
+  @Get("/byPlaylist/:playlistId")
+  @IsAuthenticated()
+  public async findPageByPlaylist(@Param("playlistId") playlistId: string, @Authentication() user: User, @Pageable() pageable: Pageable): Promise<Page<Song>> {
+    return this.songService.findByPlaylist(playlistId, user, pageable)
+  }
+
+  @Get("/byPlaylist/:playlistId/ids")
+  @IsAuthenticated()
+  public async findIdsByPlaylist(@Param("playlistId") playlistId: string, @Authentication() user: User): Promise<Page<Song>> {
+    return this.songService.findIdsByPlaylist(playlistId, user)
+  }
+
   @Get(":songId")
   @IsAuthenticated()
   public async findById(@Param("songId") songId: string, @Authentication() user: User): Promise<Song> {
