@@ -87,7 +87,7 @@ export class SongService {
 
             // Pagination
             .skip(0)
-            .limit(MAX_ELEMENTS)
+            .take(MAX_ELEMENTS)
 
             // Order by release
             .orderBy("song.released", "ASC")
@@ -206,7 +206,7 @@ export class SongService {
         const qb = await this.songRepository.createQueryBuilder('song')
             // Join for relations
             .leftJoin("song.artists", "artist")
-            .leftJoin("song.artwork", "artwork")
+            .leftJoinAndSelect("song.artwork", "artwork")
             .leftJoin("song.albums", "album")
             .leftJoin("song.index", "index")
             .leftJoin("song.artists", "featArtist")
@@ -218,7 +218,7 @@ export class SongService {
             .loadRelationCountAndMap("song.liked", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
 
             // Sum up streams and order by highest
-            .select(["song.id", "song.title", "song.duration", "featArtist.id", "featArtist.name", "artwork.id", "artwork.accentColor", "album.id", "album.title", "index.id"])
+            .addSelect(["featArtist.id", "featArtist.name", "album.id", "album.title", "index.id"])
             .addSelect('SUM(streams.streamCount)', 'streamCount')
             .groupBy('song.id')
             .addGroupBy("album.id")
@@ -229,8 +229,8 @@ export class SongService {
             .addOrderBy("song.createdAt", "DESC")
 
             // Pagination
-            .offset((pageable?.page || 0) * (pageable?.size || 30))
-            .limit(pageable.size || 30)
+            .skip((pageable?.page || 0) * (pageable?.size || 30))
+            .take(pageable.size || 30)
 
             .where("index.status = :status", { status: IndexStatus.OK })
             .andWhere("artist.id = :artistId", { artistId })
@@ -267,8 +267,8 @@ export class SongService {
             .loadRelationCountAndMap("song.liked", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
 
             // Pagination
-            .offset((pageable?.page || 0) * (pageable?.size || 30))
-            .limit(pageable.size || 30)
+            .skip((pageable?.page || 0) * (pageable?.size || 30))
+            .take(pageable.size || 30)
 
             .addSelect(["artist.id", "artist.name", "album.id", "album.title", "index.id"])
             .where("index.status = :status", { status: IndexStatus.OK })
@@ -308,8 +308,8 @@ export class SongService {
             .addGroupBy("orders.id")
 
             // Pagination
-            .offset((pageable?.page || 0) * (pageable?.size || 10))
-            .limit(pageable?.size || 10)
+            .skip((pageable?.page || 0) * (pageable?.size || 10))
+            .take(pageable?.size || 10)
 
             .where("index.status = :status AND (album.id = :albumId OR album.slug = :albumId)", { status: IndexStatus.OK, albumId })
 
@@ -347,8 +347,8 @@ export class SongService {
             .where("index.status = :status", { status: IndexStatus.OK })
             .andWhere("likedBy.userId = :userId", { userId: user.id })
 
-            .offset(pageable.page * pageable.size)
-            .limit(pageable.size)
+            .skip(pageable.page * pageable.size)
+            .take(pageable.size)
             .orderBy("likedBy.likedAt", "DESC")
         
         // Take artistId into account if it exists
@@ -383,16 +383,10 @@ export class SongService {
      * @returns Page<Song>
      */
     public async findByPlaylist(playlistId: string, user?: User, pageable?: Pageable): Promise<Page<Song>> {
-        /*console.log("offset: ", (pageable?.size || 50) * (pageable?.page || 0))
-        console.log("limit: ", (pageable?.size || 50))
-
-        pageable.size = 2;
-
         // TODO: Check if user has access to playlist
         const qb = this.songRepository.createQueryBuilder("song")
             .leftJoin("song.artwork", "artwork")
-            .leftJoinAndSelect("song.genres", "genre")
-            // .leftJoin("song.artists", "artist")
+            .leftJoin("song.artists", "artist")
             .leftJoin("song.albums", "album")
             .leftJoin("song.index", "index")
             .leftJoin("song.song2playlist", "song2playlist")
@@ -401,32 +395,26 @@ export class SongService {
             // Count how many likes. This takes user's id in count
             .loadRelationCountAndMap("song.liked", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
 
-            // .addSelect(["album.id", "album.title", "album.slug", "index.id", "artist.id", "artist.slug", "artist.name"])
-            .addSelect("song2playlist.createdAt", "song2playlist")
+            .addSelect(["album.id", "album.title", "album.slug", "index.id", "artist.id", "artist.slug", "artist.name"])
+            .addSelect(["song2playlist.createdAt"])
 
             .where("index.status = :status AND (playlist.id = :playlistId OR playlist.slug = :playlistId)", { status: IndexStatus.OK, playlistId })
             .orderBy("song2playlist.createdAt", "DESC")
 
-            .offset((pageable?.size || 50) * (pageable?.page || 0))
-            .limit((pageable?.size || 50))
-            // .distinct(true)
-
-        // console.log(pageable)
-
-        console.log(qb.getSql())
+            // This will fetch everything from db and reduces at BE-level
+            // Very unoptimized. Should rework pagination (use last entity's id)
+            .skip((pageable?.size || 50) * (pageable?.page || 0))
+            .take((pageable?.size || 50))
 
         const result = await qb.getRawAndEntities();
         const totalElements = await qb.getCount();
     
         const elements = result.entities.map((song, index) => {
-            console.log(song.title)
             song.song2playlist = result.raw[index].song2playlist
             return song;
         });
     
-        return Page.of(elements, totalElements, pageable?.page);*/
-        
-        return null;
+        return Page.of(elements, totalElements, pageable?.page);
     }
 
     /**
