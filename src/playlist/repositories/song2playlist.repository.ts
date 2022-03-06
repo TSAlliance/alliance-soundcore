@@ -1,6 +1,6 @@
 import { PageableRepository } from "nestjs-pager";
 import { EntityRepository } from "typeorm";
-import { Song2Playlist } from "../entities/song2playlist.entity";
+import { PlaylistItem } from "../entities/playlist-item.entity";
 
-@EntityRepository(Song2Playlist)
-export class Song2PlaylistRepository extends PageableRepository<Song2Playlist> {}
+@EntityRepository(PlaylistItem)
+export class Song2PlaylistRepository extends PageableRepository<PlaylistItem> {}

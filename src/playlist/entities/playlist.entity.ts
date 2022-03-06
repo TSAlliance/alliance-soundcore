@@ -1,4 +1,3 @@
-import { RandomUtil } from "@tsalliance/rest";
 import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, Index, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Liked } from "../../collection/entities/like.entity";
@@ -6,7 +5,7 @@ import { LikedPlaylist } from "../../collection/entities/liked-playlist.entity";
 import { User } from "../../user/entities/user.entity";
 import { Slug } from "../../utils/slugGenerator";
 import { PlaylistPrivacy } from "../enums/playlist-privacy.enum";
-import { Song2Playlist } from "./song2playlist.entity";
+import { PlaylistItem } from "./playlist-item.entity";
 
 @Entity()
 export class Playlist {
@@ -41,8 +40,8 @@ export class Playlist {
     @JoinColumn()
     public author: User;
 
-    @OneToMany(() => Song2Playlist, song2playlist => song2playlist.playlist)
-    public song2playlist!: Song2Playlist[];
+    @OneToMany(() => PlaylistItem, pi => pi.playlist)
+    public items: PlaylistItem[];
 
     @OneToOne(() => Artwork, { onDelete: "SET NULL", nullable: true })
     @JoinColumn()

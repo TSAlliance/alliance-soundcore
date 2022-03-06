@@ -3,7 +3,7 @@ import { Song } from "../../song/entities/song.entity";
 import { Playlist } from "./playlist.entity";
 
 @Entity({ name: "song2playlist" })
-export class Song2Playlist {
+export class PlaylistItem {
 
     @PrimaryGeneratedColumn({ unsigned: true, type: "bigint" })
     public id!: number;
@@ -17,10 +17,13 @@ export class Song2Playlist {
     @CreateDateColumn()
     public createdAt: Date;
 
-    @ManyToOne(() => Song, s => s.song2playlist, { onDelete: "CASCADE" })
+    @Column({ nullable: true, default: 0 })
+    public order: number;
+
+    @ManyToOne(() => Song, s => s.playlists, { onDelete: "CASCADE" })
     public song!: Song;
 
-    @ManyToOne(() => Playlist, p => p.song2playlist, { onDelete: "CASCADE" })
+    @ManyToOne(() => Playlist, p => p.items, { onDelete: "CASCADE" })
     public playlist!: Playlist;
 
 }

@@ -2,13 +2,12 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { Page, Pageable } from 'nestjs-pager';
 import { DeleteResult, In, Not } from 'typeorm';
 import { IndexStatus } from '../index/enum/index-status.enum';
-import { Song } from '../song/entities/song.entity';
 import { SongService } from '../song/song.service';
 import { User } from '../user/entities/user.entity';
 import { CreatePlaylistDTO } from './dtos/create-playlist.dto';
 import { UpdatePlaylistDTO } from './dtos/update-playlist.dto';
+import { PlaylistItem } from './entities/playlist-item.entity';
 import { Playlist } from './entities/playlist.entity';
-import { Song2Playlist } from './entities/song2playlist.entity';
 import { PlaylistPrivacy } from './enums/playlist-privacy.enum';
 import { PlaylistRepository } from './repositories/playlist.repository';
 import { Song2PlaylistRepository } from './repositories/song2playlist.repository';
@@ -47,8 +46,8 @@ export class PlaylistService {
         const result = await this.playlistRepository.createQueryBuilder("playlist")
 
                 // This is for relations
-                .leftJoin("playlist.song2playlist", "song2playlist")
-                .leftJoin("song2playlist.song", "song")
+                .leftJoin("playlist.items", "item")
+                .leftJoin("item.song", "song")
                 .leftJoin("song.index", "index")
 
 
@@ -59,7 +58,7 @@ export class PlaylistService {
                 .loadRelationCountAndMap("playlist.likesCount", "playlist.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: requester?.id }))
 
                 // Counting the songs
-                .addSelect('COUNT(song2playlist.songId)', 'songsCount')
+                .addSelect('COUNT(item.songId)', 'songsCount')
                 
                 // SUM up the duration of every song to get total duration of the playlist
                 .addSelect('SUM(song.duration)', 'totalDuration')
@@ -82,7 +81,7 @@ export class PlaylistService {
     }
 
     public async findPlaylistByIdWithSongs(playlistId: string): Promise<Playlist> {
-        return this.playlistRepository.findOne({ where: { id: playlistId }, relations: ["song2playlist", "author"]})
+        return this.playlistRepository.findOne({ where: { id: playlistId }, relations: ["items", "items.song", "author"]})
     }
 
     public async findPlaylistByIdWithCollaborators(playlistId: string): Promise<Playlist> {
@@ -90,7 +89,7 @@ export class PlaylistService {
     }
 
     public async findPlaylistByIdWithRelations(playlistId: string): Promise<Playlist> {
-        return this.playlistRepository.findOne({ where: { id: playlistId }, relations: ["artwork", "author", "collaborators", "song2playlist"]})
+        return this.playlistRepository.findOne({ where: { id: playlistId }, relations: ["artwork", "author", "collaborators", "items", "items.song"]})
     }
 
     public async findByAuthor(authorId: string, pageable: Pageable, requester?: User): Promise<Page<Playlist>> {
@@ -150,8 +149,8 @@ export class PlaylistService {
         const result = await this.playlistRepository.createQueryBuilder("playlist")
             .leftJoin("playlist.author", "author")
             .leftJoin("playlist.artwork", "artwork")
-            .leftJoin("playlist.song2playlist", "song2playlist")
-            .leftJoin("song2playlist.song", "song")
+            .leftJoin("playlist.items", "item")
+            .leftJoin("item.song", "song")
             .leftJoin("song.genres", "genre")
 
             .select(["playlist.id", "playlist.title", "artwork.id", "artwork.accentColor", "author.id", "author.username"])
@@ -215,11 +214,9 @@ export class PlaylistService {
             throw new NotFoundException("Playlist not found.")
         }
 
-        // TODO: Rework song2playlist to support duplicates
-
         const playlist: Playlist = await this.findPlaylistByIdWithSongs(playlistId);
         if(!playlist) throw new NotFoundException("Playlist does not exist.");    
-        if(!playlist.song2playlist) playlist.song2playlist = [];
+        if(!playlist.items) playlist.items = [];
 
         // Check if user can edit the playlist
         if(!await this.canEditSongs(playlist, requester)) {
@@ -229,7 +226,7 @@ export class PlaylistService {
         let hadDuplicates = false;
         for(const key of songIds) {
             // TODO: Optimize, as this would perform bad on large playlists (Remember this solution would be O(n2))
-            if(!!playlist.song2playlist.find((v) => v.songId == key)) {
+            if(!!playlist.items.find((v) => v.songId == key)) {
                 // A song would be duplicate
                 hadDuplicates = true;
                 continue;
@@ -240,14 +237,14 @@ export class PlaylistService {
             const song = await this.songService.existsById(key);
             if(!song) continue;
 
-            const relation = new Song2Playlist()
+            const relation = new PlaylistItem()
             relation.song = song;
             relation.playlist = playlist;
 
             await this.song2playlistRepository.save(relation).then((song2playlist) => {
                 // Was added
                 if(playlist.artwork?.autoGenerated) {
-                    if(playlist.song2playlist) {
+                    if(playlist.items) {
                         console.log("update artwork")
                     }
                 }
@@ -283,7 +280,7 @@ export class PlaylistService {
             throw new ForbiddenException("Not allowed to remove songs from that playlist.")
         }
 
-        if(!playlist.song2playlist) playlist.song2playlist = [];
+        if(!playlist.items) playlist.items = [];
         return this.song2playlistRepository.delete({ songId: In(songIds), playlistId }).then(() => {
             return;
         }).catch(() => {

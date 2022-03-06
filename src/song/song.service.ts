@@ -385,36 +385,29 @@ export class SongService {
     public async findByPlaylist(playlistId: string, user?: User, pageable?: Pageable): Promise<Page<Song>> {
         // TODO: Check if user has access to playlist
         const qb = this.songRepository.createQueryBuilder("song")
-            .leftJoin("song.artwork", "artwork")
+            .leftJoinAndSelect("song.artwork", "artwork")
             .leftJoin("song.artists", "artist")
             .leftJoin("song.albums", "album")
             .leftJoin("song.index", "index")
-            .leftJoin("song.song2playlist", "song2playlist")
-            .leftJoin("song2playlist.playlist", "playlist")
+            .leftJoin("song.playlists", "item")
+            .leftJoin("item.playlist", "playlist")
 
             // Count how many likes. This takes user's id in count
             .loadRelationCountAndMap("song.liked", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
 
-            .addSelect(["album.id", "album.title", "album.slug", "index.id", "artist.id", "artist.slug", "artist.name"])
-            .addSelect(["song2playlist.createdAt"])
+            .addSelect(["album.id", "album.title", "album.slug", "index.id", "artist.id", "artist.slug", "artist.name", "item.createdAt", "item.order"])
 
             .where("index.status = :status AND (playlist.id = :playlistId OR playlist.slug = :playlistId)", { status: IndexStatus.OK, playlistId })
-            .orderBy("song2playlist.createdAt", "DESC")
+            .orderBy("item.order", "ASC")
+            .addOrderBy("item.createdAt", "DESC")
 
             // This will fetch everything from db and reduces at BE-level
             // Very unoptimized. Should rework pagination (use last entity's id)
             .skip((pageable?.size || 50) * (pageable?.page || 0))
             .take((pageable?.size || 50))
 
-        const result = await qb.getRawAndEntities();
-        const totalElements = await qb.getCount();
-    
-        const elements = result.entities.map((song, index) => {
-            song.song2playlist = result.raw[index].song2playlist
-            return song;
-        });
-    
-        return Page.of(elements, totalElements, pageable?.page);
+        const result = await qb.getManyAndCount();  
+        return Page.of(result[0], result[1], pageable?.page);
     }
 
     /**
@@ -425,11 +418,11 @@ export class SongService {
      public async findIdsByPlaylist(playlistId: string, user?: User): Promise<Page<Song>> {
         // TODO: Check if user has access to playlist
         const qb = this.songRepository.createQueryBuilder("song")
-            .leftJoin("song.song2playlist", "song2playlist")
-            .leftJoin("song2playlist.playlist", "playlist")
+            .leftJoin("song.playlists", "playlistItem")
+            .leftJoin("playlistItem.playlist", "playlist")
             .leftJoin("song.index", "index")
 
-            .orderBy("song2playlist.createdAt", "DESC")
+            .orderBy("playlistItem.createdAt", "DESC")
 
             .where("index.status = :status AND (playlist.id = :playlistId OR playlist.slug = :playlistId)", { status: IndexStatus.OK, playlistId })
             .select(["song.id"])

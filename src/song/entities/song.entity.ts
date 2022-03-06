@@ -9,7 +9,7 @@ import { Index } from "../../index/entities/index.entity";
 import { Label } from "../../label/entities/label.entity";
 import { Liked } from "../../collection/entities/like.entity";
 import { LikedSong } from "../../collection/entities/liked-song.entity";
-import { Song2Playlist } from "../../playlist/entities/song2playlist.entity";
+import { PlaylistItem } from "../../playlist/entities/playlist-item.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
 import { Stream } from "../../stream/entities/stream.entity";
 import { SongAlbumOrder } from "./song-order.entity";
@@ -101,8 +101,8 @@ export class Song {
     @JoinTable({ name: "song2genre" })
     public genres: Genre[];
 
-    @OneToMany(() => Song2Playlist, song2playlist => song2playlist.song)
-    public song2playlist: Song2Playlist[];
+    @OneToMany(() => PlaylistItem, pi => pi.song)
+    public playlists: PlaylistItem[];
 
     @OneToMany(() => Stream, stream => stream.song)
     public streams: Stream[];
