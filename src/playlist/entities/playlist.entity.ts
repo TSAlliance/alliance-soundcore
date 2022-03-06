@@ -55,7 +55,7 @@ export class Playlist {
     public collaboratorsCount?: number = undefined;
     public totalDuration?: number = undefined;
     public likesCount?: number = undefined;
-    public isLiked?: boolean = false;
+    public liked?: boolean = false;
 
     @BeforeInsert()
     public onBeforeInsert() {

@@ -55,7 +55,7 @@ export class PlaylistService {
                 .leftJoinAndSelect("playlist.author", "author")
 
                 // Count how many likes. This takes user's id in count
-                .loadRelationCountAndMap("playlist.likesCount", "playlist.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: requester?.id }))
+                .loadRelationCountAndMap("playlist.liked", "playlist.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: requester?.id }))
 
                 // Counting the songs
                 .addSelect('COUNT(item.songId)', 'songsCount')
@@ -71,7 +71,6 @@ export class PlaylistService {
         if(!playlist) throw new NotFoundException("Playlist not found.")
         playlist.totalDuration = parseInt(result.raw[0].totalDuration);
         playlist.songsCount = parseInt(result.raw[0].songsCount)
-        playlist.isLiked = playlist?.likesCount > 0;
 
         return playlist
     }
@@ -104,17 +103,14 @@ export class PlaylistService {
             .offset((pageable?.size || 30) * (pageable?.page || 0))
 
             // Count how many likes. This takes user's id in count
-            .loadRelationCountAndMap("playlist.likesCount", "playlist.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: requester?.id }))
+            .loadRelationCountAndMap("playlist.liked", "playlist.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: requester?.id }))
 
             .select(["playlist.id", "playlist.title", "playlist.collaborative", "playlist.privacy", "author.id", "author.username", "author.avatarResourceId", "artwork.id", "artwork.accentColor"])
             .where("author.id = :authorId", { authorId: authorId })
             .orWhere("collaborator.id = :userId", { userId: requester.id })
             .getManyAndCount();
 
-        return Page.of(result[0].map((p) => {
-            p.isLiked = p.likesCount > 0;
-            return p
-        }), result[1], pageable.page);
+        return Page.of(result[0], result[1], pageable.page);
     }
 
     public async findByUser(pageable: Pageable, requester: User): Promise<Page<Playlist>> {
@@ -126,7 +122,7 @@ export class PlaylistService {
             .leftJoin("likedBy.user", "likedByUser")
 
             // Count how many likes. This takes user's id in count
-            .loadRelationCountAndMap("playlist.likesCount", "playlist.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: requester?.id }))
+            .loadRelationCountAndMap("playlist.liked", "playlist.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: requester?.id }))
 
             // Pagination
             .limit(pageable?.size || 30)
@@ -139,10 +135,7 @@ export class PlaylistService {
             .andWhere("playlist.privacy != :privacy", { privacy: PlaylistPrivacy.PRIVATE })
             .getManyAndCount();
 
-        return Page.of(result[0].map((p) => {
-            p.isLiked = p.likesCount > 0;
-            return p
-        }), result[1], pageable.page);
+        return Page.of(result[0], result[1], pageable.page);
     }
 
     public async findByGenre(genreId: string, pageable: Pageable, requester: User): Promise<Page<Playlist>> {
