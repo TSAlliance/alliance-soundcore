@@ -6,7 +6,7 @@ import { BUCKET_ID } from '../../shared/shared.module';
 import { SongService } from '../../song/song.service';
 import { StorageService } from '../../storage/storage.service';
 import { User } from '../../user/entities/user.entity';
-import { Index } from '../entities/index.entity';
+import { Index, IndexRawPath } from '../entities/index.entity';
 import { IndexStatus } from '../enum/index-status.enum';
 import { IndexGateway } from '../gateway/index.gateway';
 import { IndexRepository } from '../repositories/index.repository';
@@ -96,6 +96,32 @@ export class IndexService {
     public async findByMountedFile(file: MountedFile): Promise<Index> {
         return this.indexRepository.findOne({ filename: file.filename, directory: file.directory, mount: { id: file.mount.id }})
     }
+
+
+
+
+
+
+
+    public async findRawPathsByMount(mountId: string): Promise<IndexRawPath[]> {
+        const result = await this.indexRepository.createQueryBuilder("index")
+            .leftJoin("index.mount", "mount")
+            .where("mount.id = :mountId", { mountId })
+            .select(["index.filename", "index.directory", "mount.id"])
+            .getRawMany()
+
+        return result;
+    }
+
+
+
+
+
+
+
+
+
+
 
     public async findIdsByMountedFiles(files: MountedFile[]): Promise<Index[]> {
         const dirs: string[] = [];

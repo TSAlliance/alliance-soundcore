@@ -42,10 +42,11 @@ export class IndexConsumer {
         // Create or get index if it exists
         const index = await this.indexService.createIndexIfNotExists(job.data, null);
         result.index = index;
-        
 
         // Only process items that are either PREPARING or PROCESSING
         if(index && index.status != IndexStatus.PROCESSING && index.status != IndexStatus.PREPARING) {
+            // this.logger.debug(`File '${job.data.filename}' already indexed. Skipping...`)
+
             result.time = Date.now() - start;
             return result;
         }

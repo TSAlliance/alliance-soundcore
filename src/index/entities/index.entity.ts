@@ -6,6 +6,12 @@ import { Song } from "../../song/entities/song.entity";
 import { User } from "../../user/entities/user.entity";
 import { IndexStatus } from "../enum/index-status.enum";
 
+export type IndexRawPath = {
+    index_directory: string;
+    index_filename: string;
+    mount_id: string;
+}
+
 @Entity()
 @IndexDec("UK_index_filename_directory", ["filename", "directory", "mount.id"], { unique: true })
 export class Index {

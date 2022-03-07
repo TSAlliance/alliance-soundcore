@@ -1,6 +1,8 @@
 import fs from "node:fs";
+import path from "node:path";
+import glob from "glob";
 
-import { InjectQueue, OnQueueActive, OnQueueCompleted, OnQueueError, OnQueueFailed, OnQueueProgress, Process, Processor } from "@nestjs/bull";
+import { InjectQueue, OnQueueActive, OnQueueCompleted, OnQueueError, OnQueueFailed, Process, Processor } from "@nestjs/bull";
 import { Logger } from "@nestjs/common";
 import { Job, Queue } from "bull";
 import { StorageService } from "../../storage/storage.service";
@@ -8,8 +10,7 @@ import { Mount } from "../entities/mount.entity";
 import { MountGateway } from "../gateway/mount-status.gateway";
 import { MountService } from "../services/mount.service";
 import { MountedFile } from "../entities/mounted-file.entity";
-import glob from "glob";
-import path from "node:path";
+
 import { IndexService } from "../../index/services/index.service";
 
 export interface MountScanResult {
@@ -47,42 +48,38 @@ export class MountConsumer {
         // Build directory path for mount
         const mountDirectory: string = await this.storageService.getMountPath(job.data);
 
-        if(!fs.existsSync(mountDirectory)) {
-            this.logger.warn(`Directory for mount '${job.data.name}' not found. Was looking for: ${mountDirectory}. Creating it...`);
-            fs.mkdirSync(mountDirectory, { recursive: true })
-        }
+        return new Promise((resolve, reject) => {
+            // Create mount directory if not exists
+            fs.mkdir(mountDirectory, { recursive: true }, (err) => {
+                // Return on error
+                if(err) {
+                    reject(err)
+                    console.error(err)
+                    return;
+                }
 
-        // Scan files inside mount.
-        // This also considers every file in subdirectories.
-        const files: MountedFile[] = glob.sync("**/*.mp3", { cwd: mountDirectory }).map((filepath) => {
-            const file = new MountedFile(path.dirname(filepath), path.basename(filepath), job.data);
-            return file;
-        });
+                // Scan mount directory
+                glob("**/*.mp3", { cwd: mountDirectory }, (err: Error, matches: string[]) => {
+                    job.update(job.data)
 
-        const existingIndices = await this.indexService.findIdsByMountedFiles(files);
-        const notIndexedFiles: MountedFile[] = [];
-        const filesLength = files.length;
-        let i = 0;
+                    // Return on error
+                    if(err) {
+                        reject(err)
+                        console.error(err)
+                        return;
+                    }
 
-        while(i < filesLength) {
-            const file = files[i];
-            const index = existingIndices.findIndex((index) => index.fullPath == file.fullPath);
-
-            if(index == null || typeof index == "undefined" || index == -1) {
-                // console.log(file.fullPath)
-                notIndexedFiles.push(file)
-            } else {
-                // Remove from array, so we shrink the search range
-                existingIndices.splice(index, 1);
-            }
-
-            i++;
-        }
-
-        return this.indexService.indexQueue.addBulk(notIndexedFiles.map((file) => {
-            return { data: file, opts: { jobId: file.bullJobId } }
-        })).then(() => {
-            return { totalFiles: files.length, totalTime: Date.now() - start, notIndexedFiles: notIndexedFiles.length };
+                    this.indexService.indexQueue.addBulk(matches.map((filepath) => {
+                        const file = new MountedFile(path.dirname(filepath), path.basename(filepath), job.data);
+                        return { data: file, opts: { jobId: file.bullJobId } }
+                    })).then(() => {
+                        resolve({ totalFiles: matches.length, totalTime: Date.now() - start, notIndexedFiles: 0 })
+                    }).catch((error: Error) => {
+                        console.error(error);
+                        reject(error);
+                    })
+                })
+            })
         })
     }
 
@@ -108,10 +105,5 @@ export class MountConsumer {
     @OnQueueCompleted()
     public onComplete(job: Job<Mount>, result: MountScanResult) {
         this.logger.verbose(`Scanned mount '${job.data.name}' in ${result?.totalTime || 0}ms. Found '${result?.totalFiles || 0}' files in total. '${result?.notIndexedFiles || 0}' files need to be indexed.`);
-    }
-
-    @OnQueueProgress()
-    public onProgress(job: Job<Mount>) {
-        // TODO
     }
 }
