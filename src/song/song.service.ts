@@ -127,8 +127,8 @@ export class SongService {
         return result;
     }
 
-    public async existsById(songId: string): Promise<Song> {
-        return await this.songRepository.findOne({ where: { id: songId }});
+    public async findByIdWithArtwork(songId: string) {
+        return this.songRepository.findOne({ where: { id: songId }, relations: ["artwork", "artwork.mount"]});
     }
 
     /**
@@ -399,7 +399,7 @@ export class SongService {
 
             .where("index.status = :status AND (playlist.id = :playlistId OR playlist.slug = :playlistId)", { status: IndexStatus.OK, playlistId })
             .orderBy("item.order", "ASC")
-            .addOrderBy("item.createdAt", "DESC")
+            .addOrderBy("item.createdAt", "ASC")
 
             // This will fetch everything from db and reduces at BE-level
             // Very unoptimized. Should rework pagination (use last entity's id)
@@ -418,14 +418,34 @@ export class SongService {
      public async findIdsByPlaylist(playlistId: string, user?: User): Promise<Page<Song>> {
         // TODO: Check if user has access to playlist
         const qb = this.songRepository.createQueryBuilder("song")
-            .leftJoin("song.playlists", "playlistItem")
-            .leftJoin("playlistItem.playlist", "playlist")
+            .leftJoin("song.playlists", "item")
+            .leftJoin("item.playlist", "playlist")
             .leftJoin("song.index", "index")
 
-            .orderBy("playlistItem.createdAt", "DESC")
+            .orderBy("item.order", "ASC")
+            .addOrderBy("item.createdAt", "ASC")
 
             .where("index.status = :status AND (playlist.id = :playlistId OR playlist.slug = :playlistId)", { status: IndexStatus.OK, playlistId })
             .select(["song.id"])
+
+        const result = await qb.getManyAndCount();
+        return Page.of(result[0], result[1], 0);
+    }
+
+    public async findCoverSongsInPlaylist(playlistId: string): Promise<Page<Song>> {
+        const qb = this.songRepository.createQueryBuilder("song")
+            .leftJoinAndSelect("song.artwork", "artwork")
+            .leftJoinAndSelect("artwork.mount", "mount")
+            .leftJoin("song.playlists", "item")
+            .leftJoin("item.playlist", "playlist")
+            .leftJoin("song.index", "index")
+
+            .orderBy("item.order", "ASC")
+            .addOrderBy("item.createdAt", "ASC")
+
+            .where("index.status = :status AND (playlist.id = :playlistId OR playlist.slug = :playlistId)", { status: IndexStatus.OK, playlistId })
+            .offset(0)
+            .limit(4)
 
         const result = await qb.getManyAndCount();
         return Page.of(result[0], result[1], 0);

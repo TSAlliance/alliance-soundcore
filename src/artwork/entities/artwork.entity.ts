@@ -16,6 +16,10 @@ export class Artwork {
     public id: string;
 
     @CanRead(false)
+    @Column({ nullable: true })
+    public key: string;
+
+    @CanRead(false)
     @Column({ default: "song" })
     public type: ArtworkType;
 
