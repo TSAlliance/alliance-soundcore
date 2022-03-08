@@ -288,30 +288,28 @@ export class SongService {
      */
     public async findByAlbum(albumId: string, pageable: Pageable, user?: User): Promise<Page<Song>> {
         const qb = this.songRepository.createQueryBuilder("song")
+            .leftJoin("song.artists", "artist")
             .leftJoin("song.albums", "album")
             .leftJoin("song.index", "index")
             .leftJoin("song.streams", "streams")
-            .leftJoin("song.albumOrders", "orders", "orders.albumId = :albumId", { albumId })
+            .leftJoin("song.albumOrders", "order", "order.albumId = :albumId", { albumId })
             .leftJoinAndSelect("song.artwork", "artwork")
-            .leftJoinAndSelect("song.artists", "artist")
-
-            .addSelect(["artist.id", "artist.name", "index.id", "index.status"])
-            .orderBy("orders.nr", "ASC")
 
             // Stats like streamCount and if user has liked the song
             .loadRelationCountAndMap("song.liked", "song.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: user?.id }))
-            .addSelect(['SUM(IFNULL(streams.streamCount, 0)) AS streamCount'])
+            
             .groupBy('song.id')
             .addGroupBy("index.id")
-
             .addGroupBy("artist.id")
-            .addGroupBy("orders.id")
+            .addGroupBy("order.id")
 
             // Pagination
             .skip((pageable?.page || 0) * (pageable?.size || 10))
             .take(pageable?.size || 10)
 
+            .addSelect(["artist.id", "artist.name", "index.id", "index.status", "order.nr", "SUM(IFNULL(streams.streamCount, 0)) AS streamCount"])
             .where("index.status = :status AND (album.id = :albumId OR album.slug = :albumId)", { status: IndexStatus.OK, albumId })
+            .orderBy("order.nr", "ASC")
 
         const result = await qb.getRawAndEntities();
         const totalElements = await qb.getCount();
