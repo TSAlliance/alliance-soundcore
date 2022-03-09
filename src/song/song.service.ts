@@ -271,10 +271,10 @@ export class SongService {
             .take(pageable.size || 30)
 
             .addSelect(["artist.id", "artist.name", "album.id", "album.title", "index.id"])
-            .where("index.status = :status", { status: IndexStatus.OK })
             
-        if(genreId) qb = qb.andWhere("genre.id = :genreId", { genreId }).orWhere("genre.slug = :genreId", { genreId })
-        if(artistId) qb = qb.andWhere("artist.id = :artistId", { artistId }).orWhere("artist.slug = :artistId", { artistId })
+            
+        if(genreId) qb = qb.where("index.status = :status AND (genre.id = :genreId OR genre.slug) = :genreId", { status: IndexStatus.OK, genreId })
+        if(artistId) qb = qb.where("index.status = :status AND (artist.id = :artistId OR artist.slug) = :artistId", { status: IndexStatus.OK, artistId })
 
         const result = await qb.getManyAndCount();
 
