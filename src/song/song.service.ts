@@ -316,8 +316,6 @@ export class SongService {
 
         return Page.of(result.entities.map((s, i) => {
             s.streamCount = parseInt(result.raw[i].streamCount)
-            console.log(s.index.status)
-
             return s;
         }), totalElements, pageable.page)
     }
@@ -340,7 +338,7 @@ export class SongService {
             .leftJoinAndSelect("song.artwork", "artwork")
             .leftJoin("song.artists", "artist")
 
-            .addSelect(["index.id", "album.id", "album.title", "artist.id", "artist.name", "likedBy.likedAt AS likedAt"])
+            .addSelect(["index.id", "album.id", "album.title", "artist.id", "artist.name", "likedBy.likedAt"])
             
             .where("index.status = :status", { status: IndexStatus.OK })
             .andWhere("likedBy.userId = :userId", { userId: user.id })
@@ -373,6 +371,27 @@ export class SongService {
             s.liked = true
             return s;
         }), totalElements, pageable.page)
+    }
+
+    /**
+     * Find page of songs out of a user's collection and, if defined, by an artist.
+     * @param user User to fetch collection for.
+     * @param pageable Page settings.
+     * @param artistId Artist's id, to fetch songs from an artist that a user has in his collection.
+     * @returns Page<Song>
+     */
+    public async findIdsByCollection(user: User, artistId?: string): Promise<Page<Song>> {
+        // Fetch available elements
+        let qb = this.songRepository.createQueryBuilder('song')
+            .leftJoin("song.index", "index")
+            .leftJoin("song.likedBy", "likedBy")
+            .where("index.status = :status AND likedBy.userId = :userId", { status: IndexStatus.OK, userId: user?.id })
+            .orderBy("likedBy.likedAt", "DESC")
+            .select(["song.id"])
+            
+        if(artistId) qb = qb.leftJoin("song.artists", "artist").andWhere("artist.id = :artistId", { artistId })
+        const result = await qb.getManyAndCount();
+        return Page.of(result[0], result[1], 0)
     }
 
     /**
