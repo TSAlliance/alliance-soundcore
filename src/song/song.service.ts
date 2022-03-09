@@ -131,6 +131,16 @@ export class SongService {
         return this.songRepository.findOne({ where: { id: songId }, relations: ["artwork", "artwork.mount"]});
     }
 
+    public async findByTitleAndArtists(title: string, artists: string[]) {
+        const result = await this.songRepository.createQueryBuilder("song")
+            .leftJoin("song.artists", "artist")
+            .where("song.title = :title AND artist.name IN(:artists)", { title, artists })
+            .select(["song.id"])
+            .getOne();
+
+        return result;
+    }
+
     /**
      * Find song by its id including its indexed file info.
      * @param songId Song's id

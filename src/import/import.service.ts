@@ -23,6 +23,11 @@ import pathToFfmpeg from 'ffmpeg-static';
 import path from 'path';
 import { MountedFile } from '../bucket/entities/mounted-file.entity';
 import { ImportGateway } from './gateway/import.gateway';
+import { CreateSpotifyImportDTO } from './dtos/create-spotify.dto';
+import { Page } from 'nestjs-pager';
+import { SpotifyPlaylist } from './entities/spotify-song.entity';
+import axios from 'axios';
+import { SpotifyService } from './spotify/spotify.service';
 
 @Injectable()
 export class ImportService {
@@ -34,6 +39,7 @@ export class ImportService {
         private indexService: IndexService,
         private artworkService: ArtworkService,
         private importGateway: ImportGateway,
+        private spotifyService: SpotifyService,
         @Inject(MOUNT_ID) private mountId: string
     ) {}
 
@@ -188,6 +194,14 @@ export class ImportService {
 
     private async sendProgressUpdate(value: ImportEntity): Promise<void> {
         this.importGateway.sendDownloadProgressToImport(value);
+    }
+
+    public async createSpotifyImport(createImportDto: CreateSpotifyImportDTO, user: User): Promise<SpotifyPlaylist> {
+        const playlistId = createImportDto.url.replace(/(https:\/\/open.spotify.com\/playlist\/)/gm, "").replace(/\?[\s\S]*$/gm, "");
+
+        return this.spotifyService.findSpotifyPlaylistById(playlistId, user).then((playlist) => {
+            return playlist;
+        })
     }
 
 }
