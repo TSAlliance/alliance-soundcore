@@ -24,7 +24,13 @@ export class SongController {
   @Get("/byCollection")
   @IsAuthenticated()
   public async findByCollection(@Authentication() user: User, @Pageable() pageable: Pageable): Promise<Page<Song>> {
-    return this.songService.findByCollectionAndOrArtist(user, pageable, undefined)
+    return this.songService.findByCollectionAndOrArtist(user, pageable)
+  }
+
+  @Get("/byCollection/ids")
+  @IsAuthenticated()
+  public async findIdsByCollection(@Authentication() user: User): Promise<Page<Song>> {
+    return this.songService.findIdsByCollection(user)
   }
 
   @Get("/byCollection/byArtist/:artistId")
