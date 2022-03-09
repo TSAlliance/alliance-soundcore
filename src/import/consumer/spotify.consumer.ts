@@ -55,11 +55,8 @@ export class SpotifyConsumer {
             while(x < length) {
                 const track = tracks.items[x].track;
                 const artists: string[] = track.artists?.map((artist) => artist.name) || [];
-
-                console.log(track.name, artists)
-
                 const song = await this.songService.findByTitleAndArtists(track.name, artists);
-                console.log("Found: ", song?.id)
+
                 if(!song) notFound.push(track);
                 else songIds.push(song.id)
                 x++;
