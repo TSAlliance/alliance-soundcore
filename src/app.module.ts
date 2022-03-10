@@ -27,6 +27,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { CollectionModule } from './collection/collection.module';
 import { IndexReportModule } from './index-report/index-report.module';
 import { BullModule } from '@nestjs/bull';
+import { KeycloakModule } from './authentication/keycloak.module';
 
 @Module({
   imports: [
@@ -60,7 +61,7 @@ import { BullModule } from '@nestjs/bull';
       clientSecret: process.env.SSO_CLIENT_SECRET,
       redirectUri: process.env.SSO_REDIRECT_URI,
       logging: false,
-      disableGuard: false
+      disableGuard: true
     }),
     AllianceRestModule.forRoot({
       logging: false,
@@ -98,7 +99,8 @@ import { BullModule } from '@nestjs/bull';
     UserModule,
     ImportModule,
     CollectionModule,
-    IndexReportModule
+    IndexReportModule,
+    KeycloakModule
   ],
   controllers: [],
   providers: []
