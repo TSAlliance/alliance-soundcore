@@ -351,7 +351,7 @@ export class SongService {
             .addSelect(["index.id", "album.id", "album.title", "artist.id", "artist.name", "likedBy.likedAt"])
             
             .where("index.status = :status", { status: IndexStatus.OK })
-            .andWhere("likedBy.userId = :userId", { userId: user.id })
+            .andWhere("likedBy.userId = :userId", { userId: user?.id })
 
             .skip(pageable.page * pageable.size)
             .take(pageable.size)
@@ -366,7 +366,7 @@ export class SongService {
             .leftJoin("song.index", "index")
 
             .where("index.status = :status", { status: IndexStatus.OK })
-            .andWhere("likedBy.userId = :userId", { userId: user.id })
+            .andWhere("likedBy.userId = :userId", { userId: user?.id })
 
         // Take artistId into account if it exists
         if(artistId) countQb = countQb.leftJoin("song.artists", "artist").andWhere("artist.id = :artistId", { artistId });

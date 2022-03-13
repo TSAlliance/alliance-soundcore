@@ -3,7 +3,6 @@ import { Page, Pageable } from 'nestjs-pager';
 import { FindConditions, In, Not, ObjectLiteral } from 'typeorm';
 import { MountedFile } from '../../bucket/entities/mounted-file.entity';
 import { BUCKET_ID } from '../../shared/shared.module';
-import { SongService } from '../../song/song.service';
 import { StorageService } from '../../storage/storage.service';
 import { User } from '../../user/entities/user.entity';
 import { Index, IndexRawPath } from '../entities/index.entity';
@@ -22,7 +21,6 @@ export class IndexService {
 
     constructor(
         private storageService: StorageService,
-        private songService: SongService,
         private indexReportService: IndexReportService,
         private indexRepository: IndexRepository,
         private indexGateway: IndexGateway,
@@ -74,6 +72,7 @@ export class IndexService {
     public async findIndex(where: string | ObjectLiteral | FindConditions<Index> | FindConditions<Index>[]): Promise<Index> {
         return (await this.findMultipleIndices(where))[0];
     }
+
     public async findMultipleIndices(where: string | ObjectLiteral | FindConditions<Index> | FindConditions<Index>[]): Promise<Index[]> {
         // TODO: Possible this could result in cyclic dependency?! Because of song.index relation
         return this.indexRepository.find({ where, relations: ["mount", "mount.bucket", "report", "uploader", "song", "song.index", "song.albums", "song.artists", "song.artwork", "song.banner", "song.label", "song.albumOrders", "song.distributor", "song.publisher", "song.genres"]})

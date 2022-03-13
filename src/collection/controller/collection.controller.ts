@@ -11,13 +11,13 @@ export class CollectionController {
     @Get()
     @IsAuthenticated()
     public async findByCurrentUser(@Authentication() user: User) {
-        return this.collectionService.findByUserId(user.id)
+        return this.collectionService.findByUserId(user?.id)
     }
 
     /*@Get("/byArtist/:artistId")
     @IsAuthenticated()
     public async findByArtist(@Param("artistId") artistId: string, @Authentication() user: User) {
-        return this.collectionService.findByUserId(user.id)
+        return this.collectionService.findByUserId(user?.id)
     }*/
 
 }

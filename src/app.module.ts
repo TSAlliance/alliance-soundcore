@@ -3,7 +3,6 @@ import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { MulterModule } from '@nestjs/platform-express';
 
-import { SSOModule } from "@tsalliance/sso-nest"
 import { ArtistModule } from './artist/artist.module';
 import { AllianceRestModule } from '@tsalliance/rest';
 import { BucketModule } from './bucket/bucket.module';
@@ -55,14 +54,6 @@ import { KeycloakModule } from './authentication/keycloak.module';
       retryDelay: 10000
     }),
     MulterModule.register(),
-    SSOModule.forRoot({
-      baseUrl: process.env.SSO_URL,
-      clientId: process.env.SSO_CLIENT_ID,
-      clientSecret: process.env.SSO_CLIENT_SECRET,
-      redirectUri: process.env.SSO_REDIRECT_URI,
-      logging: false,
-      disableGuard: true
-    }),
     AllianceRestModule.forRoot({
       logging: false,
       disableErrorHandling: true,

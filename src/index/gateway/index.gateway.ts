@@ -1,5 +1,4 @@
 import { WebSocketGateway, WebSocketServer } from "@nestjs/websockets";
-import { SSOService } from "@tsalliance/sso-nest";
 import { Server } from "socket.io";
 import { Index } from "../entities/index.entity";
 
@@ -15,8 +14,6 @@ export const INDEX_STATUS_EVENT = "onIndexUpdate"
 export class IndexGateway {
 
     @WebSocketServer() private server: Server;
-
-    constructor(private authService: SSOService) {}
 
     /**
      * Send updated audiofile to socket room. The room has the name of the uploaded file id.

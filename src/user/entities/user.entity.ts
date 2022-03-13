@@ -1,22 +1,21 @@
-import { CanRead, SSOUser } from "@tsalliance/sso-nest";
-import { BeforeInsert, BeforeUpdate, Column, Entity, Index, OneToMany } from "typeorm";
+import { CanRead } from "@tsalliance/sso-nest";
+import { BeforeInsert, BeforeUpdate, Column, Entity, Index, OneToMany, PrimaryColumn } from "typeorm";
 import { LikedSong } from "../../collection/entities/liked-song.entity";
 import { Playlist } from "../../playlist/entities/playlist.entity";
 import { Stream } from "../../stream/entities/stream.entity";
 import { Slug } from "../../utils/slugGenerator";
 
 @Entity()
-export class User extends SSOUser {
+export class User {
 
-    @Index()
-    @Column({ nullable: true })
-    public username: string;
+    @PrimaryColumn({ type: "varchar" })
+    public id: string;
 
     @Column({ nullable: true, unique: true, length: 120 })
     public slug: string;
 
-    @Column({ nullable: true })
-    public avatarResourceId: string;
+    @Column({ nullable: true, length: 120 })
+    public username: string;
 
     @Column({ nullable: true })
     public accentColor: string;

@@ -1,8 +1,8 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { SSOService, SSOUser } from '@tsalliance/sso-nest';
+import { Injectable, Logger } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
 import { ILike } from 'typeorm';
 import { ArtworkService } from '../artwork/artwork.service';
+import { KeycloakUser } from '../authentication/entities/keycloak-user.entity';
 import { User } from './entities/user.entity';
 import { UserRepository } from './repositories/user.repository';
 
@@ -11,12 +11,31 @@ export class UserService {
     private logger: Logger = new Logger(UserService.name);
 
     constructor(
-        private ssoService: SSOService,
         private artworkService: ArtworkService,
         private userRepository: UserRepository
     ) {}
 
-    public async findProfileById(userId: string, accessToken: string): Promise<User> {
+    public async findOrCreateByKeycloakUserInstance(userInstance: KeycloakUser): Promise<User> {
+        if(!userInstance) return null;
+
+        // Find in database and return if found
+        const user = await this.userRepository.findOne({ where: { id: userInstance?.sub }});
+        if(user) return user;
+
+        // Build new database entry
+        const result = new User();
+        result.id = userInstance.sub;
+        result.username = userInstance.preferred_username;
+
+        // Save entry and return it
+        return this.userRepository.save(result).catch((error) => {
+            if(error?.message.startsWith("Duplicate entry")) {
+                return this.userRepository.findOne({ where: { id: userInstance?.sub }})
+            }
+        });
+    }
+
+    /*public async findProfileById(userId: string, accessToken: string): Promise<User> {
         const userInfo = await this.ssoService.findUserUsingHeader(userId, accessToken);
         const user = await this.userRepository.findOne({ where: { id: userId }});
 
@@ -24,12 +43,12 @@ export class UserService {
         if(!user) {
             // Simulate user
 
-            const user: User = userInfo as User
-            return user;
+            // const user: User = userInfo as User
+            // return user;
         }
 
-        return { ...user, ...userInfo } as User;
-    }
+        // return { ...user, ...userInfo } as User;
+    }*/
 
     public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<User>> {
         if(!query || query == "") {
@@ -39,37 +58,6 @@ export class UserService {
         }
 
         return this.userRepository.findAll(pageable, { where: { username: ILike(query) }})
-    }
-
-    public async createIfNotExists(user: SSOUser) {
-        return this.userRepository.findOne({ where: { id: user.id }}).then(async (result) => {
-            // Create new user in database if there is no existing one for this id.
-            if(!result) {
-              const soundcoreUser: User = new User();
-              soundcoreUser.id = user.id;
-              soundcoreUser.avatarResourceId = user.avatarResourceId;
-              soundcoreUser.username = user.username;
-              soundcoreUser.accentColor = await this.artworkService.getAccentColorFromAvatar(user.avatarUrl).catch(() => null);
-
-              return this.userRepository.save(soundcoreUser).catch(() => {
-                this.logger.warn("Could not save user info.")
-              })
-            } else {
-              
-              // Update user in database if username has changed.
-              if(user.username != result.username || user.avatarResourceId != result.avatarResourceId) {
-                result.username = user.username;
-                result.avatarResourceId = user.avatarResourceId;
-                result.accentColor = await this.artworkService.getAccentColorFromAvatar(user.avatarUrl).catch(() => null);
-
-                return this.userRepository.save(result).catch(() => {
-                  this.logger.warn("Could not save user info.")
-                })
-              }
-            }
-        }).catch(() => {
-            this.logger.warn("Could not save user info.")
-        })
     }
 
 }

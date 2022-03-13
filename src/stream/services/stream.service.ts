@@ -5,7 +5,6 @@ import { StorageService } from '../../storage/storage.service';
 
 import fs from "fs"
 import { StreamRepository } from '../repositories/stream.repository';
-import { SSOService } from '@tsalliance/sso-nest';
 
 @Injectable()
 export class StreamService {
@@ -14,7 +13,6 @@ export class StreamService {
         private storageService: StorageService,
         private songService: SongService,
         private streamRepository: StreamRepository,
-        private ssoService: SSOService
     ){}
 
     public async increaseStreamCount(songId: string, listenerId: string) {
@@ -36,8 +34,6 @@ export class StreamService {
     }
 
     public async findStreamableSongById(songId: string, session: string, request: Request, response: Response) {
-        const listener = await this.ssoService.findUserUsingHeader("@me", `Bearer ${session}`);
-
         const song = await this.songService.findByIdWithIndex(songId);
         if(!song) throw new NotFoundException("Song not found.");
 

@@ -9,7 +9,8 @@ export class UserController {
   @Get(":userId")
   @IsAuthenticated()
   public async findById(@Param("userId") userId: string, @Headers("Authorization") authHeader: string) {
-    return this.userService.findProfileById(userId, authHeader);
+    // return this.userService.findProfileById(userId, authHeader);
+    return null;
   }
 
 }

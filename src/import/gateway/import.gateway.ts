@@ -1,6 +1,5 @@
 import { InternalServerErrorException, UnauthorizedException } from "@nestjs/common";
 import { OnGatewayConnection, OnGatewayDisconnect, WebSocketGateway } from "@nestjs/websockets";
-import { SSOService } from "@tsalliance/sso-nest";
 import { Socket } from "socket.io";
 import { ImportEntity, ImportProgressUpdate } from "../entities/import.entity";
 
@@ -28,8 +27,6 @@ export class ImportGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // a matching socket. This allows for multiple connections for 
     // one user, when in different sessions.
     private accessTokenByUserId: Record<string, string[]> = {}
-
-    constructor(private authService: SSOService) {}
 
     /**
      * Send updated audiofile to socket room. The room has the name of the uploaded file id.
@@ -83,10 +80,10 @@ export class ImportGateway implements OnGatewayConnection, OnGatewayDisconnect {
             }
 
             // Fetch user data by provided auth header
-            const user = await this.authService.findUserUsingHeader("@me", authHeader)
+            // const user = await this.authService.findUserUsingHeader("@me", authHeader)
 
             // Fetch user data by provided auth header
-            if(!user) {
+            /*if(!user) {
                 this.sendError(client, new UnauthorizedException("Account not found."), true)
                 return;
             }
@@ -94,15 +91,15 @@ export class ImportGateway implements OnGatewayConnection, OnGatewayDisconnect {
             // Add access token to registry to later be able to get user info
             // just by access token. So on disconnects we dont have to fetch
             // user info again by the provided accessToken.
-            if(this.accessTokenByUserId[user.id]) {
-                this.accessTokenByUserId[user.id].push(authValue)
+            if(this.accessTokenByUserId[user?.id]) {
+                this.accessTokenByUserId[user?.id].push(authValue)
             } else {
-                this.accessTokenByUserId[user.id] = [authValue]
+                this.accessTokenByUserId[user?.id] = [authValue]
             }
 
             // Add socket to map and identify it by this accessToken
             this.socketByAccessToken[authValue] = client;
-            this.userIdByAccessToken[authValue] = user.id;
+            this.userIdByAccessToken[authValue] = user?.id;*/
         } catch (error) {
             this.sendError(client, new UnauthorizedException("Authorization Header required."), true)
         }

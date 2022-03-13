@@ -28,7 +28,7 @@ export class LikeService {
     }
 
     public async likeSong(songId: string, user: User): Promise<boolean> {
-        const existing = await this.findByUserAndSong(user.id, songId);
+        const existing = await this.findByUserAndSong(user?.id, songId);
 
         // Remove like if exists.
         if(existing) {
@@ -52,7 +52,7 @@ export class LikeService {
         if(playlist.author?.id == user?.id) throw new BadRequestException("Author cannot like his own playlists.");
         if(playlist.privacy == PlaylistPrivacy.PRIVATE) throw new BadRequestException("Cannot like this type of playlist.")
 
-        const existing = await this.findByUserAndPlaylist(user.id, playlistId);
+        const existing = await this.findByUserAndPlaylist(user?.id, playlistId);
         // Remove like if exists.
         if(existing) {
             return this.likeRepository.delete({ id: existing.id }).then(() => false).catch(() => {

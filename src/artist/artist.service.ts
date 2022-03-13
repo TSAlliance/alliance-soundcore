@@ -38,7 +38,7 @@ export class ArtistService {
         
         const likedCount = await this.artistRepository.createQueryBuilder("artist")
             .leftJoin("artist.songs", "song")
-            .leftJoin("song.likedBy", "likedBy", "likedBy.userId = :userId", { userId: user.id })
+            .leftJoin("song.likedBy", "likedBy", "likedBy.userId = :userId", { userId: user?.id })
 
             .groupBy("likedBy.userId")
             .addGroupBy("artist.id")
