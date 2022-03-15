@@ -27,8 +27,8 @@ export class LikeService {
         return !! await this.likeRepository.findOne({ where: { playlist: { id: playlistId, author: { id: userId }}}})
     }
 
-    public async likeSong(songId: string, user: User): Promise<boolean> {
-        const existing = await this.findByUserAndSong(user?.id, songId);
+    public async likeSong(songId: string, authentication: User): Promise<boolean> {
+        const existing = await this.findByUserAndSong(authentication?.id, songId);
 
         // Remove like if exists.
         if(existing) {
@@ -38,7 +38,7 @@ export class LikeService {
         }
 
         const like = new LikedSong()
-        like.user = user;
+        like.user = authentication;
         like.song = { id: songId } as Song;
 
         return this.likeRepository.save(like).then(() => true).catch(() => {
@@ -46,13 +46,13 @@ export class LikeService {
         })
     }
 
-    public async likePlaylist(playlistId: string, user: User): Promise<boolean> {
+    public async likePlaylist(playlistId: string, authentication: User): Promise<boolean> {
         const playlist = await this.playlistService.findById(playlistId);
         if(!playlist) throw new NotFoundException();
-        if(playlist.author?.id == user?.id) throw new BadRequestException("Author cannot like his own playlists.");
+        if(playlist.author?.id == authentication?.id) throw new BadRequestException("Author cannot like his own playlists.");
         if(playlist.privacy == PlaylistPrivacy.PRIVATE) throw new BadRequestException("Cannot like this type of playlist.")
 
-        const existing = await this.findByUserAndPlaylist(user?.id, playlistId);
+        const existing = await this.findByUserAndPlaylist(authentication?.id, playlistId);
         // Remove like if exists.
         if(existing) {
             return this.likeRepository.delete({ id: existing.id }).then(() => false).catch(() => {
@@ -61,7 +61,7 @@ export class LikeService {
         }
 
         const like = new LikedPlaylist()
-        like.user = user;
+        like.user = authentication;
         like.playlist = { id: playlistId } as Playlist;
 
         return this.likeRepository.save(like).then(() => true).catch(() => {

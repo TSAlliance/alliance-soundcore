@@ -1,5 +1,5 @@
 import { CanRead } from "@tsalliance/sso-nest";
-import { BeforeInsert, BeforeUpdate, Column, Entity, Index, OneToMany, PrimaryColumn } from "typeorm";
+import { BeforeInsert, BeforeUpdate, Column, Entity, OneToMany, PrimaryColumn } from "typeorm";
 import { LikedSong } from "../../collection/entities/liked-song.entity";
 import { Playlist } from "../../playlist/entities/playlist.entity";
 import { Stream } from "../../stream/entities/stream.entity";
@@ -30,7 +30,7 @@ export class User {
 
     @CanRead(false)
     @OneToMany(() => LikedSong, (l) => l.user, { onDelete: "CASCADE" })
-    public user: LikedSong;
+    public likedSongs: LikedSong;
 
     @BeforeInsert()
     public onBeforeInsert() {
