@@ -1,4 +1,4 @@
-import { CanRead } from "@tsalliance/sso-nest";
+
 import { BeforeInsert, BeforeUpdate, Column, Entity, Index, JoinColumn, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Song } from "../../song/entities/song.entity";
@@ -16,7 +16,7 @@ export class Distributor {
     @Column({ nullable: true, default: false })
     public hasGeniusLookupFailed: boolean;
 
-    @CanRead(false)
+    
     @Column({ nullable: true })
     public geniusId: string;
 

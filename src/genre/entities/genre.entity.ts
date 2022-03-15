@@ -1,4 +1,4 @@
-import { CanRead } from "@tsalliance/sso-nest";
+
 import { BeforeInsert, BeforeUpdate, Column, Entity, Index, JoinTable, ManyToMany, PrimaryGeneratedColumn } from "typeorm";
 import { Song } from "../../song/entities/song.entity";
 import { Slug } from "../../utils/slugGenerator";
@@ -12,7 +12,7 @@ export class Genre {
     @Column({ nullable: true, unique: true, length: 120 })
     public slug: string;
 
-    @CanRead(false)
+    
     @Column({ nullable: true })
     public geniusId: string;
 

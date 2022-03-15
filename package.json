@@ -27,7 +27,6 @@
     "@nestjs/typeorm": "^8.0.2",
     "@nestjs/websockets": "^8.2.3",
     "@tsalliance/rest": "^2.0.75",
-    "@tsalliance/sso-nest": "^1.0.63",
     "axios": "^0.24.0",
     "bull": "^4.6.2",
     "class-transformer": "^0.4.0",

@@ -1,4 +1,4 @@
-import { CanRead } from "@tsalliance/sso-nest";
+
 import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn, Index as IndexDec } from "typeorm";
 import { Album } from "../../album/entities/album.entity";
 import { Artist } from "../../artist/entities/artist.entity";
@@ -24,7 +24,7 @@ export class Song {
     @Column({ nullable: true, length: 120 })
     public slug: string;
 
-    @CanRead(false)
+    
     @Column({ nullable: true })
     public geniusId: string;
 
