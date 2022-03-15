@@ -10,6 +10,11 @@ import { PlaylistService } from './playlist.service';
 export class PlaylistController {
   constructor(private readonly playlistService: PlaylistService) {}
 
+  @Get("/byUser") 
+  public async findAllPlaylistsByAuthentication(@AuthenticatedUser() authentication: User) {
+    return this.playlistService.findAllByAuthenticatedUser(authentication);
+  }
+
   @Get(":playlistId") 
   public async findPlaylistById(@Param("playlistId") playlistId: string, @AuthenticatedUser() requester: User) {
     return this.playlistService.findPlaylistProfileById(playlistId, requester);
@@ -38,12 +43,6 @@ export class PlaylistController {
   @Put(":playlistId/collaborators/remove") 
   public async removeCollaborators(@Param("playlistId") playlistId: string, @Body() collaboratorIds: string[], @AuthenticatedUser() authentication: User) {
     return this.playlistService.removeCollaborators(playlistId, collaboratorIds, authentication)
-  }
-
-  // TODO: Use this in FE to fetch all playlists by the current user
-  @Get("/byUser") 
-  public async findAllPlaylistsByAuthentication(@AuthenticatedUser() authentication: User) {
-    return this.playlistService.findAllByAuthenticatedUser(authentication);
   }
 
   @Get("/byAuthor/:authorId") 
