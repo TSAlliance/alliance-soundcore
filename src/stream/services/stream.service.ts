@@ -1,15 +1,17 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { SongService } from '../../song/song.service';
 import { StorageService } from '../../storage/storage.service';
 
 import fs from "fs"
 import { StreamRepository } from '../repositories/stream.repository';
+import { StreamTokenService } from './stream-token.service';
 
 @Injectable()
 export class StreamService {
 
     constructor(
+        private tokenService: StreamTokenService,
         private storageService: StorageService,
         private songService: SongService,
         private streamRepository: StreamRepository,
@@ -33,8 +35,13 @@ export class StreamService {
       })
     }
 
-    public async findStreamableSongById(songId: string, session: string, request: Request, response: Response) {
-        const song = await this.songService.findByIdWithIndex(songId);
+    public async findStreamableSongById(tokenValue: string, request: Request, response: Response) {
+        const token = await this.tokenService.decodeToken(tokenValue).catch((error: Error) => {
+          console.error(error);
+          throw new BadRequestException("Invalid token.")
+        });
+
+        const song = await this.songService.findByIdWithIndex(token.songId);
         if(!song) throw new NotFoundException("Song not found.");
 
         const filePath = this.storageService.buildFilepath(song.index);
