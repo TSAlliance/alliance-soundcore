@@ -45,11 +45,11 @@ export class AlbumService {
             .leftJoin("album.banner", "banner")
             .leftJoin("album.artist", "artist")
             .leftJoin("album.songs", "song")
-            .leftJoin("song.artists", "featuredArtist")
+            .leftJoin("song.artists", "featuredArtist", "featuredArtist.id != artist.id AND (featuredArtist.id = :featArtistId OR featuredArtist.slug = :featArtistId)", { featArtistId: artistId })
 
             .addSelect(["artwork.id", "artwork.accentColor", "banner.id", "banner.accentColor", "artist.id", "artist.name", "featuredArtist.id", "featuredArtist.name"])
 
-            .where("artist.id != :artistId AND (featuredArtist.id = :featArtistId OR featuredArtist.slug = :slug)", { artistId, featArtistId: artistId, slug: artistId })
+            .where("featuredArtist.id = :featArtistId OR featuredArtist.slug = :slug", { featArtistId: artistId, slug: artistId })
             .orderBy("album.released", "DESC")
             .addOrderBy("album.createdAt", "DESC")
 
