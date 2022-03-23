@@ -3,6 +3,8 @@ services:
   db:
     image: mysql
     restart: always
+    ports:
+      - "3306:3306"
     environment:
       - MYSQL_ROOT_PASSWORD=root
 
@@ -19,6 +21,8 @@ services:
   redis:
     image: redis
     restart: always
+    ports:
+      - "6379:6379"
 
   keycloak:
     image: quay.io/keycloak/keycloak:16.1.1
@@ -28,9 +32,3 @@ services:
     environment:
       - KEYCLOAK_USER=root
       - KEYCLOAK_PASSWORD=root
-  
-  soundcore:
-    image: soundcore
-    restart: always
-    ports:
-      - "3000:3000"

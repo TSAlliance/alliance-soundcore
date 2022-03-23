@@ -8,6 +8,7 @@
   "scripts": {
     "prebuild": "rimraf dist",
     "build": "nest build",
+    "build:docker": "docker builder prune --all --force && docker build -t soundcore:latest .",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main",
