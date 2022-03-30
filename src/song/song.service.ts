@@ -331,6 +331,26 @@ export class SongService {
     }
 
     /**
+     * Find a complete list of songs that belong to a certain album.
+     * @param albumId Album's id
+     * @returns Page<Song>
+     */
+    public async findIdsByAlbum(albumId: string): Promise<Page<Song>> {
+        const qb = this.songRepository.createQueryBuilder("song")
+            .leftJoin("song.index", "index")
+            .leftJoin("song.albums", "album")
+
+            .leftJoin("song.albumOrders", "order", "order.albumId = :albumId", { albumId })
+
+            .select(["song.id"])
+            .where("index.status = :status AND (album.id = :albumId OR album.slug = :albumId)", { status: IndexStatus.OK, albumId })
+            .orderBy("order.nr", "ASC")
+
+        const result = await qb.getMany();
+        return Page.of(result, result.length, 0)
+    }
+
+    /**
      * Find page of songs out of a user's collection and, if defined, by an artist.
      * @param user User to fetch collection for.
      * @param pageable Page settings.

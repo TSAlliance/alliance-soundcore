@@ -64,6 +64,14 @@ export class SongController {
     return this.songService.findByAlbum(albumId, pageable, user)
   }
 
+  @Get("/byAlbum/:albumId/ids")
+  public async findIdsByAlbum(@Param("albumId") albumId: string): Promise<Page<Song>> {
+    return this.songService.findIdsByAlbum(albumId)
+  }
+
+
+
+
   @Get("/byPlaylist/:playlistId")
   public async findPageByPlaylist(@Param("playlistId") playlistId: string, @AuthenticatedUser() user: User, @Pageable() pageable: Pageable): Promise<Page<Song>> {
     return this.songService.findByPlaylist(playlistId, user, pageable)
@@ -73,6 +81,12 @@ export class SongController {
   public async findIdsByPlaylist(@Param("playlistId") playlistId: string, @AuthenticatedUser() user: User): Promise<Page<Song>> {
     return this.songService.findIdsByPlaylist(playlistId, user)
   }
+
+
+
+
+
+
 
   @Get(":songId")
   public async findById(@Param("songId") songId: string, @AuthenticatedUser() user: User): Promise<Song> {
