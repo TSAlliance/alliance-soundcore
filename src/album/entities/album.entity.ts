@@ -1,7 +1,9 @@
 
-import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, Index, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, Index, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Artist } from "../../artist/entities/artist.entity";
 import { Artwork } from "../../artwork/entities/artwork.entity";
+import { Liked } from "../../collection/entities/like.entity";
+import { LikedAlbum } from "../../collection/entities/liked-album.entity";
 import { Distributor } from "../../distributor/entities/distributor.entity";
 import { Label } from "../../label/entities/label.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
@@ -64,6 +66,9 @@ export class Album {
     @ManyToOne(() => Publisher, { onDelete: "SET NULL" })
     @JoinColumn()
     public publisher: Publisher;
+
+    @OneToMany(() => Liked, (l) => l["album"])
+    public likedBy: LikedAlbum[];
 
     public songsCount?: number;
     public totalDuration?: number;

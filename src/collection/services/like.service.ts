@@ -1,9 +1,11 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Album } from '../../album/entities/album.entity';
 import { Playlist } from '../../playlist/entities/playlist.entity';
 import { PlaylistPrivacy } from '../../playlist/enums/playlist-privacy.enum';
 import { PlaylistService } from '../../playlist/playlist.service';
 import { Song } from '../../song/entities/song.entity';
 import { User } from '../../user/entities/user.entity';
+import { LikedAlbum } from '../entities/liked-album.entity';
 import { LikedPlaylist } from '../entities/liked-playlist.entity';
 import { LikedSong } from '../entities/liked-song.entity';
 import { LikeRepository } from '../repositories/like.repository';
@@ -23,6 +25,11 @@ export class LikeService {
     public async findByUserAndPlaylist(userId: string, playlistId: string): Promise<LikedPlaylist> {
         return this.likeRepository.findOne({ where: { user: { id: userId }, playlist: { id: playlistId }}}) as Promise<LikedPlaylist>
     }
+
+    public async findByUserAndAlbum(userId: string, albumId: string): Promise<LikedAlbum> {
+        return this.likeRepository.findOne({ where: { user: { id: userId }, album: { id: albumId }}}) as Promise<LikedAlbum>
+    }
+
     public async isPlaylistAuthor(userId: string, playlistId: string): Promise<boolean> {
         return !! await this.likeRepository.findOne({ where: { playlist: { id: playlistId, author: { id: userId }}}})
     }
@@ -69,8 +76,23 @@ export class LikeService {
         })
     }
 
-    public async likeAlbum(albumId: string) {
-        //
+    public async likeAlbum(albumId: string, authentication: User): Promise<boolean> {
+        const existing = await this.findByUserAndAlbum(authentication?.id, albumId);
+
+        // Remove like if exists.
+        if(existing) {
+            return this.likeRepository.delete({ id: existing.id }).then(() => false).catch(() => {
+                throw new BadRequestException("Could not remove like from album.")
+            })
+        }
+
+        const like = new LikedAlbum()
+        like.user = authentication;
+        like.album = { id: albumId } as Album;
+
+        return this.likeRepository.save(like).then(() => true).catch(() => {
+            throw new BadRequestException("Could not like album.")
+        })
     }
 
 }

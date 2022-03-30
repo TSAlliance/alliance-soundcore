@@ -18,4 +18,9 @@ export class LikeController {
     return this.likeService.likePlaylist(playlistId, user)
   }
 
+  @Post("/album/:albumId")
+  public async likeAlbum(@Param("albumId") albumId: string, @AuthenticatedUser() user: User): Promise<boolean> {
+    return this.likeService.likeAlbum(albumId, user)
+  }
+
 }

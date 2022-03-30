@@ -4,6 +4,7 @@ import { Artist } from '../artist/entities/artist.entity';
 import { GeniusArtistDTO } from '../genius/dtos/genius-artist.dto';
 import { GeniusAlbumResponse } from '../genius/dtos/genius-response.dto';
 import { GeniusService } from '../genius/services/genius.service';
+import { User } from '../user/entities/user.entity';
 import { CreateAlbumDTO } from './dto/create-album.dto';
 import { Album } from './entities/album.entity';
 import { AlbumRepository } from './repositories/album.repository';
@@ -17,11 +18,13 @@ export class AlbumService {
         private geniusService: GeniusService
     ) {}
 
-    public async findProfilesByArtist(artistId: string, pageable: Pageable): Promise<Page<Album>> {
+    public async findProfilesByArtist(artistId: string, pageable: Pageable, authentication?: User): Promise<Page<Album>> {
         const result = await this.albumRepository.createQueryBuilder("albums")
             .leftJoinAndSelect("albums.artwork", "artwork")
             .leftJoinAndSelect("albums.banner", "banner")
             .leftJoin("albums.artist", "artist")
+
+            .loadRelationCountAndMap("album.liked", "album.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication?.id }))
 
             .addSelect(["artwork.id", "artwork.accentColor", "banner.id", "banner.accentColor", "artist.id", "artist.name"])
             .where("artist.id = :artistId", { artistId })
@@ -39,13 +42,15 @@ export class AlbumService {
         return Page.of(result[0], result[1], pageable.page);
     }
 
-    public async findFeaturedWithArtist(artistId: string, pageable: Pageable): Promise<Page<Album>> {
+    public async findFeaturedWithArtist(artistId: string, pageable: Pageable, authentication?: User): Promise<Page<Album>> {
         const result = await this.albumRepository.createQueryBuilder("album")
             .leftJoin("album.artwork", "artwork")
             .leftJoin("album.banner", "banner")
             .leftJoin("album.artist", "artist")
             .leftJoin("album.songs", "song")
             .leftJoin("song.artists", "featuredArtist", "featuredArtist.id != artist.id AND (featuredArtist.id = :featArtistId OR featuredArtist.slug = :featArtistId)", { featArtistId: artistId })
+
+            .loadRelationCountAndMap("album.liked", "album.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication?.id }))
 
             .addSelect(["artwork.id", "artwork.accentColor", "banner.id", "banner.accentColor", "artist.id", "artist.name", "featuredArtist.id", "featuredArtist.name"])
 
@@ -62,7 +67,7 @@ export class AlbumService {
         return Page.of(result[0], result[1], pageable.page);
     }
 
-    public async findRecommendedProfilesByArtist(artistId: string, exceptAlbumIds: string | string[] = []): Promise<Page<Album>> {
+    public async findRecommendedProfilesByArtist(artistId: string, exceptAlbumIds: string | string[] = [], authentication?: User): Promise<Page<Album>> {
         if(!exceptAlbumIds) exceptAlbumIds = []
         if(!Array.isArray(exceptAlbumIds)) {
             exceptAlbumIds = [ exceptAlbumIds ];
@@ -72,6 +77,9 @@ export class AlbumService {
             .leftJoinAndSelect("album.artwork", "artwork")
             .leftJoinAndSelect("album.banner", "banner")
             .leftJoinAndSelect("album.artist", "artist")
+
+            .loadRelationCountAndMap("album.liked", "album.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication?.id }))
+
             .addSelect(["artist.id", "artist.name"])
             .limit(10);
 
@@ -84,12 +92,14 @@ export class AlbumService {
         return Page.of(result, 10, 0);
     }
 
-    public async findByGenre(genreId: string, pageable: Pageable): Promise<Page<Album>> {
+    public async findByGenre(genreId: string, pageable: Pageable, authentication?: User): Promise<Page<Album>> {
         const result = await this.albumRepository.createQueryBuilder("album")
             .leftJoin("album.artist", "artist")
             .leftJoin("album.artwork", "artwork")
             .leftJoin("album.songs", "song")
             .leftJoin("song.genres", "genre")
+
+            .loadRelationCountAndMap("album.liked", "album.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication?.id }))
 
             .addSelect(["artwork.id", "artwork.accentColor", "artist.id", "artist.name"])
 
@@ -109,7 +119,7 @@ export class AlbumService {
      * @param albumId Album's id
      * @returns Album
      */
-    public async findProfileById(albumId: string): Promise<Album> {
+    public async findProfileById(albumId: string, authentication?: User): Promise<Album> {
         const result = await this.albumRepository.createQueryBuilder("album")
                 .where("album.id = :albumId", { albumId })
                 .orWhere("album.slug = :albumId", { albumId })
@@ -128,6 +138,8 @@ export class AlbumService {
                 .leftJoinAndSelect("publisher.artwork", "publisherArtwork")
                 .leftJoinAndSelect("album.artist", "artist")
                 .leftJoinAndSelect("artist.artwork", "albumArtwork")
+
+                .loadRelationCountAndMap("album.liked", "album.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication?.id }))
 
                 .groupBy("album.id")
 
