@@ -19,10 +19,10 @@ export class AlbumService {
     ) {}
 
     public async findProfilesByArtist(artistId: string, pageable: Pageable, authentication?: User): Promise<Page<Album>> {
-        const result = await this.albumRepository.createQueryBuilder("albums")
-            .leftJoinAndSelect("albums.artwork", "artwork")
-            .leftJoinAndSelect("albums.banner", "banner")
-            .leftJoin("albums.artist", "artist")
+        const result = await this.albumRepository.createQueryBuilder("album")
+            .leftJoinAndSelect("album.artwork", "artwork")
+            .leftJoinAndSelect("album.banner", "banner")
+            .leftJoin("album.artist", "artist")
 
             .loadRelationCountAndMap("album.liked", "album.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication?.id }))
 
@@ -30,8 +30,8 @@ export class AlbumService {
             .where("artist.id = :artistId", { artistId })
             .orWhere("artist.slug = :artistId", { artistId })
 
-            .orderBy("albums.released", "DESC")
-            .addOrderBy("albums.createdAt", "DESC")
+            .orderBy("album.released", "DESC")
+            .addOrderBy("album.createdAt", "DESC")
 
             // Pagination
             .offset((pageable?.page || 0) * (pageable?.size || 30))
