@@ -50,6 +50,11 @@ export class PlaylistController {
     return this.playlistService.findByAuthor(authorId, pageable, authentication);
   }
 
+  @Get("/byArtist/:artistId") 
+  public async findByArtist(@Param("artistId") artistId: string, @Pageable() pageable: Pageable, @AuthenticatedUser() authentication: User) {
+    return this.playlistService.findByArtist(artistId, pageable, authentication);
+  }
+
   @Get("/byGenre/:genreId") 
   public async findByGenre(@Param("genreId") genreId: string, @Pageable() pageable: Pageable, @AuthenticatedUser() authentication: User) {
     return this.playlistService.findByGenre(genreId, pageable, authentication);

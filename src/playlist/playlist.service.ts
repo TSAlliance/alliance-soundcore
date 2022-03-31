@@ -140,6 +140,32 @@ export class PlaylistService {
         return Page.of(result[0], result[1], pageable.page);
     }
 
+    public async findByArtist(artistId: string, pageable: Pageable, authentication: User): Promise<Page<Playlist>> {
+        const result = await this.playlistRepository.createQueryBuilder("playlist")
+            .leftJoin("playlist.items", "item")
+            .leftJoin("item.song", "song")
+            .leftJoin("song.artists", "artist")
+
+            .leftJoinAndSelect("playlist.author", "author")
+            .leftJoinAndSelect("playlist.artwork", "artwork")
+            .leftJoin("playlist.collaborators", "collaborator")
+            .leftJoin("playlist.likedBy", "likedByUser", "likedByUser.userId = :userId", { userId: authentication.id })
+
+            // Pagination
+            .limit(pageable?.size || 30)
+            .offset((pageable?.size || 30) * (pageable?.page || 0))
+
+            // Count how many likes. This takes user's id in count
+            .loadRelationCountAndMap("playlist.liked", "playlist.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication.id }))
+
+            
+            .where("(artist.id = :artistId OR artist.slug = :artistId) AND (playlist.privacy = :privacy OR author.id = :authorId OR collaborator.id = :authorId)", { artistId: artistId, privacy: PlaylistPrivacy.PUBLIC.toString(), authorId: authentication.id })
+            // .orWhere("playlist.privacy != :privacy AND likedByUser.userId = :userId", { privacy: PlaylistPrivacy.PUBLIC, userId: authentication.id })
+            .getManyAndCount();
+
+        return Page.of(result[0], result[1], pageable.page);
+    }
+
     public async findByGenre(genreId: string, pageable: Pageable, authentication: User): Promise<Page<Playlist>> {
         const result = await this.playlistRepository.createQueryBuilder("playlist")
             .leftJoin("playlist.author", "author")
