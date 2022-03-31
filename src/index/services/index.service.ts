@@ -168,7 +168,7 @@ export class IndexService {
 
             // Check if file already exists as index
 
-            const existingIndices = await this.findMultipleIndices({ directory: In(files.map((file) => file.directory)), filename: In(In(files.map((file) => file.filename))), mount: { id: In(In(files.map((file) => file.mount.id)))} })
+            const existingIndices = await this.findMultipleIndices({ directory: In(files.map((file) => file.directory)), filename: In(In(files.map((file) => file.filename))), mount: { id: In(In(files.map((file) => file.mount?.id)))} })
             if(existingIndices.length > 0) {
                 const indexedFiles: Map<string, Index> = new Map();
 
