@@ -204,7 +204,43 @@ export class SongService {
             return song;
         })
 
-        return Page.of(result.entities, 5, 0);
+        return Page.of(result.entities, result.entities.length, 0);
+    }
+    /**
+     * Find the top 5 songs by stream count by an artist.
+     * @param artistId Artist's id
+     * @returns Song[]
+     */
+     public async findTopSongsIdsByArtist(artistId: string): Promise<Page<Song>> {
+        const qb = await this.songRepository.createQueryBuilder('song')
+            // Join for relations
+            .leftJoin("song.likedBy", "likedByAll")
+            .leftJoin("song.index", "index")
+            .leftJoin("song.artists", "artist")
+
+            // Join to get amount all streams
+            .leftJoin('song.streams', 'streams')
+
+            .select(["song.id"])
+            .addSelect('SUM(streams.streamCount)', 'streamCount')
+            .addSelect("COUNT(likedByAll.id)", "likedByAllCount")
+
+            .groupBy("song.id")
+
+            .orderBy('streamCount', 'DESC')
+            .addOrderBy('likedByAllCount', "DESC")
+            .distinct(true)
+            
+            // Pagination
+            .limit(5)
+
+            .where("index.status = :status", { status: IndexStatus.OK })
+            .andWhere("artist.id = :artistId", { artistId: [ artistId ] })
+            .orWhere("artist.slug = :artistId", { artistId: [ artistId ] })
+            
+            
+        const result = await qb.getMany();
+        return Page.of(result, result.length, 0);
     }
 
     /**
@@ -257,6 +293,28 @@ export class SongService {
         })
 
         return Page.of(result.entities, totalElements, pageable.page);
+    }
+    /**
+     * Find page of songs from artist.
+     * @param artistId Artist's id to lookup
+     * @returns Page<Song>
+     */
+     public async findIdsByArtist(artistId: string): Promise<Page<Song>> {
+        const qb = await this.songRepository.createQueryBuilder('song')
+            // Join for relations
+            .leftJoin("song.artists", "artist")
+            .leftJoin("song.index", "index")
+
+            .orderBy('song.released', 'DESC')
+            .addOrderBy("song.createdAt", "DESC")
+
+            .where("index.status = :status", { status: IndexStatus.OK })
+            .andWhere("artist.id = :artistId", { artistId })
+            .orWhere("artist.slug = :artistId", { artistId: [ artistId ] })
+            .select(["song.id"])
+            
+        const result = await qb.getMany();
+        return Page.of(result, result.length, 0);
     }
 
     /**

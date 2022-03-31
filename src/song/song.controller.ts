@@ -49,21 +49,37 @@ export class SongController {
     return this.songService.findByGenreAndOrArtist(genreId, artistId, pageable, user)
   }
 
+
+
+
   @Get("/byArtist/:artistId/top")
   public async findTopSongsByArtist(@Param("artistId") artistId: string, @AuthenticatedUser() user: User): Promise<Page<Song>> {
     return this.songService.findTopSongsByArtist(artistId, user, { page: 0, size: 5 })
   }
+  @Get("/byArtist/:artistId/top/ids")
+  public async findTopSongIdsByArtist(@Param("artistId") artistId: string): Promise<Page<Song>> {
+    return this.songService.findTopSongsIdsByArtist(artistId)
+  }
+
+
 
   @Get("/byArtist/:artistId")
   public async findSongsByArtist(@Param("artistId") artistId: string, @AuthenticatedUser() user: User, @Pageable() pageable: Pageable): Promise<Page<Song>> {
     return this.songService.findSongsByArtist(artistId, pageable, user)
   }
+  @Get("/byArtist/:artistId/ids")
+  public async findIdsByArtist(@Param("artistId") artistId: string): Promise<Page<Song>> {
+    return this.songService.findIdsByArtist(artistId)
+  }
+
+
+
+
 
   @Get("/byAlbum/:albumId")
   public async findByAlbum(@Param("albumId") albumId: string, @AuthenticatedUser() user: User, @Pageable() pageable: Pageable): Promise<Page<Song>> {
     return this.songService.findByAlbum(albumId, pageable, user)
   }
-
   @Get("/byAlbum/:albumId/ids")
   public async findIdsByAlbum(@Param("albumId") albumId: string): Promise<Page<Song>> {
     return this.songService.findIdsByAlbum(albumId)
@@ -76,7 +92,6 @@ export class SongController {
   public async findPageByPlaylist(@Param("playlistId") playlistId: string, @AuthenticatedUser() user: User, @Pageable() pageable: Pageable): Promise<Page<Song>> {
     return this.songService.findByPlaylist(playlistId, user, pageable)
   }
-
   @Get("/byPlaylist/:playlistId/ids")
   public async findIdsByPlaylist(@Param("playlistId") playlistId: string, @AuthenticatedUser() user: User): Promise<Page<Song>> {
     return this.songService.findIdsByPlaylist(playlistId, user)
