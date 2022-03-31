@@ -159,7 +159,7 @@ export class PlaylistService {
             .loadRelationCountAndMap("playlist.liked", "playlist.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication.id }))
 
             
-            .where("(artist.id = :artistId OR artist.slug = :artistId) AND (playlist.privacy = :privacy OR author.id = :authorId OR collaborator.id = :authorId)", { artistId: artistId, privacy: PlaylistPrivacy.PUBLIC.toString(), authorId: authentication.id })
+            .where("(artist.id = :artistId OR artist.slug = :artistId) AND (playlist.privacy = :privacy OR author.id = :authorId OR collaborator.id = :authorId OR likedByUser.userId = :authorId)", { artistId: artistId, privacy: PlaylistPrivacy.PUBLIC.toString(), authorId: authentication.id })
             // .orWhere("playlist.privacy != :privacy AND likedByUser.userId = :userId", { privacy: PlaylistPrivacy.PUBLIC, userId: authentication.id })
             .getManyAndCount();
 
