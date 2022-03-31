@@ -112,6 +112,7 @@ export class SongService {
             .leftJoinAndSelect("song.distributor", "distributor")
             .leftJoinAndSelect("song.genres", "genre")
             .leftJoinAndSelect("song.artists", "artist")
+            .leftJoinAndSelect("artist.artwork", "artistArtwork")
             .leftJoin("song.albums", "album")
             .leftJoin("song.index", "index")
 
@@ -124,6 +125,7 @@ export class SongService {
             .orWhere("song.slug = :songId", { songId })
 
         const result = await qb.getOne();
+
         return result;
     }
 
