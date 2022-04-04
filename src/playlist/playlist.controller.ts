@@ -10,8 +10,8 @@ import { PlaylistService } from './playlist.service';
 export class PlaylistController {
   constructor(private readonly playlistService: PlaylistService) {}
 
-  @Get("/byUser") 
-  public async findAllPlaylistsByAuthentication(@AuthenticatedUser() authentication: User) {
+  @Get("@me") 
+  public async findByAuthentication(@AuthenticatedUser() authentication: User) {
     return this.playlistService.findAllByAuthenticatedUser(authentication);
   }
 
