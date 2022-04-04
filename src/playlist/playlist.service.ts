@@ -281,7 +281,7 @@ export class PlaylistService {
      * @param requester The user requesting the operation. Used to check if the user is allowed to add songs
      * @returns 
      */
-    public async removeSongs(playlistId: string, songIds: string[], authentication: User): Promise<void> {
+    public async removeSongs(playlistId: string, songIds: string[], authentication: User): Promise<Playlist> {
         if(!await this.hasUserAccessToPlaylist(playlistId, authentication)) {
             throw new NotFoundException("Playlist not found.")
         }
@@ -296,9 +296,9 @@ export class PlaylistService {
 
         if(!playlist.items) playlist.items = [];
         return this.song2playlistRepository.delete({ songId: In(songIds), playlistId }).then(() => {
-            return;
+            return playlist;
         }).catch(() => {
-            return;
+            return playlist;
         });
     }
 
