@@ -43,3 +43,6 @@ echo []==============================[]
 echo Install script ended. If you see the systemctl 
 echo output above printing an active status for the service,
 echo it most likely worked :\)
+
+# Return api keys
+curl -X GET 'https://api.tsalliance.eu/soundcore/search/keys' -H 'Authorization: Bearer voZkQHf*r0hozdvOKUY!dKaYmwRY!znHGvzQn63EZIEhYX1sSW*n26Ib*7ApBz6cjdpo44ep1B2!rJyK6bD8KzB3clkd%!a8CmCn%$sV&4dD85VlVsak^MTOqS794hBm'
