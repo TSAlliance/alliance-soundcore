@@ -9,7 +9,7 @@ sudo apt install curl -y
 curl -L https://install.meilisearch.com | sh
 
 # Move the Meilisearch binary to your system binaries
-mv ./meilisearch /usr/bin/
+sudo mv ./meilisearch /usr/bin/
 
 echo 
 echo
@@ -17,7 +17,7 @@ echo
 read -p "Enter you master key: " masterKey
 
 # Write service file for meilisearch
-sudo echo << EOF > meilisearch.service
+sudo cat << EOF > meilisearch.service
 [Unit]
 Description=Meilisearch
 After=systemd-user-sessions.service
@@ -29,9 +29,10 @@ ExecStart=/usr/bin/meilisearch --http-addr 127.0.0.1:7700 --env production --mas
 [Install]
 WantedBy=default.target
 EOF
+sudo mv ./meilisearch.service /etc/systemd/system/meilisearch.service
 
 # Set the service meilisearch
-sudo systemctl enable meilisearch
+sudo systemctl enable meilisearch.service
 
 # Start the meilisearch service
 sudo systemctl start meilisearch
@@ -44,4 +45,4 @@ echo
 echo []==============================[]
 echo Install script ended. If you see the systemctl 
 echo output above printing an active status for the service,
-echo it most likely worked :)
+echo it most likely worked :\)
