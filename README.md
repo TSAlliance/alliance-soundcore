@@ -12,8 +12,14 @@ is my largest so far!
 - NodeJS >= 16 (REQUIRED)
 - Keycloak 16.1.1 (Included via docker-image)
 - MySQL Database (REQUIRED)
+- Meilisearch
 
 Other prerequisites will be installed and configured by running `install.sh`.
+
+## Meilisearch installation
+```
+bash -c "$(curl -s https://raw.githubusercontent.com/TSAlliance/alliance-soundcore/main/setups/meilisearch.sh)"
+```
 
 ## Notes when using Nginx as Proxy
 Please do not forget to support websocket connections via proxied nginx connections.

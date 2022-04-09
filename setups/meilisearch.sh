@@ -1,4 +1,6 @@
 #!/bin/bash
+read -p "Enter your master key: " masterKey < /dev/tty
+
 # Update the list of available packages and their versions
 sudo apt update && sudo apt upgrade -y
 
@@ -10,13 +12,6 @@ curl -L https://install.meilisearch.com | sh
 
 # Move the Meilisearch binary to your system binaries
 sudo mv ./meilisearch /usr/bin/
-
-echo 
-echo
-echo 
-read -p "Enter your master key: " masterKey < /dev/tty
-
-echo $masterKey
 
 # Write service file for meilisearch
 sudo cat << EOF > meilisearch.service
