@@ -45,4 +45,4 @@ echo output above printing an active status for the service,
 echo it most likely worked :\)
 
 # Return api keys
-curl -X GET 'http://127.0.0.1:7700/keys' -H 'Authorization: Bearer $masterKey'
+# curl -X GET 'http://127.0.0.1:7700/keys' -H 'Authorization: Bearer $masterKey'
