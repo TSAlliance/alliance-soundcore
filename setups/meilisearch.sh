@@ -14,7 +14,9 @@ sudo mv ./meilisearch /usr/bin/
 echo 
 echo
 echo 
-read -p "Enter you master key: " masterKey
+read -p "Enter your master key: " masterKey < /dev/tty
+
+echo $masterKey
 
 # Write service file for meilisearch
 sudo cat << EOF > meilisearch.service
