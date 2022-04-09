@@ -18,7 +18,7 @@ Other prerequisites will be installed and configured by running `install.sh`.
 
 ## Meilisearch installation
 ```
-bash -c "$(curl -s https://raw.githubusercontent.com/TSAlliance/alliance-soundcore/main/setups/meilisearch.sh)"
+bash -c "$(curl -sL https://raw.githubusercontent.com/TSAlliance/alliance-soundcore/main/setups/meilisearch.sh)"
 ```
 
 ## Notes when using Nginx as Proxy

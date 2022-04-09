@@ -8,7 +8,7 @@ sudo apt update && sudo apt upgrade -y
 sudo apt install curl -y
 
 # Install Meilisearch latest version from the script
-curl -L https://install.meilisearch.com | sh
+curl -sL https://install.meilisearch.com | sh
 
 # Move the Meilisearch binary to your system binaries
 sudo mv ./meilisearch /usr/bin/
