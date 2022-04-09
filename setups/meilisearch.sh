@@ -1,7 +1,4 @@
 #!/bin/bash
-
-read -p "Enter you master key: " masterKey
-
 # Update the list of available packages and their versions
 sudo apt update && sudo apt upgrade -y
 
@@ -14,8 +11,13 @@ curl -L https://install.meilisearch.com | sh
 # Move the Meilisearch binary to your system binaries
 mv ./meilisearch /usr/bin/
 
+echo 
+echo
+echo 
+read -p "Enter you master key: " masterKey
+
 # Write service file for meilisearch
-sudo cat << EOF > /etc/systemd/system/meilisearch.service
+sudo echo << EOF > meilisearch.service
 [Unit]
 Description=Meilisearch
 After=systemd-user-sessions.service
