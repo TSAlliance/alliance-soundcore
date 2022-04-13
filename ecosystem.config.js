@@ -1,7 +1,7 @@
 module.exports = {
     apps: [{
         name: "Alliance-Soundcore",
-        script: "dist/main.js",
+        script: "dist/apps/alliance-soundcore/main.js",
         increment_var: "APP_PORT",
         instances: 1,
         autorestart: true,

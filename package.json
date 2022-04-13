@@ -7,11 +7,12 @@
   "license": "UNLICENSED",
   "scripts": {
     "prebuild": "rimraf dist",
-    "build": "nest build",
+    "build": "nest build soundcore-meili && nest build",
     "build:docker": "docker builder prune --all --force && docker build -t soundcore:latest .",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main",
+    "lib:watch": "nest build soundcore-meili --watch",
     "docker-compose": "docker-compose up"
   },
   "dependencies": {
@@ -36,11 +37,13 @@
     "ffprobe": "^1.1.2",
     "ffprobe-static": "^3.0.0",
     "glob": "^7.2.0",
+    "meilisearch": "^0.25.0",
     "mysql2": "^2.3.3",
     "nest-keycloak-connect": "^1.8.1",
     "nestjs-pager": "^1.0.23",
     "node-id3": "^0.2.3",
     "node-vibrant": "^3.2.1-alpha.1",
+    "redis": "^3.1.2",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
     "rxjs": "^7.2.0",

@@ -4,6 +4,7 @@
   "monorepo": true,
   "root": "apps/alliance-soundcore",
   "compilerOptions": {
+    "deleteOutDir": false,
     "webpack": false,
     "tsConfigPath": "apps/alliance-soundcore/tsconfig.app.json"
   },
@@ -24,6 +25,15 @@
       "sourceRoot": "apps/soundcore-meili-sync/src",
       "compilerOptions": {
         "tsConfigPath": "apps/soundcore-meili-sync/tsconfig.app.json"
+      }
+    },
+    "soundcore-meili": {
+      "type": "library",
+      "root": "libs/soundcore-meili",
+      "entryFile": "index",
+      "sourceRoot": "libs/soundcore-meili/src",
+      "compilerOptions": {
+        "tsConfigPath": "libs/soundcore-meili/tsconfig.lib.json"
       }
     }
   }

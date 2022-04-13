@@ -27,6 +27,7 @@ import { CollectionModule } from './collection/collection.module';
 import { IndexReportModule } from './index-report/index-report.module';
 import { BullModule } from '@nestjs/bull';
 import { KeycloakModule } from './authentication/keycloak.module';
+import { SoundcoreMeiliModule } from '@soundcore/soundcore-meili';
 
 @Module({
   imports: [
@@ -36,6 +37,11 @@ import { KeycloakModule } from './authentication/keycloak.module';
         ".env.dev",
         ".env"
       ]
+    }),
+    SoundcoreMeiliModule.forRoot({
+      host: process.env.MEILISEARCH_HOST,
+      port: parseInt(process.env.MEILISEARCH_PORT),
+      key: process.env.MEILISEARCH_KEY
     }),
     TypeOrmModule.forRoot({
       type: "mysql",

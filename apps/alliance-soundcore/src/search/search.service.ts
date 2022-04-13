@@ -52,7 +52,7 @@ export class SearchService {
             distributors: distributors.amount > 0 ? distributors : undefined,
             labels: labels.amount > 0 ? labels : undefined,
             albums: albums.amount > 0 ? albums : undefined,
-            users: users.amount > 0 ? users : undefined
+            users: users
         }
 
         if(query && query.length > 0 && query != " ") {
@@ -77,7 +77,6 @@ export class SearchService {
         if(haystack.publisher) candidates.push(...haystack.publisher?.elements.map((x) => ({ compareString: x.name, obj: x, type: "publisher" as SearchBestMatchType })))
         if(haystack.distributors) candidates.push(...haystack.distributors?.elements.map((x) => ({ compareString: x.name, obj: x, type: "distributor" as SearchBestMatchType })))
         if(haystack.labels) candidates.push(...haystack.labels?.elements.map((x) => ({ compareString: x.name, obj: x, type: "label" as SearchBestMatchType })))
-        if(haystack.users) candidates.push(...haystack.users?.elements.map((x) => ({ compareString: x.username, obj: x, type: "user" as SearchBestMatchType })))
 
         let bestMatch: { score: number, value: MatchCandidate, type: SearchBestMatchType } = { score: 0, value: null, type: "song"};
 

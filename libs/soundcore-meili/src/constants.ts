@@ -1,0 +1,1 @@
+export const SC_MEILI_OPTIONS = "sc-meili-options"

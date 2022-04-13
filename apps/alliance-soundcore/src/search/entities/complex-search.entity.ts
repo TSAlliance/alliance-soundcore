@@ -1,3 +1,5 @@
+import { MeiliUser } from "@soundcore/soundcore-meili/entities/meili-user";
+import { SearchResponse } from "meilisearch";
 import { Page } from "nestjs-pager";
 import { Album } from "../../album/entities/album.entity";
 import { Artist } from "../../artist/entities/artist.entity";
@@ -6,7 +8,6 @@ import { Genre } from "../../genre/entities/genre.entity";
 import { Label } from "../../label/entities/label.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
 import { Song } from "../../song/entities/song.entity";
-import { User } from "../../user/entities/user.entity";
 import { SearchBestMatch } from "./best-match.entity";
 
 export class ComplexSearchResult {
@@ -20,6 +21,6 @@ export class ComplexSearchResult {
     public publisher?: Page<Publisher>;
     public labels?: Page<Label>;
     public distributors?: Page<Distributor>;
-    public users?: Page<User>;
+    public users?: SearchResponse<MeiliUser>;
 
 }
