@@ -6,7 +6,7 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
-    "target": "es2017",
+    "target": "ESNext",
     "sourceMap": true,
     "outDir": "./dist",
     "incremental": true,
@@ -16,9 +16,15 @@
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "baseUrl": "./",
+    "paths": {}
   },
   "watchOptions": {
-    "excludeFiles": ["tmp-data", "uploaded-data", "artwork-data"]
+    "excludeFiles": [
+      "tmp-data",
+      "uploaded-data",
+      "artwork-data"
+    ]
   }
 }

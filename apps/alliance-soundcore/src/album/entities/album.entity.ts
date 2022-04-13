@@ -18,7 +18,6 @@ export class Album {
 
     @Column({ nullable: true, unique: true, length: 120 })
     public slug: string;
-
     
     @Column({ nullable: true })
     public geniusId: string;
