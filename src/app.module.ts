@@ -27,6 +27,7 @@ import { CollectionModule } from './collection/collection.module';
 import { IndexReportModule } from './index-report/index-report.module';
 import { BullModule } from '@nestjs/bull';
 import { KeycloakModule } from './authentication/keycloak.module';
+import { ActivityModule } from './activity/activity.module';
 
 @Module({
   imports: [
@@ -91,7 +92,8 @@ import { KeycloakModule } from './authentication/keycloak.module';
     ImportModule,
     CollectionModule,
     IndexReportModule,
-    KeycloakModule
+    KeycloakModule,
+    ActivityModule
   ],
   controllers: [],
   providers: []
