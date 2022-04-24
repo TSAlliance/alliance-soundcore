@@ -26,8 +26,8 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { CollectionModule } from './collection/collection.module';
 import { IndexReportModule } from './index-report/index-report.module';
 import { BullModule } from '@nestjs/bull';
-import { KeycloakModule } from './authentication/keycloak.module';
 import { NotificationModule } from './notification/notification.module';
+import { OIDCModule } from './authentication/oidc.module';
 
 @Module({
   imports: [
@@ -92,8 +92,13 @@ import { NotificationModule } from './notification/notification.module';
     ImportModule,
     CollectionModule,
     IndexReportModule,
-    KeycloakModule,
-    NotificationModule
+    NotificationModule,
+    OIDCModule.forRoot({
+      server_base_url: "https://sso.tsalliance.eu",
+      realm: "tsalliance",
+      client_id: "alliance-soundcore-api",
+      client_secret: "FHl4H5UFr8Tnrf921xUja0a1wHN9jPgR"
+    })
   ],
   controllers: [],
   providers: []

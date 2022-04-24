@@ -1,5 +1,5 @@
 import { Controller, Get, Param } from '@nestjs/common';
-import { AuthenticatedUser } from 'nest-keycloak-connect';
+import { Authentication } from '../authentication/decorators/authentication.decorator';
 
 import { User } from '../user/entities/user.entity';
 import { ArtistService } from './artist.service';
@@ -11,7 +11,7 @@ export class ArtistController {
   // TODO: Functionality to trigger artist search on genius
 
   @Get(":artistId")
-  public async findProfileById(@Param("artistId") artistId: string, @AuthenticatedUser() user: User) {
+  public async findProfileById(@Param("artistId") artistId: string, @Authentication() user: User) {
     return this.artistService.findProfileById(artistId, user)
   }
 

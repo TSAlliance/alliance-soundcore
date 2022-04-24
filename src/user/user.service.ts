@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
 import { ILike } from 'typeorm';
 import { ArtworkService } from '../artwork/artwork.service';
-import { KeycloakUser } from '../authentication/entities/keycloak-user.entity';
+import { OIDCUser } from '../authentication/entities/oidc-user.entity';
 import { User } from './entities/user.entity';
 import { UserRepository } from './repositories/user.repository';
 
@@ -15,7 +15,7 @@ export class UserService {
         private userRepository: UserRepository
     ) {}
 
-    public async findOrCreateByKeycloakUserInstance(userInstance: KeycloakUser): Promise<User> {
+    public async findOrCreateByKeycloakUserInstance(userInstance: OIDCUser): Promise<User> {
         if(!userInstance) return null;
 
         // Find in database and return if found
@@ -34,21 +34,6 @@ export class UserService {
             }
         });
     }
-
-    /*public async findProfileById(userId: string, accessToken: string): Promise<User> {
-        const userInfo = await this.ssoService.findUserUsingHeader(userId, accessToken);
-        const user = await this.userRepository.findOne({ where: { id: userId }});
-
-        if(!userInfo) throw new NotFoundException("User not found.")
-        if(!user) {
-            // Simulate user
-
-            // const user: User = userInfo as User
-            // return user;
-        }
-
-        // return { ...user, ...userInfo } as User;
-    }*/
 
     public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<User>> {
         if(!query || query == "") {

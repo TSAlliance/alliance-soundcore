@@ -1,5 +1,5 @@
 import { Body, Controller, Post } from '@nestjs/common';
-import { AuthenticatedUser } from 'nest-keycloak-connect';
+import { Authentication } from '../authentication/decorators/authentication.decorator';
 
 import { User } from '../user/entities/user.entity';
 import { CreateImportDTO } from './dtos/create-import.dto';
@@ -12,13 +12,13 @@ export class ImportController {
 
   @Post()
   
-  public async createImport(@Body() createImportDto: CreateImportDTO, @AuthenticatedUser() importer: User) {
+  public async createImport(@Body() createImportDto: CreateImportDTO, @Authentication() importer: User) {
     return this.importService.createImport(createImportDto, importer);
   }
 
   @Post("spotify")
   
-  public async createSpotifyImport(@Body() createImportDto: CreateSpotifyImportDTO, @AuthenticatedUser() importer: User) {
+  public async createSpotifyImport(@Body() createImportDto: CreateSpotifyImportDTO, @Authentication() importer: User) {
     return this.importService.createSpotifyImport(createImportDto, importer);
   }
 }

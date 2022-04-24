@@ -1,6 +1,6 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
-import { AuthenticatedUser } from 'nest-keycloak-connect';
 import { Pageable } from 'nestjs-pager';
+import { Authentication } from '../authentication/decorators/authentication.decorator';
 import { User } from '../user/entities/user.entity';
 import { AlbumService } from './album.service';
 
@@ -11,27 +11,27 @@ export class AlbumController {
   // TODO: Functionality to trigger album search on genius
 
   @Get("/byArtist/:artistId")
-  public async findProfilesByArtist(@Param("artistId") artistId: string, @Pageable() pageable: Pageable, @AuthenticatedUser() authentication: User) {
+  public async findProfilesByArtist(@Param("artistId") artistId: string, @Pageable() pageable: Pageable, @Authentication() authentication: User) {
     return this.albumService.findProfilesByArtist(artistId, pageable, authentication);
   }
 
   @Get("/byArtist/:artistId/recommended")
-  public async findRecommendedProfilesByArtist(@Param("artistId") artistId: string, @Query("except") exceptAlbumIds: string[], @AuthenticatedUser() authentication: User) {
+  public async findRecommendedProfilesByArtist(@Param("artistId") artistId: string, @Query("except") exceptAlbumIds: string[], @Authentication() authentication: User) {
     return this.albumService.findRecommendedProfilesByArtist(artistId, exceptAlbumIds, authentication);
   }
 
   @Get("/byFeaturedArtist/:artistId")
-  public async findByFeaturedArtist(@Param("artistId") artistId: string, @Pageable() pageable: Pageable, @AuthenticatedUser() authentication: User) {
+  public async findByFeaturedArtist(@Param("artistId") artistId: string, @Pageable() pageable: Pageable, @Authentication() authentication: User) {
     return this.albumService.findFeaturedWithArtist(artistId, pageable, authentication);
   }
 
   @Get("/byGenre/:genreId")
-  public async findByGenre(@Param("genreId") genreId: string, @Pageable() pageable: Pageable, @AuthenticatedUser() authentication: User) {
+  public async findByGenre(@Param("genreId") genreId: string, @Pageable() pageable: Pageable, @Authentication() authentication: User) {
     return this.albumService.findByGenre(genreId, pageable, authentication);
   }
 
   @Get(":albumId")
-  public async findProfileById(@Param("albumId") albumId: string, @AuthenticatedUser() authentication: User) {
+  public async findProfileById(@Param("albumId") albumId: string, @Authentication() authentication: User) {
     return this.albumService.findProfileById(albumId, authentication);
   }
 

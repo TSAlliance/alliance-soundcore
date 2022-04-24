@@ -1,6 +1,6 @@
 import { Controller, Get, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { AuthenticatedUser } from 'nest-keycloak-connect';
+import { Authentication } from '../authentication/decorators/authentication.decorator';
 
 import { Index } from '../index/entities/index.entity';
 import { User } from '../user/entities/user.entity';
@@ -19,7 +19,7 @@ export class UploadController {
 
   @Post("audio")
   @UseInterceptors(FileInterceptor("file"))
-  public async uploadAudio(@UploadedFile() file: Express.Multer.File, @AuthenticatedUser() uploader: User): Promise<Index> {
+  public async uploadAudio(@UploadedFile() file: Express.Multer.File, @Authentication() uploader: User): Promise<Index> {
     return this.uploadService.uploadAudio(file, uploader)
   }
 

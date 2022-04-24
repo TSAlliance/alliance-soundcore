@@ -1,6 +1,6 @@
 import { Controller, Get, Post } from "@nestjs/common";
-import { AuthenticatedUser } from "nest-keycloak-connect";
 import { Pageable } from "nestjs-pager";
+import { Authentication } from "../../authentication/decorators/authentication.decorator";
 import { User } from "../../user/entities/user.entity";
 import { NotificationService } from "../services/notification.service";
 
@@ -10,7 +10,7 @@ export class NotificationController {
     constructor(private readonly notificationService: NotificationService) {}
 
     @Get("@me")
-    public async findByCurrentUser(@AuthenticatedUser() authentication: User, @Pageable() pageable: Pageable) {
+    public async findByCurrentUser(@Authentication() authentication: User, @Pageable() pageable: Pageable) {
         return this.notificationService.findByCurrentUser(authentication, pageable);
     }
 

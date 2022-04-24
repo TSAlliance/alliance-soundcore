@@ -1,7 +1,8 @@
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from "@nestjs/common";
-import { Observable } from "rxjs";
+import { map, Observable, tap } from "rxjs";
 import { UserService } from "../../user/user.service";
-import { KeycloakUser } from "../entities/keycloak-user.entity";
+import { OIDCUser } from "../entities/oidc-user.entity";
+import { OIDC_REQUEST_MAPPING } from "../oidc.constants";
 
 @Injectable()
 export class RequestInterceptor implements NestInterceptor {
@@ -11,16 +12,14 @@ export class RequestInterceptor implements NestInterceptor {
     ) {}
     
     public async intercept(context: ExecutionContext, next: CallHandler<any>): Promise<Observable<any>> {
-        // See: https://github.com/ferrerojosh/nest-keycloak-connect/blob/master/src/guards/auth.guard.ts
-        // Under:
-        // Attach user info object
-        // request.user = parseToken(jwt);
         const request = context.switchToHttp()?.getRequest();
-        if(request.user) {
-            request.user = await this.userService.findOrCreateByKeycloakUserInstance(request.user as KeycloakUser)
+        const authentication: OIDCUser = request[OIDC_REQUEST_MAPPING];
+
+        if(authentication) {
+            request[OIDC_REQUEST_MAPPING] = await this.userService.findOrCreateByKeycloakUserInstance(authentication)
         }
 
-        return next.handle();
+        return next.handle()
     }
 
 }
