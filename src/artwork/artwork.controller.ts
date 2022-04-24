@@ -1,6 +1,6 @@
 import { Controller, Get, Param, Res } from '@nestjs/common';
 import { Response } from 'express';
-import { Public } from 'nest-keycloak-connect';
+import { Public } from '../authentication/decorators/public.decorator';
 import { ArtworkService } from './artwork.service';
 
 @Controller('artworks')

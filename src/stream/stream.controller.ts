@@ -1,6 +1,7 @@
 import { Controller, Get, Param, Query, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { AuthenticatedUser, Public } from 'nest-keycloak-connect';
+import { Authentication } from '../authentication/decorators/authentication.decorator';
+import { Public } from '../authentication/decorators/public.decorator';
 import { User } from '../user/entities/user.entity';
 import { StreamTokenService } from './services/stream-token.service';
 import { StreamService } from './services/stream.service';
@@ -19,7 +20,7 @@ export class StreamController {
   }
 
   @Get("/token/:songId")
-  public async getToken(@Param("songId") songId: string, @AuthenticatedUser() user: User) {
+  public async getToken(@Param("songId") songId: string, @Authentication() user: User) {
     return this.tokenService.createForSong(user, songId);
   }
 

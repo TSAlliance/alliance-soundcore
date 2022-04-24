@@ -1,5 +1,5 @@
 import { Controller, Get } from "@nestjs/common";
-import { AuthenticatedUser } from "nest-keycloak-connect";
+import { Authentication } from "../../authentication/decorators/authentication.decorator";
 import { User } from "../../user/entities/user.entity";
 import { CollectionService } from "../services/collection.service";
 
@@ -9,13 +9,8 @@ export class CollectionController {
     constructor(private collectionService: CollectionService) {}
 
     @Get()
-    public async findByCurrentUser(@AuthenticatedUser() user: User) {
+    public async findByCurrentUser(@Authentication() user: User) {
         return this.collectionService.findByUserId(user?.id)
     }
-
-    /*@Get("/byArtist/:artistId")
-    public async findByArtist(@Param("artistId") artistId: string, @AuthenticatedUser() user: User) {
-        return this.collectionService.findByUserId(user?.id)
-    }*/
 
 }

@@ -1,7 +1,6 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
-import { AuthenticatedUser } from 'nest-keycloak-connect';
-
 import { Pageable } from 'nestjs-pager';
+import { Authentication } from '../authentication/decorators/authentication.decorator';
 import { User } from '../user/entities/user.entity';
 import { SearchService } from './search.service';
 
@@ -10,7 +9,7 @@ export class SearchController {
   constructor(private readonly searchService: SearchService) {}
 
   @Get()
-  public async performSearch(@Query("q") query: string, @AuthenticatedUser() searcher: User) {
+  public async performSearch(@Query("q") query: string, @Authentication() searcher: User) {
     return this.searchService.complexSearch(query, searcher);
   } 
 

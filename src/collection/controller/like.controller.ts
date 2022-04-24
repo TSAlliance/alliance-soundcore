@@ -1,5 +1,5 @@
 import { Controller, Param, Post } from '@nestjs/common';
-import { AuthenticatedUser } from 'nest-keycloak-connect';
+import { Authentication } from '../../authentication/decorators/authentication.decorator';
 import { User } from '../../user/entities/user.entity';
 import { LikeService } from '../services/like.service';
 
@@ -9,17 +9,17 @@ export class LikeController {
   constructor(private readonly likeService: LikeService) {}
 
   @Post("/song/:songId")
-  public async likeSong(@Param("songId") songId: string, @AuthenticatedUser() user: User): Promise<boolean> {
+  public async likeSong(@Param("songId") songId: string, @Authentication() user: User): Promise<boolean> {
     return this.likeService.likeSong(songId, user);
   }
 
   @Post("/playlist/:playlistId")
-  public async likePlaylist(@Param("playlistId") playlistId: string, @AuthenticatedUser() user: User): Promise<boolean> {
+  public async likePlaylist(@Param("playlistId") playlistId: string, @Authentication() user: User): Promise<boolean> {
     return this.likeService.likePlaylist(playlistId, user)
   }
 
   @Post("/album/:albumId")
-  public async likeAlbum(@Param("albumId") albumId: string, @AuthenticatedUser() user: User): Promise<boolean> {
+  public async likeAlbum(@Param("albumId") albumId: string, @Authentication() user: User): Promise<boolean> {
     return this.likeService.likeAlbum(albumId, user)
   }
 
