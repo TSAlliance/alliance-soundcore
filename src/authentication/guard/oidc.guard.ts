@@ -1,0 +1,63 @@
+import { CanActivate, ExecutionContext, ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
+import { Reflector } from "@nestjs/core";
+import { Request } from "express";
+import { OIDC_AUTH_OPTIONAL, OIDC_AUTH_ROLES, OIDC_AUTH_SKIP, OIDC_REQUEST_MAPPING } from "../oidc.constants";
+import { OIDCService } from "../services/oidc.service";
+
+@Injectable()
+export class OIDCGuard implements CanActivate {
+
+    constructor(
+        private readonly service: OIDCService,
+        private readonly reflector: Reflector,
+    ) {}
+
+    public async canActivate(ctx: ExecutionContext): Promise<boolean> {
+        const context = ctx.switchToHttp();
+        if(!context) throw new ForbiddenException("Invalid guard context.");
+
+        const isAuthOptional = this.reflector.get<boolean>(OIDC_AUTH_OPTIONAL, ctx.getHandler()) || false;
+        const skipAuth = this.reflector.get<boolean>(OIDC_AUTH_SKIP, ctx.getHandler()) || false;
+        if(skipAuth) return true;
+
+        const request: Request = context.getRequest();
+        const authHeader: string = request.headers.authorization;
+
+        const token = authHeader?.slice("Bearer ".length);
+        return this.service.client().introspect(token).then((introspect) => {
+            const allowedRoles = this.reflector.get<string[]>(OIDC_AUTH_ROLES, ctx.getHandler()) || [];
+            const roles = introspect?.["realm_access"]?.["roles"] || [];
+
+            if(!this.hasRequiredRole(allowedRoles, roles) && allowedRoles.length > 0 ) {
+                throw new ForbiddenException("You do not have the required role to perform this action.")
+            }
+
+            request[OIDC_REQUEST_MAPPING] = introspect;
+            return isAuthOptional || introspect.active
+        }).catch((error: Error) => {
+            if(isAuthOptional) return true;
+
+            if(error instanceof ForbiddenException || error instanceof UnauthorizedException) {
+                throw error;
+            } else {
+                console.error(error);
+                throw new UnauthorizedException("Failed checking your identity at the register issuer.");
+            }
+
+            
+        })
+    }
+
+    private hasRequiredRole(haystack: string[], needles: string[]) {
+        let hasAllowedRole = false;
+        for(const r of haystack) {
+            if(needles.includes(r)) {
+                hasAllowedRole = true;
+                break;
+            }
+        }
+
+        return hasAllowedRole;
+    }
+
+}

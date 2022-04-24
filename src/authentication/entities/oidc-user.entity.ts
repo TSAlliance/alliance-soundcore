@@ -1,4 +1,5 @@
-export class KeycloakUser {
+
+export class OIDCUser {
 
     public sid: string;
     public preferred_username: string;

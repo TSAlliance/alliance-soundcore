@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
 import { AuthenticatedUser } from 'nest-keycloak-connect';
 import { Pageable } from 'nestjs-pager';
+import { Authentication } from '../authentication/decorators/authentication.decorator';
 import { User } from '../user/entities/user.entity';
 import { CreatePlaylistDTO } from './dtos/create-playlist.dto';
 import { UpdatePlaylistDTO } from './dtos/update-playlist.dto';
@@ -11,7 +12,7 @@ export class PlaylistController {
   constructor(private readonly playlistService: PlaylistService) {}
 
   @Get("@me") 
-  public async findByAuthentication(@AuthenticatedUser() authentication: User) {
+  public async findByAuthentication(@Authentication() authentication: User) {
     return this.playlistService.findAllByAuthenticatedUser(authentication);
   }
 
