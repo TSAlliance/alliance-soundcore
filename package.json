@@ -36,6 +36,7 @@
     "ffprobe": "^1.1.2",
     "ffprobe-static": "^3.0.0",
     "glob": "^7.2.0",
+    "keycloak-connect": "^17.0.1",
     "mysql2": "^2.3.3",
     "nest-keycloak-connect": "^1.8.1",
     "nestjs-pager": "^1.0.23",
