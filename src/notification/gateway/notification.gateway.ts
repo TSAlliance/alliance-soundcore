@@ -1,6 +1,11 @@
-import { JwtService } from '@nestjs/jwt';
-import { WebSocketGateway } from '@nestjs/websockets';
+import { WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
+import { Server } from 'socket.io';
+import { OIDCService } from '../../authentication/services/oidc.service';
+import { UserService } from '../../user/user.service';
 import { AuthGateway } from '../../utils/gateway/auth-gateway';
+import { Notification } from '../entities/notification.entity';
+
+export const NOTIFICATION_EVENT_PUSH = "notification:push";
 
 @WebSocketGateway({
   cors: {
@@ -10,10 +15,22 @@ import { AuthGateway } from '../../utils/gateway/auth-gateway';
 })
 export class NotificationGateway extends AuthGateway {
 
-  constructor(jwtService: JwtService) {
-    super(jwtService);
+  @WebSocketServer()
+  public server: Server;
+
+  constructor(userService: UserService, oidcService: OIDCService) {
+    super(userService, oidcService);
   }
 
-  
+  public async sendNotification(notification: Notification) {
+    if(notification.isBroadcast) {
+      this.server.emit(NOTIFICATION_EVENT_PUSH, notification);
+    } else {
+      for(const target of notification.targets) {
+        const socket = this.getAuthenticatedSocket(target.id);
+        socket?.emit(NOTIFICATION_EVENT_PUSH, notification);
+      }
+    }
+  }
   
 }

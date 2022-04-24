@@ -3,12 +3,14 @@ import { Page, Pageable } from 'nestjs-pager';
 import { User } from '../../user/entities/user.entity';
 import { CreateNotificationDTO } from '../dtos/notification.dto';
 import { Notification } from '../entities/notification.entity';
+import { NotificationGateway } from '../gateway/notification.gateway';
 import { NotificationRepository } from '../repositories/notification.repository';
 
 @Injectable()
 export class NotificationService {
 
     constructor(
+        private readonly gateway: NotificationGateway,
         private readonly notificationRepository: NotificationRepository
     ) {}
 
@@ -22,14 +24,10 @@ export class NotificationService {
             .where("notification.isBroadcast = :isBroadcast OR target.id = :targetId", { isBroadcast: 1, targetId: authentication.id })
             .getManyAndCount();
 
-        console.log(result);
-
         return Page.of(result[0], result[1], pageable.page)
     }
 
     public async createNotification(createNotificationDto: CreateNotificationDTO): Promise<Notification> {
-        console.log(createNotificationDto)
-
         const notification = new Notification();
         notification.title = createNotificationDto.title;
         notification.message = createNotificationDto.message;
@@ -44,7 +42,7 @@ export class NotificationService {
         }
 
         return this.notificationRepository.save(notification).then((result) => {
-            // TODO: Send notification via socket
+            this.gateway.sendNotification(notification);
             return result;
         })
         

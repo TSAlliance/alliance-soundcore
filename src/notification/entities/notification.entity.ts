@@ -35,7 +35,7 @@ export class Notification {
      * has requested the resource from one of the endpoints.
      */
     @ManyToMany(() => User)
-    @JoinTable({ name: "user2notification" })
+    @JoinTable({ name: "readBy2notification" })
     public readBy: User[];
 
     /**

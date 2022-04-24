@@ -4,7 +4,7 @@ import { NotificationController } from './controllers/notification.controller';
 import { NotificationRepository } from './repositories/notification.repository';
 import { NotificationService } from './services/notification.service';
 import { NotificationGateway } from './gateway/notification.gateway';
-import { JwtModule } from '@nestjs/jwt';
+import { UserModule } from '../user/user.module';
 
 @Module({
   controllers: [
@@ -15,9 +15,7 @@ import { JwtModule } from '@nestjs/jwt';
     NotificationGateway
   ],
   imports: [
-    JwtModule.register({
-      
-    }),
+    UserModule,
     TypeOrmModule.forFeature([ NotificationRepository ])
   ],
   exports: [
