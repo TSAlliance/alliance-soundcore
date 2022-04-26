@@ -3,6 +3,7 @@ import { BeforeInsert, BeforeUpdate, Column, Entity, OneToMany, PrimaryColumn } 
 import { LikedSong } from "../../collection/entities/liked-song.entity";
 import { Playlist } from "../../playlist/entities/playlist.entity";
 import { Stream } from "../../stream/entities/stream.entity";
+import { ResourceType } from "../../utils/entities/resource";
 import { Slug } from "../../utils/slugGenerator";
 
 @Entity()
@@ -10,6 +11,9 @@ export class User {
 
     @PrimaryColumn({ type: "varchar" })
     public id: string;
+
+    @Column({ default: "user" as ResourceType })
+    public resourceType: ResourceType;
 
     @Column({ nullable: true, unique: true, length: 120 })
     public slug: string;

@@ -3,6 +3,7 @@ import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Liked } from "../../collection/entities/like.entity";
 import { LikedPlaylist } from "../../collection/entities/liked-playlist.entity";
 import { User } from "../../user/entities/user.entity";
+import { ResourceType } from "../../utils/entities/resource";
 import { Slug } from "../../utils/slugGenerator";
 import { PlaylistPrivacy } from "../enums/playlist-privacy.enum";
 import { PlaylistItem } from "./playlist-item.entity";
@@ -12,6 +13,9 @@ export class Playlist {
 
     @PrimaryGeneratedColumn("uuid")
     public id: string;
+
+    @Column({ default: "playlist" as ResourceType })
+    public resourceType: ResourceType;
 
     @Column({ nullable: true, unique: true, length: 120 })
     public slug: string;

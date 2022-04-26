@@ -3,6 +3,7 @@ import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, Index, Jo
 import { Album } from "../../album/entities/album.entity";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Song } from "../../song/entities/song.entity";
+import { ResourceType } from "../../utils/entities/resource";
 import { Slug } from "../../utils/slugGenerator";
 
 @Entity()
@@ -11,9 +12,11 @@ export class Artist {
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
+    @Column({ default: "artist" as ResourceType })
+    public resourceType: ResourceType;
+
     @Column({ nullable: true, unique: true, length: 120 })
     public slug: string;
-
     
     @Column({ nullable: true, unique: true })
     public geniusId: string;

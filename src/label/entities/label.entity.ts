@@ -2,6 +2,7 @@
 import { BeforeInsert, BeforeUpdate, Column, Entity, Index, JoinColumn, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Song } from "../../song/entities/song.entity";
+import { ResourceType } from "../../utils/entities/resource";
 import { Slug } from "../../utils/slugGenerator";
 
 @Entity()
@@ -10,12 +11,14 @@ export class Label {
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
+    @Column({ default: "label" as ResourceType })
+    public resourceType: ResourceType;
+
     @Column({ nullable: true, unique: true, length: 120 })
     public slug: string;
 
     @Column({ nullable: true, default: false })
     public hasGeniusLookupFailed: boolean;
-
     
     @Column({ nullable: true })
     public geniusId: string;

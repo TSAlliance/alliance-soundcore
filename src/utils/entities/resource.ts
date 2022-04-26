@@ -1,0 +1,1 @@
+export type ResourceType = "song" | "user" | "playlist" | "album" | "collection" | "artist" | "genre" | "publisher" | "distributor" | "label"

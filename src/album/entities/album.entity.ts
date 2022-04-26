@@ -8,6 +8,7 @@ import { Distributor } from "../../distributor/entities/distributor.entity";
 import { Label } from "../../label/entities/label.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
 import { Song } from "../../song/entities/song.entity";
+import { ResourceType } from "../../utils/entities/resource";
 import { Slug } from "../../utils/slugGenerator";
 
 @Entity()
@@ -16,9 +17,11 @@ export class Album {
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
+    @Column({ default: "album" as ResourceType })
+    public resourceType: ResourceType;
+
     @Column({ nullable: true, unique: true, length: 120 })
     public slug: string;
-
     
     @Column({ nullable: true })
     public geniusId: string;

@@ -12,7 +12,7 @@ export class UserService {
 
     constructor(
         private artworkService: ArtworkService,
-        private userRepository: UserRepository
+        public userRepository: UserRepository
     ) {}
 
     public async findOrCreateByKeycloakUserInstance(userInstance: OIDCUser): Promise<User> {

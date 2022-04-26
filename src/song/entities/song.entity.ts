@@ -14,6 +14,7 @@ import { Publisher } from "../../publisher/entities/publisher.entity";
 import { Stream } from "../../stream/entities/stream.entity";
 import { SongAlbumOrder } from "./song-order.entity";
 import { Slug } from "../../utils/slugGenerator";
+import { ResourceType } from "../../utils/entities/resource";
 
 @Entity()
 export class Song {
@@ -21,9 +22,11 @@ export class Song {
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
+    @Column({ default: "song" as ResourceType })
+    public resourceType: ResourceType;
+
     @Column({ nullable: true, length: 120 })
     public slug: string;
-
     
     @Column({ nullable: true })
     public geniusId: string;

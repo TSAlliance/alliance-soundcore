@@ -1,6 +1,7 @@
 
 import { BeforeInsert, BeforeUpdate, Column, Entity, Index, JoinTable, ManyToMany, PrimaryGeneratedColumn } from "typeorm";
 import { Song } from "../../song/entities/song.entity";
+import { ResourceType } from "../../utils/entities/resource";
 import { Slug } from "../../utils/slugGenerator";
 
 @Entity()
@@ -9,9 +10,11 @@ export class Genre {
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
+    @Column({ default: "genre" as ResourceType })
+    public resourceType: ResourceType;
+
     @Column({ nullable: true, unique: true, length: 120 })
     public slug: string;
-
     
     @Column({ nullable: true })
     public geniusId: string;
