@@ -28,6 +28,7 @@ import { IndexReportModule } from './index-report/index-report.module';
 import { BullModule } from '@nestjs/bull';
 import { NotificationModule } from './notification/notification.module';
 import { OIDCModule } from './authentication/oidc.module';
+import { ProfileModule } from './profile/profile.module';
 
 @Module({
   imports: [
@@ -98,7 +99,8 @@ import { OIDCModule } from './authentication/oidc.module';
       realm: "tsalliance",
       client_id: "alliance-soundcore-api",
       client_secret: "FHl4H5UFr8Tnrf921xUja0a1wHN9jPgR"
-    })
+    }),
+    ProfileModule
   ],
   controllers: [],
   providers: []
