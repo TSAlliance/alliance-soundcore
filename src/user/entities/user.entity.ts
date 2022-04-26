@@ -3,16 +3,16 @@ import { BeforeInsert, BeforeUpdate, Column, Entity, OneToMany, PrimaryColumn } 
 import { LikedSong } from "../../collection/entities/liked-song.entity";
 import { Playlist } from "../../playlist/entities/playlist.entity";
 import { Stream } from "../../stream/entities/stream.entity";
-import { ResourceType } from "../../utils/entities/resource";
+import { Resource, ResourceType } from "../../utils/entities/resource";
 import { Slug } from "../../utils/slugGenerator";
 
 @Entity()
-export class User {
+export class User implements Resource {
 
     @PrimaryColumn({ type: "varchar" })
     public id: string;
 
-    @Column({ default: "user" as ResourceType })
+    @Column({ default: "user" as ResourceType, update: false })
     public resourceType: ResourceType;
 
     @Column({ nullable: true, unique: true, length: 120 })
@@ -23,7 +23,6 @@ export class User {
 
     @Column({ nullable: true })
     public accentColor: string;
-
     
     @OneToMany(() => Stream, stream => stream.listener)
     public streams: Stream[];

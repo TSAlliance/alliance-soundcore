@@ -7,18 +7,20 @@ import { Distributor } from "../../distributor/entities/distributor.entity";
 import { Label } from "../../label/entities/label.entity";
 import { Playlist } from "../../playlist/entities/playlist.entity";
 import { Song } from "../../song/entities/song.entity";
+import { Resource, ResourceType } from "../../utils/entities/resource";
 import { ArtworkType } from "../types/artwork-type.enum";
 
 @Entity()
-export class Artwork {
+export class Artwork implements Resource {
 
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
+    @Column({ default: "artwork" as ResourceType, update: false })
+    public resourceType: ResourceType;
     
     @Column({ nullable: true })
     public key: string;
-
     
     @Column({ default: "song" })
     public type: ArtworkType;

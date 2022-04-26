@@ -14,15 +14,15 @@ import { Publisher } from "../../publisher/entities/publisher.entity";
 import { Stream } from "../../stream/entities/stream.entity";
 import { SongAlbumOrder } from "./song-order.entity";
 import { Slug } from "../../utils/slugGenerator";
-import { ResourceType } from "../../utils/entities/resource";
+import { Resource, ResourceType } from "../../utils/entities/resource";
 
 @Entity()
-export class Song {
+export class Song implements Resource {
 
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
-    @Column({ default: "song" as ResourceType })
+    @Column({ default: "song" as ResourceType, update: false })
     public resourceType: ResourceType;
 
     @Column({ nullable: true, length: 120 })

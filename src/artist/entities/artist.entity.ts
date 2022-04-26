@@ -3,16 +3,16 @@ import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, Index, Jo
 import { Album } from "../../album/entities/album.entity";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Song } from "../../song/entities/song.entity";
-import { ResourceType } from "../../utils/entities/resource";
+import { Resource, ResourceType } from "../../utils/entities/resource";
 import { Slug } from "../../utils/slugGenerator";
 
 @Entity()
-export class Artist {
+export class Artist implements Resource {
 
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
-    @Column({ default: "artist" as ResourceType })
+    @Column({ default: "artist" as ResourceType, update: false })
     public resourceType: ResourceType;
 
     @Column({ nullable: true, unique: true, length: 120 })

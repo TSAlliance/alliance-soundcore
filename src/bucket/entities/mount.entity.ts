@@ -1,13 +1,17 @@
 import { Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { Index } from "../../index/entities/index.entity";
+import { Resource, ResourceType } from "../../utils/entities/resource";
 import { MountStatus } from "../enums/mount-status.enum";
 import { Bucket } from "./bucket.entity";
 
 @Entity()
-export class Mount {
+export class Mount implements Resource {
 
     @PrimaryGeneratedColumn("uuid")
     public id: string;
+
+    @Column({ default: "mount" as ResourceType, update: false })
+    public resourceType: ResourceType;
 
     @Column({ nullable: false })
     public name: string;

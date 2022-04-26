@@ -4,6 +4,7 @@ import { Mount } from "../../bucket/entities/mount.entity";
 import { IndexReport } from "../../index-report/entities/report.entity";
 import { Song } from "../../song/entities/song.entity";
 import { User } from "../../user/entities/user.entity";
+import { Resource, ResourceType } from "../../utils/entities/resource";
 import { IndexStatus } from "../enum/index-status.enum";
 
 export type IndexRawPath = {
@@ -14,10 +15,13 @@ export type IndexRawPath = {
 
 @Entity()
 @IndexDec("UK_index_filename_directory", ["filename", "directory", "mount.id"], { unique: true })
-export class Index {
+export class Index implements Resource {
 
     @PrimaryGeneratedColumn("uuid")
     public id: string;
+
+    @Column({ default: "index" as ResourceType, update: false })
+    public resourceType: ResourceType;
 
     @Column({ nullable: false, default: '.' })
     public directory: string;
