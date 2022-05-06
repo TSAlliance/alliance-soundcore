@@ -98,7 +98,7 @@ export class PlaylistService {
      * @returns Page<Playlist>
      */
     public async findAllByAuthenticatedUser(authentication: User): Promise<Page<Playlist>> {
-        const result = await this.playlistRepository.createQueryBuilder("playlist")
+        const result = await this.buildDefaultQuery("playlist")
             .leftJoin("playlist.author", "author")
             .leftJoin("playlist.artwork", "artwork")
             .leftJoin("playlist.collaborators", "collaborator")
@@ -118,6 +118,13 @@ export class PlaylistService {
         return Page.of(result[0], result[1], 0);
     }
 
+    /**
+     * Find public playlists by an author.
+     * @param authorId Author to lookup playlists for
+     * @param pageable Page settings
+     * @param authentication User authentication object to check playlist access
+     * @returns Page<Playlist>
+     */
     public async findByAuthor(authorId: string, pageable: Pageable, authentication: User): Promise<Page<Playlist>> {
         // TODO: Test on user profiles
         const result = await this.playlistRepository.createQueryBuilder("playlist")
@@ -394,6 +401,11 @@ export class PlaylistService {
 
     private async canEditSongs(playlist: Playlist, authentication: User): Promise<boolean> {
         return playlist?.author?.id == authentication?.id || !!playlist?.collaborators?.find((u) => u?.id == authentication?.id);
+    }
+
+    private buildDefaultQuery(alias: string, authentication?: User) {
+        return this.playlistRepository.createQueryBuilder(alias)
+            .loadRelationCountAndMap("playlist.liked", "playlist.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication?.id }))
     }
 
 }
