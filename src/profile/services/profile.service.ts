@@ -15,6 +15,7 @@ export class ProfileService {
 
     public async findByUserId(userId: string): Promise<User> {
         const result = await this.userService.userRepository.createQueryBuilder("profile")
+            .loadRelationCountAndMap("profile.playlistCount", "profile.playlists")
             .where("profile.id = :userId OR profile.slug = :userId", { userId })
             .getOne();
 
