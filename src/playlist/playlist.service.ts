@@ -108,7 +108,7 @@ export class PlaylistService {
             // Count how many likes. This takes user's id in count
             .loadRelationCountAndMap("playlist.liked", "playlist.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication.id }))
 
-            .select(["playlist.id", "playlist.title", "playlist.collaborative", "playlist.privacy", "author.id", "author.username", "artwork.id", "artwork.accentColor"])
+            .addSelect(["author.id", "author.username", "author.slug", "artwork.id", "artwork.accentColor"])
             .where("author.id = :authorId", { authorId: authentication.id })
             .orWhere("collaborator.id = :userId", { userId: authentication.id })
             .orWhere("likedByUser.id = :userId", { userId: authentication.id })
@@ -126,7 +126,7 @@ export class PlaylistService {
      * @returns Page<Playlist>
      */
     public async findByAuthor(authorId: string, pageable: Pageable, authentication: User): Promise<Page<Playlist>> {
-        if(authorId == "@me") authorId = authentication.id;
+        if(authorId == "@me" || authorId == authentication.id || authorId == authentication.slug) authorId = authentication.id;
         
         // TODO: Test on user profiles
         const result = await this.playlistRepository.createQueryBuilder("playlist")
@@ -141,8 +141,8 @@ export class PlaylistService {
             // Count how many likes. This takes user's id in count
             .loadRelationCountAndMap("playlist.liked", "playlist.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication.id }))
 
-            .select(["playlist.id", "playlist.title", "playlist.collaborative", "playlist.privacy", "author.id", "author.username", "artwork.id", "artwork.accentColor"])
-            .where("author.id = :authorId", { authorId: authorId })
+            .addSelect(["author.id", "author.username", "author.slug", "artwork.id", "artwork.accentColor"])
+            .where("author.id = :authorId OR author.slug = :authorId", { authorId: authorId })
             .orWhere("collaborator.id = :userId", { userId: authentication.id })
             .getManyAndCount();
 
@@ -181,7 +181,7 @@ export class PlaylistService {
             .leftJoin("item.song", "song")
             .leftJoin("song.genres", "genre")
 
-            .select(["playlist.id", "playlist.title", "artwork.id", "artwork.accentColor", "author.id", "author.username"])
+            .addSelect(["artwork.id", "artwork.accentColor", "author.id", "author.username", "author.slug"])
 
             .offset(pageable.page * pageable.size)
             .limit(pageable.size)
