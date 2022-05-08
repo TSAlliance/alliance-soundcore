@@ -126,6 +126,8 @@ export class PlaylistService {
      * @returns Page<Playlist>
      */
     public async findByAuthor(authorId: string, pageable: Pageable, authentication: User): Promise<Page<Playlist>> {
+        if(authorId == "@me") authorId = authentication.id;
+        
         // TODO: Test on user profiles
         const result = await this.playlistRepository.createQueryBuilder("playlist")
             .leftJoin("playlist.author", "author")
