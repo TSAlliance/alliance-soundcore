@@ -1,4 +1,4 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
+import { CanActivate, ExecutionContext, ForbiddenException, Injectable, Logger, UnauthorizedException } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import { Request } from "express";
 import { OIDC_AUTH_OPTIONAL, OIDC_AUTH_ROLES, OIDC_AUTH_SKIP, OIDC_REQUEST_MAPPING } from "../oidc.constants";
@@ -6,6 +6,7 @@ import { OIDCService } from "../services/oidc.service";
 
 @Injectable()
 export class OIDCGuard implements CanActivate {
+    private readonly logger: Logger = new Logger(OIDCGuard.name);
 
     constructor(
         private readonly service: OIDCService,
@@ -40,11 +41,9 @@ export class OIDCGuard implements CanActivate {
             if(error instanceof ForbiddenException || error instanceof UnauthorizedException) {
                 throw error;
             } else {
-                console.error(error);
+                this.logger.warn(`Blocked request on guarded route '${request.path}': ${error?.message}`);
                 throw new UnauthorizedException("Failed checking your identity at the register issuer.");
             }
-
-            
         })
     }
 
