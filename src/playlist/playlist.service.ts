@@ -108,7 +108,7 @@ export class PlaylistService {
             // Count how many likes. This takes user's id in count
             .loadRelationCountAndMap("playlist.liked", "playlist.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication.id }))
 
-            .addSelect(["author.id", "author.username", "author.slug", "artwork.id", "artwork.accentColor"])
+            .addSelect(["author.id", "author.name", "author.slug", "artwork.id", "artwork.accentColor"])
             .where("author.id = :authorId", { authorId: authentication.id })
             .orWhere("collaborator.id = :userId", { userId: authentication.id })
             .orWhere("likedByUser.id = :userId", { userId: authentication.id })
@@ -141,7 +141,7 @@ export class PlaylistService {
             // Count how many likes. This takes user's id in count
             .loadRelationCountAndMap("playlist.liked", "playlist.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication.id }))
 
-            .addSelect(["author.id", "author.username", "author.slug", "artwork.id", "artwork.accentColor"])
+            .addSelect(["author.id", "author.name", "author.slug", "artwork.id", "artwork.accentColor"])
             .where("author.id = :authorId OR author.slug = :authorId", { authorId: authorId })
             .orWhere("collaborator.id = :userId", { userId: authentication.id })
             .getManyAndCount();
@@ -181,7 +181,7 @@ export class PlaylistService {
             .leftJoin("item.song", "song")
             .leftJoin("song.genres", "genre")
 
-            .addSelect(["artwork.id", "artwork.accentColor", "author.id", "author.username", "author.slug"])
+            .addSelect(["artwork.id", "artwork.accentColor", "author.id", "author.name", "author.slug"])
 
             .offset(pageable.page * pageable.size)
             .limit(pageable.size)
