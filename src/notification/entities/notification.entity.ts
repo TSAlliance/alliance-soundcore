@@ -1,12 +1,8 @@
 import { Column, CreateDateColumn, Entity, JoinTable, ManyToMany, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { User } from "../../user/entities/user.entity";
-import { Resource, ResourceType } from "../../utils/entities/resource";
 
 @Entity()
-export class Notification implements Resource {
-
-    @Column({ default: "notification" as ResourceType, update: false })
-    public resourceType: ResourceType;
+export class Notification {
 
     /**
      * Id of the notification.
@@ -17,8 +13,8 @@ export class Notification implements Resource {
     /**
      * Title of the notification
      */
-    @Column({ length: 120, name: "title" })
-    public name: string;
+    @Column({ length: 120 })
+    public title: string;
 
     /**
      * Message of the notification.
