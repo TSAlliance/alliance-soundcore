@@ -64,6 +64,7 @@ export class SearchService {
             searchResult.bestMatch = !!bestMatch.match ? bestMatch : undefined;
         }
         
+        if(!searchResult.bestMatch) return null;
         return searchResult
     }
 
@@ -95,6 +96,7 @@ export class SearchService {
             if(score < bestMatch.score || bestMatch.value == null) bestMatch = { score, value: candidate, type: candidate.type };
         }
 
+        if(!bestMatch) return null;
         return {
             type: bestMatch.type,
             match: bestMatch.value.obj
