@@ -32,8 +32,8 @@ export class Song implements Resource {
     public geniusId: string;
 
     @IndexDec()
-    @Column({ nullable: true })
-    public title: string;
+    @Column({ nullable: true, name: "title" })
+    public name: string;
 
     @Column({ nullable: false, default: 0 })
     public duration: number;
@@ -123,12 +123,12 @@ export class Song implements Resource {
 
     @BeforeInsert()
     public onBeforeInsert() {
-        this.slug = Slug.create(this.title);
+        this.slug = Slug.create(this.name);
     }
 
     @BeforeUpdate() 
     public onBeforeUpdate() {
-        this.slug = Slug.create(this.title);
+        this.slug = Slug.create(this.name);
     }
 
 }

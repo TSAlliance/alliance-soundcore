@@ -584,7 +584,7 @@ export class SongService {
      */
     private async create(createSongDto: CreateSongDTO): Promise<Song> {
         const song = new Song();
-        song.title = createSongDto.title;
+        song.name = createSongDto.title;
         song.duration = createSongDto.duration;
         
         return this.songRepository.save(song).catch((error) => {

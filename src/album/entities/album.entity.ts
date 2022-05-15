@@ -27,8 +27,8 @@ export class Album implements Resource {
     public geniusId: string;
 
     @Index()
-    @Column({ nullable: false })
-    public title: string;
+    @Column({ nullable: false, name: "title" })
+    public name: string;
 
     @Column({ nullable: true, default: false })
     public hasGeniusLookupFailed: boolean;
@@ -79,11 +79,11 @@ export class Album implements Resource {
 
     @BeforeInsert()
     public onBeforeInsert() {
-        this.slug = Slug.create(this.title);
+        this.slug = Slug.create(this.name);
     }
 
     @BeforeUpdate() 
     public onBeforeUpdate() {
-        this.slug = Slug.create(this.title);
+        this.slug = Slug.create(this.name);
     }
 }

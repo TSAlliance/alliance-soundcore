@@ -12,6 +12,8 @@ import { ArtworkType } from "../types/artwork-type.enum";
 
 @Entity()
 export class Artwork implements Resource {
+    
+    public name: null;
 
     @PrimaryGeneratedColumn("uuid")
     public id: string;

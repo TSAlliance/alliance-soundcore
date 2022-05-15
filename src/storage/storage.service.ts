@@ -105,7 +105,7 @@ export class StorageService {
      * @returns string
      */
     public buildFilepath(index: Index): string {
-        return this.buildFilepathNonIndex(new MountedFile(index.directory, index.filename, index.mount))
+        return this.buildFilepathNonIndex(new MountedFile(index.directory, index.name, index.mount))
     }
 
     public getMountPath(mount: Mount): string {

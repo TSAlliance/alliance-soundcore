@@ -25,10 +25,13 @@ export class UserService {
         // Build new database entry
         const result = new User();
         result.id = userInstance.sub;
-        result.username = userInstance.preferred_username;
+        result.name = userInstance.preferred_username;
 
         // Save entry and return it
-        return this.userRepository.save(result).catch((error) => {
+        return this.userRepository.save(result).then((entry) => {
+            this.logger.debug(`Registered user ${entry.name}-${entry.id} in database.`);
+            return entry;
+        }).catch((error) => {
             if(error?.message.startsWith("Duplicate entry")) {
                 return this.userRepository.findOne({ where: { id: userInstance?.sub }})
             }

@@ -17,8 +17,8 @@ export class Notification implements Resource {
     /**
      * Title of the notification
      */
-    @Column({ length: 120 })
-    public title: string;
+    @Column({ length: 120, name: "title" })
+    public name: string;
 
     /**
      * Message of the notification.

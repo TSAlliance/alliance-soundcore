@@ -29,7 +29,7 @@ export class NotificationService {
 
     public async createNotification(createNotificationDto: CreateNotificationDTO): Promise<Notification> {
         const notification = new Notification();
-        notification.title = createNotificationDto.title;
+        notification.name = createNotificationDto.title;
         notification.message = createNotificationDto.message;
 
         if(!createNotificationDto.isBroadcast) {

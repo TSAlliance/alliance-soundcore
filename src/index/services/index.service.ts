@@ -89,11 +89,11 @@ export class IndexService {
     }
 
     public async findByMountedFileWithRelations(file: MountedFile): Promise<Index> {
-        return this.findIndex({ filename: file.filename, directory: file.directory, mount: { id: file.mount?.id }})
+        return this.findIndex({ name: file.filename, directory: file.directory, mount: { id: file.mount?.id }})
     }
 
     public async findByMountedFile(file: MountedFile): Promise<Index> {
-        return this.indexRepository.findOne({ filename: file.filename, directory: file.directory, mount: { id: file.mount.id }})
+        return this.indexRepository.findOne({ name: file.filename, directory: file.directory, mount: { id: file.mount.id }})
     }
 
 
@@ -138,7 +138,7 @@ export class IndexService {
         }
 
         const status = Object.values(IndexStatus).filter((status) => status != IndexStatus.PREPARING && status != IndexStatus.PROCESSING)
-        return this.indexRepository.find({ where: { filename: In(filenames), directory: In(dirs), mount: { id: In(mounts), status: In(status) }}, select: ["id", "directory", "filename"]})
+        return this.indexRepository.find({ where: { name: In(filenames), directory: In(dirs), mount: { id: In(mounts), status: In(status) }}, select: ["id", "directory", "name"]})
     }
 
     public async createForFiles(mountedFiles: MountedFile[], uploader?: User): Promise<Index[]> {
@@ -168,14 +168,14 @@ export class IndexService {
 
             // Check if file already exists as index
 
-            const existingIndices = await this.findMultipleIndices({ directory: In(files.map((file) => file.directory)), filename: In(In(files.map((file) => file.filename))), mount: { id: In(In(files.map((file) => file.mount?.id)))} })
+            const existingIndices = await this.findMultipleIndices({ directory: In(files.map((file) => file.directory)), name: In(In(files.map((file) => file.filename))), mount: { id: In(In(files.map((file) => file.mount?.id)))} })
             if(existingIndices.length > 0) {
                 const indexedFiles: Map<string, Index> = new Map();
 
                 // Map existing indices to mounted file
                 for(const index of existingIndices) {
                     // Generate unique identifier by appending all strings
-                    const identifier = index.directory + index.filename + index.mount.id;
+                    const identifier = index.directory + index.name + index.mount.id;
                     indexedFiles[identifier] = index;
                 }
 
@@ -203,7 +203,7 @@ export class IndexService {
             for(const file of files) {
 
                 const index = new Index();
-                index.filename = file.filename;
+                index.name = file.filename;
                 index.mount = file.mount,
                 index.uploader = uploader;
                 index.status = IndexStatus.PREPARING;
@@ -282,7 +282,7 @@ export class IndexService {
 
         index.status = IndexStatus.PREPARING;
         return this.indexRepository.save(index).then((index) => {
-            const file = new MountedFile(index.directory, index.filename, index.mount);
+            const file = new MountedFile(index.directory, index.name, index.mount);
             return this.indexQueue.add(file, { jobId: file.bullJobId }).then(() => {
                 return true;
             })

@@ -195,8 +195,8 @@ export class PlaylistService {
     }
 
     public async existsByTitleInUser(title: string, userId: string, playlistId?: string): Promise<boolean> {
-        if(playlistId) return !! (await this.playlistRepository.findOne({ where: { title, author: { id: userId }, id: Not(playlistId)}}))
-        return !! (await this.playlistRepository.findOne({ where: { title, author: { id: userId }}}))
+        if(playlistId) return !! (await this.playlistRepository.findOne({ where: { name: title, author: { id: userId }, id: Not(playlistId)}}))
+        return !! (await this.playlistRepository.findOne({ where: { name: title, author: { id: userId }}}))
     }
 
     /**
@@ -210,7 +210,7 @@ export class PlaylistService {
         if(await this.existsByTitleInUser(createPlaylistDto.title, authentication.id)) throw new BadRequestException("Playlist already exists.");
         const playlist = new Playlist();
         playlist.author = authentication;
-        playlist.title = createPlaylistDto.title;
+        playlist.name = createPlaylistDto.title;
         playlist.privacy = createPlaylistDto.privacy;
 
         return this.playlistRepository.save(playlist)
@@ -223,7 +223,7 @@ export class PlaylistService {
         if(!await this.hasUserAccessToPlaylist(playlistId, authentication) || !await this.canEditPlaylist(playlist, authentication)) throw new ForbiddenException("Not allowed to edit this playlist.")
         if(await this.existsByTitleInUser(updatePlaylistDto.title, authentication.id, playlistId)) throw new BadRequestException("Playlist already exists.");
         
-        playlist.title = updatePlaylistDto.title || playlist.title;
+        playlist.name = updatePlaylistDto.title || playlist.name;
         playlist.privacy = updatePlaylistDto.privacy || playlist.privacy;
 
         return this.playlistRepository.save(playlist)

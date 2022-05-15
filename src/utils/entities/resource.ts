@@ -2,5 +2,6 @@ export type ResourceType = "notification" | "artwork" | "song" | "user" | "playl
 
 export interface Resource {
     id: string;
-    resourceType: ResourceType
+    name: string;
+    resourceType: ResourceType;
 }

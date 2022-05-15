@@ -29,19 +29,19 @@ export class GeniusService {
     ) {}
 
     public async findAndApplySongInfo(song: Song): Promise<{ song: Song, dto?: GeniusSongDTO }> {
-        const title = song?.title?.replace(/^(?:\[[^\]]*\]|\([^()]*\))\s*|\s*(?:\[[^\]]*\]|\([^()]*\))/gm, "").split("-")[0];
+        const title = song?.name?.replace(/^(?:\[[^\]]*\]|\([^()]*\))\s*|\s*(?:\[[^\]]*\]|\([^()]*\))/gm, "").split("-")[0];
         const artists = song.artists[0]?.name || "";
         let query: string;
 
         if(!title) {
-            console.warn("Found a song without title: ", song.index.filename)
+            console.warn("Found a song without title: ", song.index.name)
             return { song, dto: null };
         }
 
         if(artists != "") {
             query = title + " " + artists
         } else {
-            query = song.title
+            query = song.name
         }
 
         console.log("find song on genius for query: ", query)
@@ -90,7 +90,7 @@ export class GeniusService {
 
                 song.geniusId = songDto.id;
                 song.geniusUrl = songDto.url;
-                if(!song.banner) song.banner = await this.artworkService.create({ autoDownload: true, type: "banner_song", mountId: song.index.mount.id, url: songDto.header_image_url, dstFilename: song.index.filename });
+                if(!song.banner) song.banner = await this.artworkService.create({ autoDownload: true, type: "banner_song", mountId: song.index.mount.id, url: songDto.header_image_url, dstFilename: song.index.name });
                 song.location = songDto.recording_location;
                 song.released = songDto.release_date;
                 song.youtubeUrl = songDto.youtube_url;
@@ -107,7 +107,7 @@ export class GeniusService {
                         autoDownload: true,
                         mountId: song.index.mount.id,
                         url: songDto.song_art_image_thumbnail_url,
-                        dstFilename: song.index.filename
+                        dstFilename: song.index.name
                     });
                     if(artwork) song.artwork = artwork
                 }
@@ -136,7 +136,7 @@ export class GeniusService {
      * @returns Album
      */
     public async findAndApplyAlbumInfo(album: Album, artists: Artist[], mountForArtwork?: string): Promise<{ album: Album, artist: GeniusArtistDTO }> {
-        if(!album?.title) return;
+        if(!album?.name) return;
 
         const artistsWithGeniusIds: string[] = artists.filter((a) => !!a.geniusId).map((a) => a.geniusId);
         const artistsWithoutGeniusIdnames: string[] = artists.map((a) => a.name);
@@ -147,7 +147,7 @@ export class GeniusService {
 
         // Get list of albums by a title
         for(let i = 0; i < 8; i++) {
-            const res = (await this.searchPage(i, "album", album?.title?.replace(/^(?:\[[^\]]*\]|\([^()]*\))\s*|\s*(?:\[[^\]]*\]|\([^()]*\))/gm, "").split("-")[0]));
+            const res = (await this.searchPage(i, "album", album?.name?.replace(/^(?:\[[^\]]*\]|\([^()]*\))\s*|\s*(?:\[[^\]]*\]|\([^()]*\))/gm, "").split("-")[0]));
             albums.push(...res.result as GeniusAlbumDTO[])
             if(!res.hasNextPage) break;
         }
@@ -157,7 +157,7 @@ export class GeniusService {
         let bestMatch: { score: number, hit: GeniusAlbumDTO } = { score: 0, hit: null};
 
         for(const result of filteredExactAlbums) {
-            const score = Levenshtein.getEditDistance(result.name, album.title);
+            const score = Levenshtein.getEditDistance(result.name, album.name);
 
             if(score <= bestMatch.score || bestMatch.hit == null) {
                 bestMatch = { score, hit: result};
@@ -197,8 +197,8 @@ export class GeniusService {
                 if(label) album.label = label;
             }
 
-            album.banner = await this.artworkService.create({ type: "banner_album", autoDownload: true, dstFilename: album.title, url: albumDto.header_image_url, mountId: mountForArtwork })
-            album.artwork = await this.artworkService.create({ type: "album", autoDownload: true, dstFilename: album.title, url: albumDto.cover_art_thumbnail_url, mountId: mountForArtwork })
+            album.banner = await this.artworkService.create({ type: "banner_album", autoDownload: true, dstFilename: album.name, url: albumDto.header_image_url, mountId: mountForArtwork })
+            album.artwork = await this.artworkService.create({ type: "album", autoDownload: true, dstFilename: album.name, url: albumDto.cover_art_thumbnail_url, mountId: mountForArtwork })
             album.geniusId = albumDto.id;
             album.released = albumDto.release_date;
             album.description = albumDto.description_preview;

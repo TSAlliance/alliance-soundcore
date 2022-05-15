@@ -70,14 +70,14 @@ export class SearchService {
     public async findBestMatch(needle: string, haystack: ComplexSearchResult): Promise<SearchBestMatch> {
         const candidates: MatchCandidate[] = [];
 
-        if(haystack.albums) candidates.push(...haystack.albums?.elements.map((x) => ({ compareString: x.title, obj: x, type: "album" as SearchBestMatchType })))
-        if(haystack.songs) candidates.push(...haystack.songs?.elements.map((x) => ({ compareString: x.title, obj: x, type: "song" as SearchBestMatchType })))
+        if(haystack.albums) candidates.push(...haystack.albums?.elements.map((x) => ({ compareString: x.name, obj: x, type: "album" as SearchBestMatchType })))
+        if(haystack.songs) candidates.push(...haystack.songs?.elements.map((x) => ({ compareString: x.name, obj: x, type: "song" as SearchBestMatchType })))
         if(haystack.artists) candidates.push(...haystack.artists?.elements.map((x) => ({ compareString: x.name, obj: x, type: "artist" as SearchBestMatchType })))
         if(haystack.genres) candidates.push(...haystack.genres?.elements.map((x) => ({ compareString: x.name, obj: x, type: "genre" as SearchBestMatchType })))
         if(haystack.publisher) candidates.push(...haystack.publisher?.elements.map((x) => ({ compareString: x.name, obj: x, type: "publisher" as SearchBestMatchType })))
         if(haystack.distributors) candidates.push(...haystack.distributors?.elements.map((x) => ({ compareString: x.name, obj: x, type: "distributor" as SearchBestMatchType })))
         if(haystack.labels) candidates.push(...haystack.labels?.elements.map((x) => ({ compareString: x.name, obj: x, type: "label" as SearchBestMatchType })))
-        if(haystack.users) candidates.push(...haystack.users?.elements.map((x) => ({ compareString: x.username, obj: x, type: "user" as SearchBestMatchType })))
+        if(haystack.users) candidates.push(...haystack.users?.elements.map((x) => ({ compareString: x.name, obj: x, type: "user" as SearchBestMatchType })))
 
         let bestMatch: { score: number, value: MatchCandidate, type: SearchBestMatchType } = { score: 0, value: null, type: "song"};
 

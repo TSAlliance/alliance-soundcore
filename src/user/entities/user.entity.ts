@@ -18,8 +18,8 @@ export class User implements Resource {
     @Column({ nullable: true, unique: true, length: 120 })
     public slug: string;
 
-    @Column({ nullable: true, length: 120 })
-    public username: string;
+    @Column({ nullable: true, length: 120, name: "username" })
+    public name: string;
 
     @Column({ nullable: true })
     public accentColor: string;
@@ -44,11 +44,11 @@ export class User implements Resource {
 
     @BeforeInsert()
     public onBeforeInsert() {
-        this.slug = Slug.create(this.username);
+        this.slug = Slug.create(this.name);
     }
 
     @BeforeUpdate() 
     public onBeforeUpdate() {
-        this.slug = Slug.create(this.username);
+        this.slug = Slug.create(this.name);
     }
 }

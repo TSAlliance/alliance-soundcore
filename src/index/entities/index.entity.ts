@@ -14,7 +14,7 @@ export type IndexRawPath = {
 }
 
 @Entity()
-@IndexDec("UK_index_filename_directory", ["filename", "directory", "mount.id"], { unique: true })
+@IndexDec("UK_index_filename_directory", ["name", "directory", "mount.id"], { unique: true })
 export class Index implements Resource {
 
     @PrimaryGeneratedColumn("uuid")
@@ -26,8 +26,8 @@ export class Index implements Resource {
     @Column({ nullable: false, default: '.' })
     public directory: string;
 
-    @Column({ nullable: false })
-    public filename: string;
+    @Column({ nullable: false, name: "filename" })
+    public name: string;
 
     @Column({ nullable: false, default: 0})
     public size: number;
@@ -56,7 +56,7 @@ export class Index implements Resource {
     public indexedAt: Date;
 
     public get fullPath(): string {
-        return path.join(this.directory || ".", this.filename);
+        return path.join(this.directory || ".", this.name);
     }
 
 }

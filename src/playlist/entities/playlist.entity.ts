@@ -21,8 +21,8 @@ export class Playlist implements Resource {
     public slug: string;
 
     @Index()
-    @Column({ nullable: false })
-    public title: string;
+    @Column({ nullable: false, name: "title" })
+    public name: string;
 
     @Column({ nullable: true })
     public description: string;
@@ -63,12 +63,12 @@ export class Playlist implements Resource {
 
     @BeforeInsert()
     public onBeforeInsert() {
-        this.slug = Slug.create(this.title);
+        this.slug = Slug.create(this.name);
     }
 
     @BeforeUpdate() 
     public onBeforeUpdate() {
-        this.slug = Slug.create(this.title);
+        this.slug = Slug.create(this.name);
     }
 
 }

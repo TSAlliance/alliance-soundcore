@@ -164,7 +164,7 @@ export class ArtworkService {
         const artwork = await this.create({
             type: "song",
             mountId: index.mount.id,
-            dstFilename: index.filename,
+            dstFilename: index.name,
             autoDownload: false // There is nothing that could be downloaded
         }).catch((reason) => {
             this.indexReportService.appendError(index.report, `Unable to save artwork to database: ${reason.message}`);
