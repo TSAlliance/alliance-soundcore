@@ -7,6 +7,7 @@ import { GenreService } from '../genre/genre.service';
 import { Index } from '../index/entities/index.entity';
 import { IndexService } from '../index/services/index.service';
 import { LabelService } from '../label/label.service';
+import { PlaylistService } from '../playlist/playlist.service';
 import { PublisherService } from '../publisher/publisher.service';
 import { SongService } from '../song/song.service';
 import { User } from '../user/entities/user.entity';
@@ -29,13 +30,14 @@ export class SearchService {
         private labelService: LabelService,
         private albumService: AlbumService,
         private userService: UserService,
-        private indexService: IndexService
+        private indexService: IndexService,
+        private playlistService: PlaylistService
     ) {}
 
-    public async complexSearch(query: string, searcher?: User): Promise<ComplexSearchResult> {
+    public async complexSearch(query: string, authentication?: User): Promise<ComplexSearchResult> {
         const settings: Pageable = { page: 0, size: 12 }
         
-        const songs = await this.songService.findBySearchQuery(query, settings, searcher);
+        const songs = await this.songService.findBySearchQuery(query, settings, authentication);
         const artists = await this.artistService.findBySearchQuery(query, settings);
         const genres = await this.genreService.findBySearchQuery(query, settings);
         const publisher = await this.publisherService.findBySearchQuery(query, settings);
@@ -43,6 +45,7 @@ export class SearchService {
         const labels = await this.labelService.findBySearchQuery(query, settings);
         const albums = await this.albumService.findBySearchQuery(query, settings);
         const users = await this.userService.findBySearchQuery(query, settings);
+        const playlists = await this.playlistService.findBySearchQuery(query, settings, authentication);
 
         const searchResult: ComplexSearchResult = {
             songs: songs.amount > 0 ? songs : undefined,
@@ -52,7 +55,8 @@ export class SearchService {
             distributors: distributors.amount > 0 ? distributors : undefined,
             labels: labels.amount > 0 ? labels : undefined,
             albums: albums.amount > 0 ? albums : undefined,
-            users: users.amount > 0 ? users : undefined
+            users: users.amount > 0 ? users : undefined,
+            playlists: playlists.amount > 0 ? playlists : undefined
         }
 
         if(query && query.length > 0 && query != " ") {
@@ -78,6 +82,7 @@ export class SearchService {
         if(haystack.distributors) candidates.push(...haystack.distributors?.elements.map((x) => ({ compareString: x.name, obj: x, type: "distributor" as SearchBestMatchType })))
         if(haystack.labels) candidates.push(...haystack.labels?.elements.map((x) => ({ compareString: x.name, obj: x, type: "label" as SearchBestMatchType })))
         if(haystack.users) candidates.push(...haystack.users?.elements.map((x) => ({ compareString: x.name, obj: x, type: "user" as SearchBestMatchType })))
+        if(haystack.playlists) candidates.push(...haystack.playlists?.elements.map((x) => ({ compareString: x.name, obj: x, type: "playlist" as SearchBestMatchType })))
 
         let bestMatch: { score: number, value: MatchCandidate, type: SearchBestMatchType } = { score: 0, value: null, type: "song"};
 

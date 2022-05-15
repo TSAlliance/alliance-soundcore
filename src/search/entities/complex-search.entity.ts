@@ -4,6 +4,7 @@ import { Artist } from "../../artist/entities/artist.entity";
 import { Distributor } from "../../distributor/entities/distributor.entity";
 import { Genre } from "../../genre/entities/genre.entity";
 import { Label } from "../../label/entities/label.entity";
+import { Playlist } from "../../playlist/entities/playlist.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
 import { Song } from "../../song/entities/song.entity";
 import { User } from "../../user/entities/user.entity";
@@ -21,5 +22,6 @@ export class ComplexSearchResult {
     public labels?: Page<Label>;
     public distributors?: Page<Distributor>;
     public users?: Page<User>;
+    public playlists?: Page<Playlist>;
 
 }

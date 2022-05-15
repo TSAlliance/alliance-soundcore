@@ -410,4 +410,42 @@ export class PlaylistService {
             .loadRelationCountAndMap("playlist.liked", "playlist.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication?.id }))
     }
 
+    /**
+     * Execute search query for a song. This looks up songs that match the query.
+     * The search includes looking for songs with a specific artist's name.
+     * @param query Query string
+     * @param pageable Page settings
+     * @returns Page<Song>
+     */
+     public async findBySearchQuery(query: string, pageable: Pageable, authentication?: User): Promise<Page<Playlist>> {
+        if(!query || query == "") {
+            query = "%"
+        } else {
+            query = `%${query.replace(/\s/g, '%')}%`;
+        }
+
+        // Find song by title or if the artist has similar name
+        let qb = await this.playlistRepository.createQueryBuilder("playlist")
+            .leftJoin("playlist.author", "author")
+            .leftJoin("playlist.artwork", "artwork")
+            .leftJoin("playlist.collaborators", "collaborator")
+
+            // Pagination
+            .limit(pageable?.size || 10)
+            .offset((pageable?.size || 10) * (pageable?.page || 0))
+
+            // Count how many likes. This takes user's id in count
+            .loadRelationCountAndMap("playlist.liked", "playlist.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication.id }))
+
+            .addSelect(["author.id", "author.name", "author.slug", "artwork.id", "artwork.accentColor"])
+            .where("playlist.title LIKE :query AND (author.id = :userId OR collaborator.id = :userId OR playlist.privacy = :privacy)", { query, privacy: PlaylistPrivacy.PUBLIC, userId: authentication.id })
+
+        if(query == "%") {
+            qb = qb.orderBy("rand()");
+        }
+
+        const result = await qb.getManyAndCount();
+        return Page.of(result[0], result[1], pageable.page);
+    }
+
 }

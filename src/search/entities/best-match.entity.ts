@@ -1,5 +1,5 @@
 
-export type SearchBestMatchType = "song" | "artist" | "album" | "genre" | "publisher" | "label" | "distributor" | "user"
+export type SearchBestMatchType = "song" | "artist" | "album" | "genre" | "publisher" | "label" | "distributor" | "user" | "playlist"
 
 export class SearchBestMatch {
 
