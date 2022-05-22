@@ -1,5 +1,5 @@
 import path from "node:path";
-import { Mount } from "./mount.entity";
+import { Mount } from "../../mount/entities/mount.entity";
 
 export class MountedFile {
     public directory: string;

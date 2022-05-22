@@ -29,6 +29,7 @@ import { BullModule } from '@nestjs/bull';
 import { NotificationModule } from './notification/notification.module';
 import { OIDCModule } from './authentication/oidc.module';
 import { ProfileModule } from './profile/profile.module';
+import { MountModule } from './mount/mount.module';
 
 @Module({
   imports: [
@@ -100,7 +101,8 @@ import { ProfileModule } from './profile/profile.module';
       client_id: "alliance-soundcore-api",
       client_secret: "FHl4H5UFr8Tnrf921xUja0a1wHN9jPgR"
     }),
-    ProfileModule
+    ProfileModule,
+    MountModule
   ],
   controllers: [],
   providers: []

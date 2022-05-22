@@ -6,12 +6,11 @@ import { InjectQueue, OnQueueActive, OnQueueCompleted, OnQueueError, OnQueueFail
 import { Logger } from "@nestjs/common";
 import { Job, Queue } from "bull";
 import { StorageService } from "../../storage/storage.service";
-import { Mount } from "../entities/mount.entity";
-import { MountGateway } from "../gateway/mount-status.gateway";
-import { MountService } from "../services/mount.service";
 import { MountedFile } from "../entities/mounted-file.entity";
 
 import { IndexService } from "../../index/services/index.service";
+import { Mount } from "../../mount/entities/mount.entity";
+import { MountService } from "../../mount/services/mount.service";
 
 export interface MountScanResult {
     totalTime: number;
@@ -26,7 +25,7 @@ export class MountConsumer {
     constructor(
         private mountService: MountService,
         private storageService: StorageService,
-        private gateway: MountGateway,
+        // private gateway: MountGateway,
         private indexService: IndexService,
         @InjectQueue("mount-queue") private mountQueue: Queue<Mount>
     ) {}

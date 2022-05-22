@@ -8,9 +8,16 @@ export class CreateMountDTO {
 
     @IsNotEmpty()
     @Length(3, 4095)
-    public path: string;
+    public directory: string;
+
+    @IsNotEmpty()
+    @Length(36)
+    public bucketId: string;
 
     @IsOptional()
-    public bucket?: { id: string };
+    public doScan?: boolean = true;
+
+    @IsOptional()
+    public setAsDefault?: boolean = false;
 
 }

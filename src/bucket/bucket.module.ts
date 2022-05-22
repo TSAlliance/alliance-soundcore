@@ -3,38 +3,25 @@ import { BucketService } from './services/bucket.service';
 import { BucketController } from './controllers/bucket.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BucketRepository } from './repositories/bucket.repository';
-import { MountRepository } from './repositories/mount.repository';
 import os from "os"
 import { RandomUtil } from '@tsalliance/rest';
-import { MountService } from './services/mount.service';
-import path from 'path';
 import { StorageModule } from '../storage/storage.module';
-import { StorageService } from '../storage/storage.service';
 import { IndexModule } from '../index/index.module';
-import { BUCKET_ID, MOUNT_ID } from '../shared/shared.module';
-import { MountController } from './controllers/mount.controller';
-import { MountGateway } from './gateway/mount-status.gateway';
-import { BullModule, InjectQueue } from '@nestjs/bull';
-import { Queue } from 'bull';
-import { Mount } from './entities/mount.entity';
-import { MountConsumer } from './consumer/mount.consumer';
+import { BUCKET_ID } from '../shared/shared.module';
+import { BullModule } from '@nestjs/bull';
 
 @Module({
   controllers: [
     BucketController,
-    MountController
   ],
   providers: [
     BucketService, 
-    MountService,
-    MountGateway,
-    MountConsumer
   ],
-  exports: [ BucketService, MountService ],
+  exports: [ BucketService ],
   imports: [
     StorageModule,
     IndexModule,
-    TypeOrmModule.forFeature([ BucketRepository, MountRepository ]),
+    TypeOrmModule.forFeature([ BucketRepository ]),
     BullModule.registerQueue({
       name: "mount-queue"
     })
@@ -45,13 +32,7 @@ export class BucketModule implements OnModuleInit {
 
   constructor(
     private bucketService: BucketService,
-    private mountService: MountService,
-    private storageService: StorageService,
-    private mountConsumer: MountConsumer,
-
-    @Inject(BUCKET_ID) private bucketId: string,
-    @Inject(MOUNT_ID) private mountId: string,
-    @InjectQueue("mount-queue") private mountQueue: Queue<Mount>
+    @Inject(BUCKET_ID) private bucketId: string
   ){ }
   
   public async onModuleInit(): Promise<void> {
@@ -59,7 +40,7 @@ export class BucketModule implements OnModuleInit {
       name: `${os.hostname()}#${RandomUtil.randomString(4)}`
     })
 
-    await this.mountService.createWithId(this.mountId, {
+    /*await this.mountService.createWithId(this.mountId, {
       name: `Default Mount#${RandomUtil.randomString(4)}`,
       path: `${path.join(this.storageService.getSoundcoreDir(), this.bucketId)}`,
       bucket: { id: this.bucketId }
@@ -75,7 +56,7 @@ export class BucketModule implements OnModuleInit {
           }))
         })
       })
-    })
+    })*/
   }
 
 

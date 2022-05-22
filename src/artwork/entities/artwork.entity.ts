@@ -2,9 +2,9 @@
 import { Column, Entity, JoinColumn, ManyToOne, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Album } from "../../album/entities/album.entity";
 import { Artist } from "../../artist/entities/artist.entity";
-import { Mount } from "../../bucket/entities/mount.entity";
 import { Distributor } from "../../distributor/entities/distributor.entity";
 import { Label } from "../../label/entities/label.entity";
+import { Mount } from "../../mount/entities/mount.entity";
 import { Playlist } from "../../playlist/entities/playlist.entity";
 import { Song } from "../../song/entities/song.entity";
 import { ArtworkType } from "../types/artwork-type.enum";

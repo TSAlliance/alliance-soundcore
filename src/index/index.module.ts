@@ -10,6 +10,7 @@ import { IndexGateway } from './gateway/index.gateway';
 import { IndexReportModule } from '../index-report/index-report.module';
 import { IndexConsumer } from './consumer/index.consumer';
 import { BullModule } from '@nestjs/bull';
+import { QUEUE_INDEX_NAME } from '../constants';
 
 @Module({
   controllers: [
@@ -18,7 +19,7 @@ import { BullModule } from '@nestjs/bull';
   providers: [
     IndexService, 
     IndexGateway, 
-    IndexConsumer
+    IndexConsumer,
   ],
   imports: [
     SharedModule,
@@ -27,7 +28,7 @@ import { BullModule } from '@nestjs/bull';
     IndexReportModule,
     TypeOrmModule.forFeature([ IndexRepository ]),
     BullModule.registerQueue({
-      name: "index-queue",
+      name: QUEUE_INDEX_NAME,
       defaultJobOptions: {
         removeOnFail: true,
         removeOnComplete: true

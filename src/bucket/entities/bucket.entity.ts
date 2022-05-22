@@ -1,7 +1,7 @@
 import { BeforeInsert, BeforeUpdate, Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import { Mount } from "../../mount/entities/mount.entity";
 import { Resource, ResourceType } from "../../utils/entities/resource";
 import { Slug } from "../../utils/slugGenerator";
-import { Mount } from "./mount.entity";
 
 @Entity()
 export class Bucket implements Resource {

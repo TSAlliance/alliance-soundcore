@@ -1,7 +1,7 @@
 import path from "node:path";
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToOne, PrimaryGeneratedColumn, Index as IndexDec, BeforeInsert, BeforeUpdate } from "typeorm";
-import { Mount } from "../../bucket/entities/mount.entity";
 import { IndexReport } from "../../index-report/entities/report.entity";
+import { Mount } from "../../mount/entities/mount.entity";
 import { Song } from "../../song/entities/song.entity";
 import { User } from "../../user/entities/user.entity";
 import { Resource, ResourceType } from "../../utils/entities/resource";

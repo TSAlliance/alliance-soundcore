@@ -14,7 +14,7 @@ export interface IndexResult {
     index?: Index;
 }
 
-@Processor("index-queue")
+//@Processor("index-queue")
 export class IndexConsumer {
     private logger: Logger = new Logger(IndexConsumer.name);
 
@@ -34,7 +34,7 @@ export class IndexConsumer {
             .then(() => this.indexQueue.clean(0, "paused"))
     }
 
-    @Process()
+    //@Process()
     public async transcode(job: Job<MountedFile>): Promise<IndexResult> {
         const result: IndexResult = {}
         const start = Date.now();

@@ -1,6 +1,6 @@
 import { Inject, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
-import { FindConditions, In, Not, ObjectLiteral } from 'typeorm';
+import { FindConditions, FindOneOptions, In, Not, ObjectLiteral } from 'typeorm';
 import { MountedFile } from '../../bucket/entities/mounted-file.entity';
 import { BUCKET_ID } from '../../shared/shared.module';
 import { StorageService } from '../../storage/storage.service';
@@ -14,6 +14,7 @@ import { IndexReport } from '../../index-report/entities/report.entity';
 import { sleep } from '../../utils/sleep';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
+import { QUEUE_INDEX_NAME } from '../../constants';
 
 @Injectable()
 export class IndexService {
@@ -24,7 +25,7 @@ export class IndexService {
         private indexReportService: IndexReportService,
         private indexRepository: IndexRepository,
         private indexGateway: IndexGateway,
-        @InjectQueue("index-queue") public indexQueue: Queue<MountedFile>,
+        @InjectQueue(QUEUE_INDEX_NAME) public indexQueue: Queue<MountedFile>,
         @Inject(BUCKET_ID) private bucketId: string,
     ){}
 
@@ -93,7 +94,7 @@ export class IndexService {
     }
 
     public async findByMountedFile(file: MountedFile): Promise<Index> {
-        return this.indexRepository.findOne({ name: file.filename, directory: file.directory, mount: { id: file.mount.id }})
+        return this.indexRepository.findOne({ name: file.filename, directory: file.directory, mount: { id: file.mount.id }} as FindOneOptions<Index>)
     }
 
 

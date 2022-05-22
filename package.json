@@ -25,7 +25,7 @@
     "@nestjs/platform-express": "^8.0.0",
     "@nestjs/platform-socket.io": "^8.2.3",
     "@nestjs/schedule": "^1.0.2",
-    "@nestjs/typeorm": "^8.0.2",
+    "@nestjs/typeorm": "^8.0.4",
     "@nestjs/websockets": "^8.2.3",
     "@tsalliance/rest": "^2.0.75",
     "axios": "^0.24.0",
@@ -47,7 +47,7 @@
     "sanitize-filename": "^1.6.3",
     "sharp": "^0.29.3",
     "socket.io": "^4.4.0",
-    "typeorm": "^0.2.41",
+    "typeorm": "^0.2.24",
     "ytdl-core": "^4.10.1",
     "ytpl": "^2.2.3"
   },

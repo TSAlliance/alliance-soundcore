@@ -11,6 +11,7 @@ import { BullModule } from '@nestjs/bull';
 import { SpotifyConsumer } from './consumer/spotify.consumer';
 import { PlaylistModule } from '../playlist/playlist.module';
 import { SongModule } from '../song/song.module';
+import { MountModule } from '../mount/mount.module';
 
 @Module({
   controllers: [ImportController],
@@ -24,6 +25,7 @@ import { SongModule } from '../song/song.module';
     BucketModule,
     StorageModule,
     IndexModule,
+    MountModule,
     ArtworkModule,
     PlaylistModule,
     SongModule,

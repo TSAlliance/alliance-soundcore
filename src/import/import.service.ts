@@ -1,5 +1,4 @@
 import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
-import { MountService } from '../bucket/services/mount.service';
 import { MOUNT_ID } from '../shared/shared.module';
 import { CreateImportDTO } from './dtos/create-import.dto';
 import { StorageService } from '../storage/storage.service';
@@ -10,7 +9,7 @@ import sanitize from 'sanitize-filename';
 import ytdl from "ytdl-core";
 import ytpl from 'ytpl';
 
-import { Mount } from '../bucket/entities/mount.entity';
+import { Mount } from '../mount/entities/mount.entity';
 import { IndexService } from '../index/services/index.service';
 
 import NodeID3 from 'node-id3';
@@ -24,10 +23,9 @@ import path from 'path';
 import { MountedFile } from '../bucket/entities/mounted-file.entity';
 import { ImportGateway } from './gateway/import.gateway';
 import { CreateSpotifyImportDTO } from './dtos/create-spotify.dto';
-import { Page } from 'nestjs-pager';
 import { SpotifyPlaylist } from './entities/spotify-song.entity';
-import axios from 'axios';
 import { SpotifyService } from './spotify/spotify.service';
+import { MountService } from '../mount/services/mount.service';
 
 @Injectable()
 export class ImportService {

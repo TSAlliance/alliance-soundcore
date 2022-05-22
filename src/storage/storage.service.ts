@@ -6,7 +6,7 @@ import fs from "fs"
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Readable } from "stream";
 import { Index } from "../index/entities/index.entity";
-import { Mount } from "../bucket/entities/mount.entity";
+import { Mount } from "../mount/entities/mount.entity";
 import { BUCKET_ID } from "../shared/shared.module";
 import { IndexStatus } from "../index/enum/index-status.enum";
 
@@ -109,7 +109,7 @@ export class StorageService {
     }
 
     public getMountPath(mount: Mount): string {
-        return path.join(mount.path);
+        return path.join(mount.directory);
     }
 
     /**
@@ -119,7 +119,7 @@ export class StorageService {
      * @returns string
      */
      public buildFilepathNonIndex(file: MountedFile): string {
-        return path.join(file.mount.path, file.directory || ".", file.filename);
+        return path.join(file.mount.directory, file.directory || ".", file.filename);
     }
 
     /**
@@ -162,7 +162,7 @@ export class StorageService {
      */
     public getOptimizedDir(mount?: Mount): string {
         if(!mount) return path.join(this.getSoundcoreDir(), this.bucketId, "optimized");
-        return path.join(mount.path, "optimized");
+        return path.join(mount.directory, "optimized");
     }
 
     /**
@@ -171,7 +171,7 @@ export class StorageService {
      */
     public getArtworksDir(mount?: Mount): string {
         if(!mount) return path.join(this.getSoundcoreDir(), this.bucketId, "artworks");
-        return path.join(mount.path, "artworks");
+        return path.join(mount.directory, "artworks");
     }
 
     /**
