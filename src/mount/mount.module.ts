@@ -7,6 +7,7 @@ import { StorageModule } from '../storage/storage.module';
 import { MountRepository } from './repositories/mount.repository';
 import { MountService } from './services/mount.service'
 import { MountController } from './controllers/mount.controller';
+import { IndexModule } from '../index/index.module';
 
 @Module({
   controllers: [
@@ -17,6 +18,7 @@ import { MountController } from './controllers/mount.controller';
   ],
   imports: [
     StorageModule,
+    IndexModule,
     TypeOrmModule.forFeature([ MountRepository ]),
     BullModule.registerQueue({
       name: QUEUE_MOUNTSCAN_NAME,

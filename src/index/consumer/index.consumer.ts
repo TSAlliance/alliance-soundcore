@@ -1,7 +1,8 @@
-import { InjectQueue, OnQueueCompleted, OnQueueError, OnQueueFailed, Process, Processor } from "@nestjs/bull";
+import { InjectQueue, OnQueueCompleted, OnQueueError, OnQueueFailed, Processor } from "@nestjs/bull";
 import { Logger } from "@nestjs/common";
 import { Job, Queue } from "bull";
 import { MountedFile } from "../../bucket/entities/mounted-file.entity";
+import { QUEUE_INDEX_NAME } from "../../constants";
 import { IndexReportService } from "../../index-report/services/index-report.service";
 import { SongService } from "../../song/song.service";
 import { StorageService } from "../../storage/storage.service";
@@ -14,7 +15,7 @@ export interface IndexResult {
     index?: Index;
 }
 
-//@Processor("index-queue")
+@Processor(QUEUE_INDEX_NAME)
 export class IndexConsumer {
     private logger: Logger = new Logger(IndexConsumer.name);
 
@@ -23,7 +24,7 @@ export class IndexConsumer {
         private indexService: IndexService,
         private songService: SongService,
         private indexReportService: IndexReportService,
-        @InjectQueue("index-queue") private indexQueue: Queue<MountedFile>
+        @InjectQueue(QUEUE_INDEX_NAME) private indexQueue: Queue<MountedFile>
     ) {}
 
     public async clearQueue() {

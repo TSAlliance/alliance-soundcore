@@ -36,7 +36,7 @@ import { QUEUE_INDEX_NAME } from '../constants';
     }),
   ],
   exports: [
-    IndexService,
+    IndexService
   ]
 })
 export class IndexModule implements OnModuleInit {

@@ -1,4 +1,4 @@
-import { InjectQueue, OnQueueActive } from '@nestjs/bull';
+import { InjectQueue } from '@nestjs/bull';
 import { BadRequestException, Inject, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { RandomUtil } from '@tsalliance/rest';
 import Bull, { Queue } from 'bull';
@@ -14,6 +14,11 @@ import { CreateMountDTO } from '../dtos/create-mount.dto';
 import { UpdateMountDTO } from '../dtos/update-mount.dto';
 import { Mount } from '../entities/mount.entity';
 import { MountRepository } from '../repositories/mount.repository';
+import { MountScan } from '../entities/scan.entity';
+import { IndexService } from '../../index/services/index.service';
+import { MountedFile } from '../../bucket/entities/mounted-file.entity';
+import { MountScanResultDTO } from '../dtos/scan-result.dto';
+import { Index } from '../../index/entities/index.entity';
 
 @Injectable()
 export class MountService {
@@ -22,13 +27,37 @@ export class MountService {
     constructor(
         private readonly repository: MountRepository,
         private readonly storage: StorageService,
+        private readonly indexService: IndexService,
         @Inject(BUCKET_ID) private readonly bucketId: string,
-        @InjectQueue(QUEUE_MOUNTSCAN_NAME) private readonly queue: Queue<Mount>
-    ) {}
+        @InjectQueue(QUEUE_MOUNTSCAN_NAME) private readonly queue: Queue<MountScan>
+    ) {
+        this.queue.on("completed", (job, result: MountScanResultDTO) => {
+            this.createMountedFiles(result);
+        })
+    }
 
-    @OnQueueActive({ name: QUEUE_MOUNTSCAN_NAME })
-    public onQueueActive() {
-        console.log("queue active")
+    /**
+     * Create MountedFiles and trigger index process.
+     * @param result MountScanResultDTO
+     */
+    private async createMountedFiles(result: MountScanResultDTO) {
+        const mountedFiles: MountedFile[] = [];
+        for(const file of result.files) {
+            mountedFiles.push(new MountedFile(path.dirname(file), path.basename(file), result.mount));
+        }
+
+        // TODO: Optimize
+        this.indexService.createForFiles(mountedFiles).then((indices: Index[]) => {
+            console.log(indices.length)
+            this.indexService.indexQueue.addBulk(indices.map((index) => ({
+                data: index as any,
+                opts: {
+                    jobId: index.id
+                }
+            }))).then((jobs) => {
+                console.log(jobs.length)
+            });
+        });
     }
 
     /**
@@ -100,9 +129,9 @@ export class MountService {
      * @param idOrObject Mount ID or Object
      * @returns Job<Mount>
      */
-    public async rescanMount(idOrObject: string | Mount): Promise<Bull.Job<Mount>> {
+    public async rescanMount(idOrObject: string | Mount): Promise<Bull.Job<MountScan>> {
         const mount = await this.resolveMount(idOrObject);
-        return this.queue.add(mount, { jobId: mount.id });
+        return this.queue.add(new MountScan(mount), { jobId: mount.id });
     }
 
     /**
@@ -189,7 +218,6 @@ export class MountService {
      * @returns Mount
      */
     public async setDefaultMount(idOrObject: string | Mount): Promise<Mount> {
-        
         const mount = await this.resolveMount(idOrObject);
         mount.isDefault = true;
 

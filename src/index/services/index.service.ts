@@ -23,7 +23,7 @@ export class IndexService {
     constructor(
         private storageService: StorageService,
         private indexReportService: IndexReportService,
-        private indexRepository: IndexRepository,
+        public repository: IndexRepository,
         private indexGateway: IndexGateway,
         @InjectQueue(QUEUE_INDEX_NAME) public indexQueue: Queue<MountedFile>,
         @Inject(BUCKET_ID) private bucketId: string,
@@ -44,7 +44,7 @@ export class IndexService {
      * @returns Index[]
      */
      public async findByMountId(mountId: string, pageable: Pageable): Promise<Page<Index>> {
-        const result = await this.indexRepository.createQueryBuilder("index")
+        const result = await this.repository.createQueryBuilder("index")
             .leftJoin("index.mount", "mount")
             .leftJoinAndSelect("index.uploader", "uploader")
 
@@ -67,7 +67,7 @@ export class IndexService {
      * @returns Index
      */
     public async findById(indexId: string): Promise<Index> {
-        return this.indexRepository.findOne({ where: { id: indexId }})
+        return this.repository.findOne({ where: { id: indexId }})
     }
 
     public async findIndex(where: string | ObjectLiteral | FindConditions<Index> | FindConditions<Index>[]): Promise<Index> {
@@ -76,7 +76,7 @@ export class IndexService {
 
     public async findMultipleIndices(where: string | ObjectLiteral | FindConditions<Index> | FindConditions<Index>[]): Promise<Index[]> {
         // TODO: Possible this could result in cyclic dependency?! Because of song.index relation
-        return this.indexRepository.find({ where, relations: ["mount", "mount.bucket", "report", "uploader", "song", "song.index", "song.albums", "song.artists", "song.artwork", "song.banner", "song.label", "song.albumOrders", "song.distributor", "song.publisher", "song.genres"]})
+        return this.repository.find({ where, relations: ["mount", "mount.bucket", "report", "uploader", "song", "song.index", "song.albums", "song.artists", "song.artwork", "song.banner", "song.label", "song.albumOrders", "song.distributor", "song.publisher", "song.genres"]})
     }
 
     /**
@@ -86,7 +86,7 @@ export class IndexService {
      * @returns Page<Index>
      */
     public async findPageByUploader(uploaderId: string, pageable: Pageable): Promise<Page<Index>> {
-        return this.indexRepository.findAll(pageable, { where: { uploader: { id: uploaderId }, status: Not(IndexStatus.IGNORE)}, relations: ["song", "song.artists", "song.artwork"]})
+        return this.repository.findAll(pageable, { where: { uploader: { id: uploaderId }, status: Not(IndexStatus.IGNORE)}, relations: ["song", "song.artists", "song.artwork"]})
     }
 
     public async findByMountedFileWithRelations(file: MountedFile): Promise<Index> {
@@ -94,7 +94,7 @@ export class IndexService {
     }
 
     public async findByMountedFile(file: MountedFile): Promise<Index> {
-        return this.indexRepository.findOne({ name: file.filename, directory: file.directory, mount: { id: file.mount.id }} as FindOneOptions<Index>)
+        return this.repository.findOne({ name: file.filename, directory: file.directory, mount: { id: file.mount.id }} as FindOneOptions<Index>)
     }
 
 
@@ -104,7 +104,7 @@ export class IndexService {
 
 
     public async findRawPathsByMount(mountId: string): Promise<IndexRawPath[]> {
-        const result = await this.indexRepository.createQueryBuilder("index")
+        const result = await this.repository.createQueryBuilder("index")
             .leftJoin("index.mount", "mount")
             .where("mount.id = :mountId", { mountId })
             .select(["index.filename", "index.directory", "mount.id"])
@@ -139,7 +139,7 @@ export class IndexService {
         }
 
         const status = Object.values(IndexStatus).filter((status) => status != IndexStatus.PREPARING && status != IndexStatus.PROCESSING)
-        return this.indexRepository.find({ where: { name: In(filenames), directory: In(dirs), mount: { id: In(mounts), status: In(status) }}, select: ["id", "directory", "name"]})
+        return this.repository.find({ where: { name: In(filenames), directory: In(dirs), mount: { id: In(mounts), status: In(status) }}, select: ["id", "directory", "name"]})
     }
 
     public async createForFiles(mountedFiles: MountedFile[], uploader?: User): Promise<Index[]> {
@@ -236,7 +236,7 @@ export class IndexService {
             }
 
             // Save indices to database
-            const results = await this.indexRepository.save(createIndices).catch((reason) => {
+            const results = await this.repository.save(createIndices).catch((reason) => {
                 console.error(reason);
                 return [];
             })
@@ -282,7 +282,7 @@ export class IndexService {
         if(!index) throw new NotFoundException("Index not found");
 
         index.status = IndexStatus.PREPARING;
-        return this.indexRepository.save(index).then((index) => {
+        return this.repository.save(index).then((index) => {
             const file = new MountedFile(index.directory, index.name, index.mount);
             return this.indexQueue.add(file, { jobId: file.bullJobId }).then(() => {
                 return true;
@@ -298,7 +298,7 @@ export class IndexService {
      * @returns True or False
      */
     public async existsByChecksum(checksum: string, indexId: string): Promise<boolean> {
-        return !!(await this.indexRepository.findOne({ where: { checksum, id: Not(indexId), status: In([IndexStatus.OK, IndexStatus.PROCESSING])}}));
+        return !!(await this.repository.findOne({ where: { checksum, id: Not(indexId), status: In([IndexStatus.OK, IndexStatus.PROCESSING])}}));
     }
 
     public async deleteById(indexId: string): Promise<Index> {
@@ -318,7 +318,7 @@ export class IndexService {
         const index = await this.findById(indexId);
         if(!index) throw new NotFoundException("Index not found.")
         index.status = IndexStatus.IGNORE;
-        return this.indexRepository.save(index);
+        return this.repository.save(index);
     }
 
     /**
@@ -329,7 +329,7 @@ export class IndexService {
      */
     public async updateIndex(index: Index): Promise<Index> {
         this.indexGateway.broadcastUpdate(index)
-        return this.indexRepository.save(index);
+        return this.repository.save(index);
     }
 
     /**
@@ -347,7 +347,7 @@ export class IndexService {
         }
 
         // Find song by title or if the artist has similar name
-        const result = this.indexRepository.createQueryBuilder("index")
+        const result = this.repository.createQueryBuilder("index")
             .leftJoin("index.song", "song")
             .leftJoin("song.artists", "artist")
             .leftJoin("index.mount", "mount")
