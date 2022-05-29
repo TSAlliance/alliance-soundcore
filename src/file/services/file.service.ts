@@ -3,7 +3,6 @@ import { Injectable } from '@nestjs/common';
 import { Queue } from 'bull';
 import { Page, Pageable } from 'nestjs-pager';
 import { QUEUE_FILE_NAME } from '../../constants';
-import { FileDTO } from '../../mount/dtos/file.dto';
 import { FileProcessDTO } from '../dto/file-process.dto';
 import { File } from '../entities/file.entity';
 import { FileRepository } from '../repositories/file.repository';
@@ -14,7 +13,13 @@ export class FileService {
     constructor(
         private readonly repository: FileRepository,
         @InjectQueue(QUEUE_FILE_NAME) private readonly queue: Queue<FileProcessDTO>
-    ) {}
+    ) {
+
+        this.queue.on("error", (error: Error) => {
+            console.error(error);
+        })
+
+    }
 
     /**
      * Find a file by its name and sub-directory in mount.
@@ -44,7 +49,12 @@ export class FileService {
         return Page.of(result[0], result[1], pageable.page);
     }
 
-    public async addToQueue(fileDto: FileProcessDTO) {
+    /**
+     * Trigger the processing of a file. This will add the file
+     * to a queue. The queue's processor creates all needed database entries, metadata etc.
+     * @param fileDto Data to feed into the Queue (Processor)
+     */
+    public async processFile(fileDto: FileProcessDTO) {
         this.queue.add(fileDto).then((job) => {
             console.log("added job to queue ", job.id)
         });

@@ -18,8 +18,6 @@ export default function (job: Job<MountScan>, cb: DoneCallback) {
     const pid = process.pid;
 
     try {
-        console.log(mount)
-
         if(!mount) {
             reportError(mount, new Error("Invalid mount: null"), cb);
         } else {

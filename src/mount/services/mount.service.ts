@@ -15,7 +15,6 @@ import { UpdateMountDTO } from '../dtos/update-mount.dto';
 import { Mount } from '../entities/mount.entity';
 import { MountRepository } from '../repositories/mount.repository';
 import { MountScan } from '../entities/scan.entity';
-import { IndexService } from '../../index/services/index.service';
 import { MountScanResultDTO } from '../dtos/scan-result.dto';
 import { FileService } from '../../file/services/file.service';
 
@@ -32,7 +31,7 @@ export class MountService {
     ) {
         this.queue.on("completed", (job, result: MountScanResultDTO) => {
             for(const file of result.files) {
-                this.fileService.addToQueue({
+                this.fileService.processFile({
                     file,
                     dbOptions: {
                         port: parseInt(process.env.DB_PORT),

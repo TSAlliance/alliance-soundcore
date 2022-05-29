@@ -15,9 +15,13 @@ import { FileService } from './services/file.service';
     BullModule.registerQueue({
       name: QUEUE_FILE_NAME,
       processors: [
-        { path: path.join(__dirname, "worker", "file.worker.js"), concurrency: 1 }
+        { 
+          path: path.join(__dirname, "worker", "file.worker.js"), 
+          concurrency: 1 
+        }
       ],
       defaultJobOptions: {
+        removeOnFail: true,
         removeOnComplete: true
       }
     })
