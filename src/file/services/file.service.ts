@@ -14,10 +14,23 @@ export class FileService {
         private readonly repository: FileRepository,
         @InjectQueue(QUEUE_FILE_NAME) private readonly queue: Queue<FileProcessDTO>
     ) {
+        this.queue.on("failed", (job, err) => {
+            console.log("failed #", job.id);
+            console.error(err);
+        })
+        this.queue.on("active", (job) => {
+            console.log("active #", job.id);
+        })
+        this.queue.on("completed", (job) => {
+            console.log("completed #", job.id);
+        })
+
 
         this.queue.on("error", (error: Error) => {
             console.error(error);
         })
+
+
 
     }
 

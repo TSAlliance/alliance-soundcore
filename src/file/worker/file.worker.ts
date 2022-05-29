@@ -4,6 +4,7 @@ import pathfs from "path";
 import { FileProcessDBOptions, FileProcessDTO } from "../dto/file-process.dto";
 import { Connection, getConnectionManager } from "typeorm";
 import { TYPEORM_CONNECTION_FILEWORKER } from "../../constants";
+import { File } from "../entities/file.entity";
 
 const logger = new Logger("FileProcessor")
 const manager = getConnectionManager();
@@ -18,7 +19,9 @@ export default function (job: Job<FileProcessDTO>, cb: DoneCallback) {
 
     logger.verbose(`Started processing file '${path}'`);
 
-    getOrCreateConnection(dbOptions).connect().then((connection) => {
+    establishConnection(dbOptions).then((connection) => {
+        const repository = connection.getRepository(File)
+
         //const repository = connection.getRepository(File)
         //console.log(repository);
 
@@ -33,21 +36,16 @@ export default function (job: Job<FileProcessDTO>, cb: DoneCallback) {
     })
 }
 
-/**
- * Report the error to the log.
- * This will create log entries as well as execute the DoneCallback
- * passing in the error and null as the job's result.
- * @param job Job where the error occured
- * @param error Error that has occured
- * @param cb DoneCallback
- */
-function reportError(job: Job<FileProcessDTO>, error: Error, cb: DoneCallback) {
-    const file = job.data.file
-    const path = pathfs.join(file.mount.directory, file.directory, file.filename);
+function establishConnection(dbOptions: FileProcessDBOptions): Promise<Connection> {
+    return new Promise((resolve) => {
+        const connection = getOrCreateConnection(dbOptions);
+        if(connection.isConnected) {
+            resolve(connection);
+            return
+        }
 
-    logger.error(`Failed processing file '${path}': ${error.message}`);
-    console.error(error);
-    cb(error, null);
+        resolve(connection.connect())
+    })
 }
 
 /**
@@ -71,6 +69,26 @@ function getOrCreateConnection(dbOptions: FileProcessDBOptions): Connection {
         username: dbOptions.username,
         password: dbOptions.password,
         entityPrefix: dbOptions.prefix,
-        connectTimeout: 2000
+        connectTimeout: 2000,
+        entities: [ 
+            pathfs.join(__dirname, "..", "entities", "*.{ts,js}")
+        ]
     });
+}
+
+/**
+ * Report the error to the log.
+ * This will create log entries as well as execute the DoneCallback
+ * passing in the error and null as the job's result.
+ * @param job Job where the error occured
+ * @param error Error that has occured
+ * @param cb DoneCallback
+ */
+ function reportError(job: Job<FileProcessDTO>, error: Error, cb: DoneCallback) {
+    const file = job.data.file
+    const path = pathfs.join(file.mount.directory, file.directory, file.filename);
+
+    logger.error(`Failed processing file '${path}': ${error.message}`);
+    console.error(error);
+    cb(error, null);
 }
