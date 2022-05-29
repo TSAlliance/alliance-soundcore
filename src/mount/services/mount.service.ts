@@ -16,9 +16,8 @@ import { Mount } from '../entities/mount.entity';
 import { MountRepository } from '../repositories/mount.repository';
 import { MountScan } from '../entities/scan.entity';
 import { IndexService } from '../../index/services/index.service';
-import { MountedFile } from '../../bucket/entities/mounted-file.entity';
 import { MountScanResultDTO } from '../dtos/scan-result.dto';
-import { Index } from '../../index/entities/index.entity';
+import { FileService } from '../../file/services/file.service';
 
 @Injectable()
 export class MountService {
@@ -27,36 +26,24 @@ export class MountService {
     constructor(
         private readonly repository: MountRepository,
         private readonly storage: StorageService,
-        private readonly indexService: IndexService,
+        private readonly fileService: FileService,
         @Inject(BUCKET_ID) private readonly bucketId: string,
         @InjectQueue(QUEUE_MOUNTSCAN_NAME) private readonly queue: Queue<MountScan>
     ) {
         this.queue.on("completed", (job, result: MountScanResultDTO) => {
-            this.createMountedFiles(result);
-        })
-    }
-
-    /**
-     * Create MountedFiles and trigger index process.
-     * @param result MountScanResultDTO
-     */
-    private async createMountedFiles(result: MountScanResultDTO) {
-        const mountedFiles: MountedFile[] = [];
-        for(const file of result.files) {
-            mountedFiles.push(new MountedFile(path.dirname(file), path.basename(file), result.mount));
-        }
-
-        // TODO: Optimize
-        this.indexService.createForFiles(mountedFiles).then((indices: Index[]) => {
-            console.log(indices.length)
-            this.indexService.indexQueue.addBulk(indices.map((index) => ({
-                data: index as any,
-                opts: {
-                    jobId: index.id
-                }
-            }))).then((jobs) => {
-                console.log(jobs.length)
-            });
+            for(const file of result.files) {
+                this.fileService.addToQueue({
+                    file,
+                    dbOptions: {
+                        port: parseInt(process.env.DB_PORT),
+                        host: process.env.DB_HOST,
+                        database: process.env.DB_NAME,
+                        password: process.env.DB_PASS,
+                        username: process.env.DB_USER,
+                        prefix: process.env.DB_PREFIX
+                    }
+                });
+            }
         });
     }
 
