@@ -39,27 +39,10 @@ export class MountService {
         @Inject(BUCKET_ID) private readonly bucketId: string,
         @InjectQueue(QUEUE_MOUNTSCAN_NAME) private readonly queue: Queue<MountScanProcessDTO>
     ) {
-
-        this.queue.on("failed", (job, err) => {
-            console.log("failed #", job.id, job.data);
-            console.error(err);
-        })
-        this.queue.on("active", (job) => {
-            console.log("active #", job.id);
-        })
-
-
-        this.queue.on("error", (error: Error) => {
-            console.error(error);
-        })
-
-        this.queue.on("waiting", (jobId) => {
-            console.log("waiting #", jobId);
-        })
+        this.queue.on("failed", (job, err) => this.logger.error(`Failed scanning mount '${job?.data?.mount?.name}': ${err.message}`, err.stack));
+        this.queue.on("error", (err) => this.logger.error(`Error occured on mount-scan-worker: ${err.message}`, err.stack));
 
         this.queue.on("completed", (job, result: MountScanResultDTO) => {
-            console.log("completed scan")
-
             for(const file of result.files) {
                 this.fileService.processFile( file, this.workerOptions);
             }

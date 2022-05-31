@@ -17,10 +17,6 @@ export class DBWorker {
 
     private readonly _connectionManager: ConnectionManager = getConnectionManager();
 
-    constructor() {
-        this.logger.verbose(`Instantiating DBWorker for database connections.`);
-    }
-
     /**
      * Check if an active database connection exists. If so, return it and otherwise
      * create a new connection.
