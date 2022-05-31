@@ -146,6 +146,10 @@ export class MountService {
                         if(createMountDto.setAsDefault) this.setDefaultMount(mount);
                         if(createMountDto.doScan) this.rescanMount(mount);
                         resolve(mount);
+                    }).catch((error) => {
+                        fs.rmdir(createMountDto.directory, () => {
+                            reject(error);
+                        })
                     });
                 }
             });
