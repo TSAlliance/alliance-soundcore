@@ -12,6 +12,7 @@ import { TYPEORM_CONNECTION_SCANWORKER } from "../../constants";
 import { MountScanResultDTO } from "../dtos/scan-result.dto";
 import { File } from "../../file/entities/file.entity";
 import { Bucket } from "../../bucket/entities/bucket.entity";
+import { MountScanReportDTO } from "../dtos/scan-report.dto";
 
 const logger = new Logger("MountScanner");
 
@@ -65,17 +66,19 @@ function scanMount(pid: number, job: Job<MountScanProcessDTO>, exclude: File[]):
         // Set an interval that periodically updates the job in queue.
         // This causes the job not be considered stalled.
         const interval = setInterval(() => preventStall(job), 2000);
-
-        logger.debug(`[${mount.name}] Building exclude list using ${exclude.length} files...`);
         const excludeList: string[] = [];
-        for(let i = 0; i < exclude.length; i++) {
-            excludeList.push(path.join(exclude[i].directory, exclude[i].name));
-            // excludeList.push(path.join(mount.directory, exclude[i].directory, exclude[i].name));
+
+        if(exclude.length > 0) {
+            logger.debug(`[${mount.name}] Building exclude list using ${exclude.length} files...`);
+            for(let i = 0; i < exclude.length; i++) {
+                excludeList.push(path.join(exclude[i].directory, exclude[i].name));
+                // excludeList.push(path.join(mount.directory, exclude[i].directory, exclude[i].name));
+            }
+
+            console.log(excludeList);
+            logger.debug(`[${mount.name}] Building exclude list took ${Date.now()-startTime}ms.`);
         }
 
-        console.log(excludeList);
-
-        logger.debug(`[${mount.name}] Building exclude list took ${Date.now()-startTime}ms.`);
         logger.log(`Scanning directory '${mount.directory}' on mount '${mount.name}'. PID: ${pid}`);
 
         const files: FileDTO[] = [];
@@ -92,7 +95,7 @@ function scanMount(pid: number, job: Job<MountScanProcessDTO>, exclude: File[]):
         // This will be triggered when matching process is done.
         globs.on("end", () => { 
             clearInterval(interval);                   
-            resolve(new MountScanResultDTO(files));
+            resolve(new MountScanResultDTO(files, new MountScanReportDTO(excludeList.length + files.length, files.length)));
         })
 
         // Listen for error event
@@ -108,7 +111,7 @@ function preventStall(job: Job<MountScanProcessDTO>) {
 }
 
 function reportSuccess(startTime: number, job: Job<MountScanProcessDTO>, result: MountScanResultDTO, dc: DoneCallback) {
-    logger.log(`Scanned mount '${job.data.mount.name}'. Found ${result.files.length} files in ${Date.now()-startTime}ms.`);
+    logger.log(`Scanned mount '${job.data.mount.name}'. Found ${result.report.totalFiles} files in total. ${result.report.newFiles} Files need to be processed. Took ${Date.now()-startTime}ms`);
     dc(null, result);
 }
 
