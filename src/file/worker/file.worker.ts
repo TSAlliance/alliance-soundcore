@@ -8,6 +8,9 @@ import { Mount } from "../../mount/entities/mount.entity";
 import { Bucket } from "../../bucket/entities/bucket.entity";
 import { FileRepository } from "../repositories/file.repository";
 import { DBWorker } from "../../utils/workers/worker.util";
+import { Repository } from "typeorm";
+import { FileFlag } from "../enums/file-flag.enum";
+import { FileDTO } from "../../mount/dtos/file.dto";
 
 const logger = new Logger("FileProcessor")
 
@@ -16,29 +19,38 @@ export default function (job: Job<FileProcessDTO>, cb: DoneCallback) {
 
     const file = job.data.file;
     const mount = job.data.file.mount;
-    const path = pathfs.join(file.mount.directory, file.directory || ".", file.filename);
+    const path = pathfs.join(mount.directory, file.directory || ".", file.filename);
 
     logger.verbose(`Started processing file '${path}'`);
 
     DBWorker.getInstance().establishConnection(TYPEORM_CONNECTION_FILEWORKER, job.data.workerOptions, [ File, Mount, Bucket ]).then((connection) => {
         const repository = connection.getCustomRepository(FileRepository);
 
-        repository.count().then((n) => {
-            console.log(n);
-
-            reportSuccess(startTime, job, null, cb);
+        findOrCreateFile(file, repository).then((file) => {
+            reportSuccess(startTime, job, file, cb);
+        }).catch((error) => {
+            reportError(job, error, cb);
         })
-
-        //const repository = connection.getRepository(File)
-        //console.log(repository);
-
-        // const entityManager = connection.createEntityManager();
-        //entityManager.findOne(File, {  }).then((f) => console.log(f)).catch((error) => console.log(error));
-        // console.log(entityManager.connection.name);
-
     }).catch((error: Error) => {
         // Handle error
         reportError(job, error, cb);
+    })
+}
+
+async function findOrCreateFile(fileDto: FileDTO, repository: Repository<File>): Promise<File> {
+    return repository.manager.transaction((entityManager) => {
+        return entityManager.createQueryBuilder(File, "file").setLock("pessimistic_read").where({ name: fileDto.filename, directory: fileDto.directory, mount: { id: fileDto.mount.id }}).getOne().then(async (result) => {
+            if(typeof result == "undefined" || result == null) {
+                const file = new File();
+                file.flag = FileFlag.PROCESSING;
+                file.mount = fileDto.mount;
+                file.directory = fileDto.directory;
+                file.name = fileDto.filename;
+
+                return await entityManager.save(file);
+            }
+            return result;
+        })
     })
 }
 
@@ -69,7 +81,6 @@ function reportSuccess(startTime: number, job: Job<FileProcessDTO>, result: any,
     const file = job.data.file
     const path = pathfs.join(file.mount.directory, file.directory, file.filename);
 
-    logger.error(`Failed processing file '${path}': ${error.message}`);
-    console.error(error);
+    logger.error(`Failed processing file '${path}': ${error.message}`, error.stack);
     cb(error, null);
 }
