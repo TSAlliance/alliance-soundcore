@@ -1,6 +1,6 @@
 import { PageableRepository } from "nestjs-pager";
 import { EntityRepository } from "typeorm";
-import { Liked } from "../entities/like.entity";
+import { LikedResource } from "../entities/like.entity";
 
-@EntityRepository(Liked)
-export class LikeRepository extends PageableRepository<Liked> {}
+@EntityRepository(LikedResource)
+export class LikeRepository extends PageableRepository<LikedResource> {}

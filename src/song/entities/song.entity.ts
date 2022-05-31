@@ -7,14 +7,13 @@ import { Distributor } from "../../distributor/entities/distributor.entity";
 import { Genre } from "../../genre/entities/genre.entity";
 import { Index } from "../../index/entities/index.entity";
 import { Label } from "../../label/entities/label.entity";
-import { Liked } from "../../collection/entities/like.entity";
-import { LikedSong } from "../../collection/entities/liked-song.entity";
 import { PlaylistItem } from "../../playlist/entities/playlist-item.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
 import { Stream } from "../../stream/entities/stream.entity";
 import { SongAlbumOrder } from "./song-order.entity";
 import { Slug } from "../../utils/slugGenerator";
 import { Resource, ResourceType } from "../../utils/entities/resource";
+import { LikedResource } from "../../collection/entities/like.entity";
 
 @Entity()
 export class Song implements Resource {
@@ -110,8 +109,8 @@ export class Song implements Resource {
     @OneToMany(() => Stream, stream => stream.song)
     public streams: Stream[];
 
-    @OneToMany(() => Liked, (l) => l["song"])
-    public likedBy: LikedSong[];
+    @OneToMany(() => LikedResource, (l) => l.song)
+    public likedBy: LikedResource[];
 
     // Value that will be set if the songs of a playlist
     // are fetched

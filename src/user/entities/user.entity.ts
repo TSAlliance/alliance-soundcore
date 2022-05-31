@@ -1,6 +1,6 @@
 
 import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, OneToMany, PrimaryColumn, UpdateDateColumn } from "typeorm";
-import { LikedSong } from "../../collection/entities/liked-song.entity";
+import { LikedResource } from "../../collection/entities/like.entity";
 import { Playlist } from "../../playlist/entities/playlist.entity";
 import { Stream } from "../../stream/entities/stream.entity";
 import { Resource, ResourceType } from "../../utils/entities/resource";
@@ -30,8 +30,8 @@ export class User implements Resource {
     @OneToMany(() => Playlist, (p) => p.author)
     public playlists: Playlist[];
     
-    @OneToMany(() => LikedSong, (l) => l.user, { onDelete: "CASCADE" })
-    public likedSongs: LikedSong;
+    @OneToMany(() => LikedResource, (l) => l.user, { onDelete: "CASCADE" })
+    public likedSongs: LikedResource;
 
     @CreateDateColumn()
     public createdAt: Date;

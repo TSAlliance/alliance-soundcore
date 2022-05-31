@@ -1,7 +1,6 @@
 import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, Index, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Artwork } from "../../artwork/entities/artwork.entity";
-import { Liked } from "../../collection/entities/like.entity";
-import { LikedPlaylist } from "../../collection/entities/liked-playlist.entity";
+import { LikedResource } from "../../collection/entities/like.entity";
 import { User } from "../../user/entities/user.entity";
 import { Resource, ResourceType } from "../../utils/entities/resource";
 import { Slug } from "../../utils/slugGenerator";
@@ -51,8 +50,8 @@ export class Playlist implements Resource {
     @JoinColumn()
     public artwork: Artwork;
 
-    @OneToMany(() => Liked, (l) => l["playlist"])
-    public likedBy: LikedPlaylist[];
+    @OneToMany(() => LikedResource, (l) => l.playlist)
+    public likedBy: LikedResource[];
 
 
     public songsCount?: number = undefined;

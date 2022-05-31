@@ -5,9 +5,7 @@ import { PlaylistPrivacy } from '../../playlist/enums/playlist-privacy.enum';
 import { PlaylistService } from '../../playlist/playlist.service';
 import { Song } from '../../song/entities/song.entity';
 import { User } from '../../user/entities/user.entity';
-import { LikedAlbum } from '../entities/liked-album.entity';
-import { LikedPlaylist } from '../entities/liked-playlist.entity';
-import { LikedSong } from '../entities/liked-song.entity';
+import { LikedResource, LikedResourceType } from '../entities/like.entity';
 import { LikeRepository } from '../repositories/like.repository';
 
 @Injectable()
@@ -18,16 +16,16 @@ export class LikeService {
         private likeRepository: LikeRepository
     ) {}
 
-    public async findByUserAndSong(userId: string, songId: string): Promise<LikedSong> {
-        return this.likeRepository.findOne({ where: { user: { id: userId }, song: { id: songId }}}) as Promise<LikedSong>
+    public async findByUserAndSong(userId: string, songId: string): Promise<LikedResource> {
+        return this.likeRepository.findOne({ where: { user: { id: userId }, song: { id: songId }}}) as Promise<LikedResource>
     }
 
-    public async findByUserAndPlaylist(userId: string, playlistId: string): Promise<LikedPlaylist> {
-        return this.likeRepository.findOne({ where: { user: { id: userId }, playlist: { id: playlistId }}}) as Promise<LikedPlaylist>
+    public async findByUserAndPlaylist(userId: string, playlistId: string): Promise<LikedResource> {
+        return this.likeRepository.findOne({ where: { user: { id: userId }, playlist: { id: playlistId }}}) as Promise<LikedResource>
     }
 
-    public async findByUserAndAlbum(userId: string, albumId: string): Promise<LikedAlbum> {
-        return this.likeRepository.findOne({ where: { user: { id: userId }, album: { id: albumId }}}) as Promise<LikedAlbum>
+    public async findByUserAndAlbum(userId: string, albumId: string): Promise<LikedResource> {
+        return this.likeRepository.findOne({ where: { user: { id: userId }, album: { id: albumId }}}) as Promise<LikedResource>
     }
 
     public async isPlaylistAuthor(userId: string, playlistId: string): Promise<boolean> {
@@ -44,7 +42,8 @@ export class LikeService {
             })
         }
 
-        const like = new LikedSong()
+        const like = new LikedResource();
+        like.type = LikedResourceType.SONG;
         like.user = authentication;
         like.song = { id: songId } as Song;
 
@@ -67,7 +66,8 @@ export class LikeService {
             })
         }
 
-        const like = new LikedPlaylist()
+        const like = new LikedResource()
+        like.type = LikedResourceType.PLAYLIST;
         like.user = authentication;
         like.playlist = { id: playlistId } as Playlist;
 
@@ -86,7 +86,8 @@ export class LikeService {
             })
         }
 
-        const like = new LikedAlbum()
+        const like = new LikedResource()
+        like.type = LikedResourceType.ALBUM;
         like.user = authentication;
         like.album = { id: albumId } as Album;
 
