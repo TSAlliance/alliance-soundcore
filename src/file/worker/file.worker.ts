@@ -1,16 +1,17 @@
 import { Logger } from "@nestjs/common";
 import { DoneCallback, Job } from "bull";
 import pathfs from "path";
-import { FileProcessDBOptions, FileProcessDTO } from "../dto/file-process.dto";
-import { Connection, getConnectionManager } from "typeorm";
+import { FileProcessDTO } from "../dto/file-process.dto";
 import { TYPEORM_CONNECTION_FILEWORKER } from "../../constants";
 import { File } from "../entities/file.entity";
+import { Mount } from "../../mount/entities/mount.entity";
+import { Bucket } from "../../bucket/entities/bucket.entity";
+import { FileRepository } from "../repositories/file.repository";
+import { DBWorker } from "../../utils/workers/worker.util";
 
 const logger = new Logger("FileProcessor")
-const manager = getConnectionManager();
 
 export default function (job: Job<FileProcessDTO>, cb: DoneCallback) {    
-    const dbOptions = job.data.dbOptions;
     const startTime = Date.now();
 
     const file = job.data.file;
@@ -19,8 +20,14 @@ export default function (job: Job<FileProcessDTO>, cb: DoneCallback) {
 
     logger.verbose(`Started processing file '${path}'`);
 
-    establishConnection(dbOptions).then((connection) => {
-        const repository = connection.getRepository(File)
+    DBWorker.getInstance().establishConnection(TYPEORM_CONNECTION_FILEWORKER, job.data.workerOptions, [ File, Mount, Bucket ]).then((connection) => {
+        const repository = connection.getCustomRepository(FileRepository);
+
+        repository.count().then((n) => {
+            console.log(n);
+
+            reportSuccess(startTime, job, null, cb);
+        })
 
         //const repository = connection.getRepository(File)
         //console.log(repository);
@@ -29,51 +36,25 @@ export default function (job: Job<FileProcessDTO>, cb: DoneCallback) {
         //entityManager.findOne(File, {  }).then((f) => console.log(f)).catch((error) => console.log(error));
         // console.log(entityManager.connection.name);
 
-        logger.verbose(`Processed file '${path}' in ${Date.now()-startTime}ms.`)
     }).catch((error: Error) => {
         // Handle error
         reportError(job, error, cb);
     })
 }
 
-function establishConnection(dbOptions: FileProcessDBOptions): Promise<Connection> {
-    return new Promise((resolve) => {
-        const connection = getOrCreateConnection(dbOptions);
-        if(connection.isConnected) {
-            resolve(connection);
-            return
-        }
-
-        resolve(connection.connect())
-    })
-}
-
 /**
- * Check if an active database connection exists. If so, return it and otherwise
- * create a new connection.
- * @param dbOptions Database Connection Options
- * @returns Connection
+ * Report success by calling the DoneCallback.
+ * @param startTime Time in ms when the job was started.
+ * @param job Job data
+ * @param result Result to be passed to DoneCallback
+ * @param cb DoneCallback
  */
-function getOrCreateConnection(dbOptions: FileProcessDBOptions): Connection {
-    if(manager.has(TYPEORM_CONNECTION_FILEWORKER)) {
-        return manager.get(TYPEORM_CONNECTION_FILEWORKER);
-    }
+function reportSuccess(startTime: number, job: Job<FileProcessDTO>, result: any, cb: DoneCallback) {
+    const file = job.data.file;
+    const path = pathfs.join(file.mount.directory, file.directory, file.filename);
 
-    logger.debug(`No active database connection found for name '${TYPEORM_CONNECTION_FILEWORKER}'. Creating it...`);
-    return manager.create({
-        name: TYPEORM_CONNECTION_FILEWORKER,
-        type: "mysql",
-        port: dbOptions.port,
-        host: dbOptions.host,
-        database: dbOptions.database,
-        username: dbOptions.username,
-        password: dbOptions.password,
-        entityPrefix: dbOptions.prefix,
-        connectTimeout: 2000,
-        entities: [ 
-            pathfs.join(__dirname, "..", "entities", "*.{ts,js}")
-        ]
-    });
+    logger.verbose(`Processed file '${path}' in ${Date.now()-startTime}ms.`);
+    cb(null, result);
 }
 
 /**

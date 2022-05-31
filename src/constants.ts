@@ -4,4 +4,5 @@ export const QUEUE_FILE_NAME = "file-queue"
 export const QUEUE_MOUNTSCAN_NAME = "mount-scan-queue"
 
 // Database connection names
+export const TYPEORM_CONNECTION_SCANWORKER = "scan-worker-connection"
 export const TYPEORM_CONNECTION_FILEWORKER = "file-worker-connection"

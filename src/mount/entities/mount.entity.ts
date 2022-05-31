@@ -1,6 +1,6 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 import { Bucket } from "../../bucket/entities/bucket.entity";
-import { Index } from "../../index/entities/index.entity";
+import { File } from "../../file/entities/file.entity";
 import { MountStatus } from "../enums/mount-status.enum";
 
 @Entity()
@@ -34,8 +34,8 @@ export class Mount {
     @JoinColumn()
     public bucket: Bucket;
 
-    @OneToMany(() => Index, (i) => i.mount)
-    public indices: Index[];
+    @OneToMany(() => File, (i) => i.mount)
+    public files: File[];
 
     // Below fields may only be populated
     // after custom database queries.

@@ -1,9 +1,11 @@
-import { FileDTO } from "../../mount/dtos/file.dto";
 import { DBWorkerOptions } from "../../utils/workers/worker.util";
+import { Mount } from "../entities/mount.entity";
 
-export class FileProcessDTO {
+export class MountScanProcessDTO {
+
     constructor(
-        public readonly file: FileDTO,
+        public readonly mount: Mount,
         public readonly workerOptions: DBWorkerOptions
     ) {}
+
 }

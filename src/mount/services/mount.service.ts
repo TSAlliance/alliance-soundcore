@@ -14,34 +14,54 @@ import { CreateMountDTO } from '../dtos/create-mount.dto';
 import { UpdateMountDTO } from '../dtos/update-mount.dto';
 import { Mount } from '../entities/mount.entity';
 import { MountRepository } from '../repositories/mount.repository';
-import { MountScan } from '../entities/scan.entity';
+import { MountScanProcessDTO } from '../dtos/mount-scan.dto';
 import { MountScanResultDTO } from '../dtos/scan-result.dto';
 import { FileService } from '../../file/services/file.service';
+import { DBWorkerOptions } from '../../utils/workers/worker.util';
 
 @Injectable()
 export class MountService {
     private logger: Logger = new Logger(MountService.name);
+
+    private readonly workerOptions: DBWorkerOptions = {
+        port: parseInt(process.env.DB_PORT),
+        host: process.env.DB_HOST,
+        database: process.env.DB_NAME,
+        password: process.env.DB_PASS,
+        username: process.env.DB_USER,
+        prefix: process.env.DB_PREFIX
+    }
 
     constructor(
         private readonly repository: MountRepository,
         private readonly storage: StorageService,
         private readonly fileService: FileService,
         @Inject(BUCKET_ID) private readonly bucketId: string,
-        @InjectQueue(QUEUE_MOUNTSCAN_NAME) private readonly queue: Queue<MountScan>
+        @InjectQueue(QUEUE_MOUNTSCAN_NAME) private readonly queue: Queue<MountScanProcessDTO>
     ) {
+
+        this.queue.on("failed", (job, err) => {
+            console.log("failed #", job.id, job.data);
+            console.error(err);
+        })
+        this.queue.on("active", (job) => {
+            console.log("active #", job.id);
+        })
+
+
+        this.queue.on("error", (error: Error) => {
+            console.error(error);
+        })
+
+        this.queue.on("waiting", (jobId) => {
+            console.log("waiting #", jobId);
+        })
+
         this.queue.on("completed", (job, result: MountScanResultDTO) => {
+            console.log("completed scan")
+
             for(const file of result.files) {
-                this.fileService.processFile({
-                    file,
-                    dbOptions: {
-                        port: parseInt(process.env.DB_PORT),
-                        host: process.env.DB_HOST,
-                        database: process.env.DB_NAME,
-                        password: process.env.DB_PASS,
-                        username: process.env.DB_USER,
-                        prefix: process.env.DB_PREFIX
-                    }
-                });
+                this.fileService.processFile( file, this.workerOptions);
             }
         });
     }
@@ -115,9 +135,12 @@ export class MountService {
      * @param idOrObject Mount ID or Object
      * @returns Job<Mount>
      */
-    public async rescanMount(idOrObject: string | Mount): Promise<Bull.Job<MountScan>> {
+    public async rescanMount(idOrObject: string | Mount): Promise<Bull.Job<MountScanProcessDTO>> {
         const mount = await this.resolveMount(idOrObject);
-        return this.queue.add(new MountScan(mount), { jobId: mount.id });
+        return this.queue.add(new MountScanProcessDTO(mount, this.workerOptions)).then((job) => {
+            this.logger.debug(`Added mount '${mount.name} #${job.id}' to scanner queue.`);
+            return job;
+        });
     }
 
     /**
