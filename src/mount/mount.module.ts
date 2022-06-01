@@ -24,8 +24,8 @@ import { FileModule } from '../file/file.module';
       name: QUEUE_MOUNTSCAN_NAME,
       processors: [
         { 
-          path: path.join(__dirname, "worker", "scan.worker.js"), 
-          concurrency: parseInt(process.env.MAX_SCANNERS) || 3 
+          path: path.join(__dirname, "worker", "mount.worker.js"), 
+          concurrency: parseInt(process.env.MAX_SCANNERS) || 4 
         }
       ],
       defaultJobOptions: {

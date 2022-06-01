@@ -1,6 +1,15 @@
-import { Column, Entity, Index, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, Index, JoinColumn, ManyToOne, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Mount } from "../../mount/entities/mount.entity";
-import { FileFlag } from "../enums/file-flag.enum";
+import { Song } from "../../song/entities/song.entity";
+
+export enum FileFlag {
+    OK = 0,
+    CORRUPT,
+    DUPLICATE,
+    DELETED,
+    PROCESSING,
+    FAILED_SONG_CREATION,
+}
 
 @Entity()
 export class File {
@@ -13,14 +22,18 @@ export class File {
     public name: string;
 
     @Index({ unique: false })
-    @Column({ nullable: true, default: "." })
+    @Column({ length: 255, collation: "utf8mb4_0900_as_ci" })
     public directory: string;
 
     @Column({ nullable: true, default: 0 })
     public size: number;
 
-    @Column({ type: "tinyint", nullable: true, default: 1 })
+    @Column({ type: "tinyint", nullable: true, default: 0 })
     public flag: FileFlag
+
+    @OneToOne(() => Song)
+    @JoinColumn()
+    public song: Song;
 
     @ManyToOne(() => Mount)
     public mount: Mount;

@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/ban-types */
 import { Logger } from "@nestjs/common";
-import { Connection, ConnectionManager, EntitySchema, getConnectionManager } from "typeorm";
+import { Connection, ConnectionManager, getConnectionManager } from "typeorm";
 
 export interface DBWorkerOptions {
     port: number
@@ -11,11 +11,15 @@ export interface DBWorkerOptions {
     prefix?: string
 }
 
-export class DBWorker {
-    private static _instance: DBWorker;
+class DBWorkerImpl {
+    private static _instance: DBWorkerImpl;
     private logger: Logger = new Logger("DBWorker");
 
     private readonly _connectionManager: ConnectionManager = getConnectionManager();
+
+    constructor() {
+        console.log("new db worker")
+    }
 
     /**
      * Check if an active database connection exists. If so, return it and otherwise
@@ -24,7 +28,7 @@ export class DBWorker {
      * @param options Database Connection Options
      * @returns Connection
      */
-    public createOrGetConnection(name: string, options: DBWorkerOptions, entities: (string | Function | EntitySchema<any>)[]): Connection {
+    public createOrGetConnection(name: string, options: DBWorkerOptions): Connection {
         const manager = this._connectionManager;
 
         if(manager.has(name)) {
@@ -42,7 +46,7 @@ export class DBWorker {
             password: options.password,
             entityPrefix: options.prefix,
             connectTimeout: 2000,
-            entities: entities
+            entities: [ "dist/**/*.entity.js" ]
         });
     }
 
@@ -53,9 +57,9 @@ export class DBWorker {
      * @param options Database Connection Options
      * @returns Connection
      */
-    public establishConnection(name: string, options: DBWorkerOptions, entities: (string | Function | EntitySchema<any>)[]): Promise<Connection> {
+    public establishConnection(name: string, options: DBWorkerOptions): Promise<Connection> {
         return new Promise((resolve) => {
-            const connection = this.createOrGetConnection(name, options, entities);
+            const connection = this.createOrGetConnection(name, options);
             if(connection.isConnected) {
                 resolve(connection);
                 return
@@ -66,12 +70,14 @@ export class DBWorker {
     }
 
 
-    public static getInstance(): DBWorker {
+    public static getInstance(): DBWorkerImpl {
         if(typeof this._instance == "undefined" || this._instance == null) {
-            this._instance = new DBWorker();
+            this._instance = new DBWorkerImpl();
         }
 
         return this._instance;
     }
     
 }
+
+export const DBWorker = new DBWorkerImpl();

@@ -11,10 +11,9 @@ import { DBWorker } from "../../utils/workers/worker.util";
 import { TYPEORM_CONNECTION_SCANWORKER } from "../../constants";
 import { MountScanResultDTO } from "../dtos/scan-result.dto";
 import { File } from "../../file/entities/file.entity";
-import { Bucket } from "../../bucket/entities/bucket.entity";
 import { MountScanReportDTO } from "../dtos/scan-report.dto";
 
-const logger = new Logger("MountScanner");
+const logger = new Logger("MountWorker");
 
 export default function (job: Job<MountScanProcessDTO>, dc: DoneCallback) {
     const startTime = new Date().getTime();
@@ -29,10 +28,10 @@ export default function (job: Job<MountScanProcessDTO>, dc: DoneCallback) {
             logger.debug(`[${mount.name}] Gathering information on previously scanned files...`);
 
             // Establish database connection
-            DBWorker.getInstance().establishConnection(TYPEORM_CONNECTION_SCANWORKER, job.data.workerOptions, [ File, Bucket, Mount ]).then((connection) => {
+            DBWorker.establishConnection(TYPEORM_CONNECTION_SCANWORKER, job.data.workerOptions).then((connection) => {
                 const repository = connection.getRepository(File);
 
-                repository.find({ where: { mount: { id: mount.id }}, select: ["name", "directory"]}).then((existingFiles) => {
+                repository.find({ where: { mount: { id: mount.id }, }, select: ["name", "directory"]}).then((existingFiles) => {
                     preventStall(job);
 
                     logger.debug(`[${mount.name}] Found ${existingFiles.length} files in database.`);
@@ -72,10 +71,7 @@ function scanMount(pid: number, job: Job<MountScanProcessDTO>, exclude: File[]):
             logger.debug(`[${mount.name}] Building exclude list using ${exclude.length} files...`);
             for(let i = 0; i < exclude.length; i++) {
                 excludeList.push(path.join(exclude[i].directory, exclude[i].name));
-                // excludeList.push(path.join(mount.directory, exclude[i].directory, exclude[i].name));
             }
-
-            console.log(excludeList);
             logger.debug(`[${mount.name}] Building exclude list took ${Date.now()-startTime}ms.`);
         }
 
@@ -87,7 +83,7 @@ function scanMount(pid: number, job: Job<MountScanProcessDTO>, exclude: File[]):
         // Listen for match event
         // On every match, create a new object
         // for future processing
-        globs.on("match", (match: string) => {
+        globs.on("match", (match: any) => {
             files.push(new MountedFile(path.dirname(match), path.basename(match), mount));
         })
 

@@ -1,7 +1,8 @@
 import { InjectQueue } from '@nestjs/bull';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Queue } from 'bull';
 import { Page, Pageable } from 'nestjs-pager';
+import path from 'path';
 import { QUEUE_FILE_NAME } from '../../constants';
 import { FileDTO } from '../../mount/dtos/file.dto';
 import { DBWorkerOptions } from '../../utils/workers/worker.util';
@@ -11,29 +12,16 @@ import { FileRepository } from '../repositories/file.repository';
 
 @Injectable()
 export class FileService {
+    private readonly logger: Logger = new Logger(FileService.name);
 
     constructor(
         private readonly repository: FileRepository,
         @InjectQueue(QUEUE_FILE_NAME) private readonly queue: Queue<FileProcessDTO>
     ) {
         this.queue.on("failed", (job, err) => {
-            console.log("failed #", job.id, job.data);
-            console.error(err);
+            const filepath = path.join(job.data.file.mount.directory, job.data.file.directory, job.data.file.filename);
+            this.logger.error(`Could not process file '${filepath}': ${err.message}`, err.stack);
         })
-        this.queue.on("active", (job) => {
-            console.log("active #", job.id);
-        })
-        this.queue.on("completed", (job) => {
-            console.log("completed #", job.id);
-        })
-
-
-        this.queue.on("error", (error: Error) => {
-            console.error(error);
-        })
-
-
-
     }
 
     /**

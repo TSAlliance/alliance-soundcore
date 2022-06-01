@@ -17,7 +17,7 @@ import { FileService } from './services/file.service';
       processors: [
         { 
           path: path.join(__dirname, "worker", "file.worker.js"), 
-          concurrency: 1 
+          concurrency: 1
         }
       ],
       defaultJobOptions: {

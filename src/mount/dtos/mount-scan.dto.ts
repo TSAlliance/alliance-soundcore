@@ -5,7 +5,8 @@ export class MountScanProcessDTO {
 
     constructor(
         public readonly mount: Mount,
-        public readonly workerOptions: DBWorkerOptions
+        public readonly workerOptions: DBWorkerOptions,
+        public readonly isReindex?: boolean
     ) {}
 
 }
