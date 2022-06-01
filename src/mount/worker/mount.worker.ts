@@ -12,6 +12,7 @@ import { TYPEORM_CONNECTION_SCANWORKER } from "../../constants";
 import { MountScanResultDTO } from "../dtos/scan-result.dto";
 import { File } from "../../file/entities/file.entity";
 import { MountScanReportDTO } from "../dtos/scan-report.dto";
+import { FileRepository } from "../../file/repositories/file.repository";
 
 const logger = new Logger("MountWorker");
 
@@ -25,16 +26,11 @@ export default function (job: Job<MountScanProcessDTO>, dc: DoneCallback) {
         if(!mount) {
             reportError(mount, new Error("Invalid mount: null"), dc);
         } else {
-            logger.debug(`[${mount.name}] Gathering information on previously scanned files...`);
-
             // Establish database connection
             DBWorker.establishConnection(TYPEORM_CONNECTION_SCANWORKER, job.data.workerOptions).then((connection) => {
-                const repository = connection.getRepository(File);
-
+                const repository = connection.getCustomRepository(FileRepository);
                 repository.find({ where: { mount: { id: mount.id }, }, select: ["name", "directory"]}).then((existingFiles) => {
                     preventStall(job);
-
-                    logger.debug(`[${mount.name}] Found ${existingFiles.length} files in database.`);
 
                     if(!fs.existsSync(mount.directory)) {
                         logger.warn(`Could not find directory '${mount.directory}'. Creating it...`);
