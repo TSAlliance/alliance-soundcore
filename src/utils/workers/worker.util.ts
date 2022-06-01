@@ -17,10 +17,6 @@ class DBWorkerImpl {
 
     private readonly _connectionManager: ConnectionManager = getConnectionManager();
 
-    constructor() {
-        console.log("new db worker")
-    }
-
     /**
      * Check if an active database connection exists. If so, return it and otherwise
      * create a new connection.

@@ -59,10 +59,7 @@ export class FileService {
      */
     public async processFile(file: FileDTO, workerOptions: DBWorkerOptions) {
         const processDto = new FileProcessDTO(file, workerOptions);
-        
-        this.queue.add(processDto).then((job) => {
-            console.log("added job to queue ", job.id)
-        });
+        return this.queue.add(processDto);
     }
 
 }
