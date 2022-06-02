@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
-import { GeniusService } from '../genius/services/genius.service';
 import { User } from '../user/entities/user.entity';
 import { CreateArtistDTO } from './dtos/create-artist.dto';
 import { Artist } from './entities/artist.entity';
@@ -12,12 +11,12 @@ export class ArtistService {
     private logger: Logger = new Logger(ArtistService.name)
 
     constructor(
-        private geniusService: GeniusService,
-        private artistRepository: ArtistRepository
+        // private geniusService: GeniusService,
+        private repository: ArtistRepository
     ){}
 
     public async findProfileById(artistId: string, user: User): Promise<Artist> {
-        const result = await this.artistRepository.createQueryBuilder("artist")
+        const result = await this.repository.createQueryBuilder("artist")
             .leftJoinAndSelect("artist.artwork", "artwork")
             .leftJoinAndSelect("artist.banner", "banner")
             .leftJoin("artist.songs", "song")
@@ -36,7 +35,7 @@ export class ArtistService {
 
         // TODO: Separate stats and artist info
         
-        const likedCount = await this.artistRepository.createQueryBuilder("artist")
+        const likedCount = await this.repository.createQueryBuilder("artist")
             .leftJoin("artist.songs", "song")
             .leftJoin("song.likedBy", "likedBy", "likedBy.userId = :userId", { userId: user?.id })
 
@@ -60,11 +59,11 @@ export class ArtistService {
     }
 
     public async findByName(name: string): Promise<Artist> {
-        return await this.artistRepository.findOne({ where: { name }});
+        return await this.repository.findOne({ where: { name }});
     }
 
     public async existsByName(name: string): Promise<boolean> {
-        return !!(await this.artistRepository.findOne({ where: { name }}));
+        return !!(await this.repository.findOne({ where: { name }}));
     }
 
     public async createIfNotExists(createArtistDto: CreateArtistDTO): Promise<Artist> {
@@ -83,19 +82,37 @@ export class ArtistService {
             artist.description = createArtistDto.description;
             artist.geniusId = createArtistDto.geniusId;
             artist.geniusUrl = createArtistDto.geniusUrl;
-            artist = await this.artistRepository.save(artist)
+            artist = await this.repository.save(artist)
 
-            await this.geniusService.findAndApplyArtistInfo(artist, createArtistDto.mountForArtworkId).then(async () => {
-                artist.hasGeniusLookupFailed = false;
-                await this.artistRepository.save(artist);
-            }).catch((reason) => {
-                artist.hasGeniusLookupFailed = true;
-                this.logger.warn(`Something went wrong whilst gathering information on artist '${createArtistDto.name}': ${reason.message}`)
-                this.artistRepository.save(artist);
-            })
+            // await this.geniusService.findAndApplyArtistInfo(artist, createArtistDto.mountForArtworkId).then(async () => {
+            //     artist.hasGeniusLookupFailed = false;
+            //     await this.repository.save(artist);
+            // }).catch((reason) => {
+            //     artist.hasGeniusLookupFailed = true;
+            //     this.logger.warn(`Something went wrong whilst gathering information on artist '${createArtistDto.name}': ${reason.message}`)
+            //     this.repository.save(artist);
+            // })
         }
 
         return artist;
+    }
+
+    /**
+     * Create new database entry using the artists name.
+     * If a conflict or error occurs, a find query is executed
+     * and if a matching entry already exists, it will be returned instead.
+     * Use case for this is to prevent duplicate entries and avoid using locks.
+     * (But its a weird solution)
+     * @param name Name of the artist to create
+     * @returns Artist
+     */
+    public async findOrCreateByName(name: string): Promise<Artist> {
+        const artist = new Artist();
+        artist.name = name;
+        
+        return this.repository.save(artist).catch(() => {
+            return this.findByName(name);
+        })
     }
 
     public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Artist>> {
@@ -105,7 +122,7 @@ export class ArtistService {
             query = `%${query.replace(/\s/g, '%')}%`;
         }
 
-        let qb = this.artistRepository.createQueryBuilder("artist")
+        let qb = this.repository.createQueryBuilder("artist")
             .leftJoinAndSelect("artist.artwork", "artwork")
             .leftJoinAndSelect("artist.banner", "banner")
 

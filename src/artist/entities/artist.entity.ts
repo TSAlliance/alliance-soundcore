@@ -1,19 +1,16 @@
 
-import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, Index, JoinColumn, JoinTable, ManyToMany, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, Index, JoinTable, ManyToMany, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { Album } from "../../album/entities/album.entity";
-import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Song } from "../../song/entities/song.entity";
 import { Resource, ResourceType } from "../../utils/entities/resource";
 import { Slug } from "../../utils/slugGenerator";
 
 @Entity()
 export class Artist implements Resource {
+    public resourceType: ResourceType = "artist";
 
     @PrimaryGeneratedColumn("uuid")
     public id: string;
-
-    @Column({ default: "artist" as ResourceType, update: false })
-    public resourceType: ResourceType;
 
     @Column({ nullable: true, unique: true, length: 120 })
     public slug: string;
@@ -35,7 +32,7 @@ export class Artist implements Resource {
     public name: string;
 
     @CreateDateColumn()
-    public registeredAt: Date;
+    public createdAt: Date;
 
     @ManyToMany(() => Song)
     @JoinTable({ name: "artist2song" })
@@ -44,13 +41,13 @@ export class Artist implements Resource {
     @OneToMany(() => Album, (a) => a.artist)
     public albums: Album[];
 
-    @OneToOne(() => Artwork, { onDelete: "SET NULL" })
+    /*@ManyToOne(() => Artwork, { onDelete: "SET NULL" })
     @JoinColumn()
     public banner: Artwork;
 
-    @OneToOne(() => Artwork, { onDelete: "SET NULL" })
+    @ManyToOne(() => Artwork, { onDelete: "SET NULL" })
     @JoinColumn()
-    public artwork: Artwork;
+    public artwork: Artwork;*/
 
     songCount?: number;
     albumCount?: number;

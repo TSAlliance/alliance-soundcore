@@ -37,14 +37,14 @@ export class LabelService {
         }
 
         if(createLabelDto.externalImgUrl) {
-            const artwork = await this.artworkService.create({ 
-                type: "label",
-                url: createLabelDto.externalImgUrl ,
-                autoDownload: true,
-                mountId: createLabelDto.artworkMountId || this.mountId,
-                dstFilename: label.name
-            })
-            if(artwork) label.artwork = artwork
+            // const artwork = await this.artworkService.create({ 
+            //     type: "label",
+            //     url: createLabelDto.externalImgUrl ,
+            //     autoDownload: true,
+            //     mountId: createLabelDto.artworkMountId || this.mountId,
+            //     dstFilename: label.name
+            // })
+            // if(artwork) label.artwork = artwork
         }
 
         return this.lableRepository.save(label)

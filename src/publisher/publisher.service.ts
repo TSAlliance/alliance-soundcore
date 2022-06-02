@@ -37,14 +37,14 @@ export class PublisherService {
         }
 
         if(createPublisherDto.externalImgUrl) {
-            const artwork = await this.artworkService.create({ 
-                type: "publisher",
-                url: createPublisherDto.externalImgUrl,
-                autoDownload: true,
-                dstFilename: publisher.name,
-                mountId: createPublisherDto.artworkMountId || this.mountId
-            })
-            if(artwork) publisher.artwork = artwork
+            // const artwork = await this.artworkService.create({ 
+            //     type: "publisher",
+            //     url: createPublisherDto.externalImgUrl,
+            //     autoDownload: true,
+            //     dstFilename: publisher.name,
+            //     mountId: createPublisherDto.artworkMountId || this.mountId
+            // })
+            // if(artwork) publisher.artwork = artwork
         }
 
         return this.publisherRepository.save(publisher)

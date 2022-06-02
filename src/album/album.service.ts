@@ -166,14 +166,14 @@ export class AlbumService {
             .distinct()
             .getRawAndEntities()
 
-        album.featuredArtists = featuredArtists.raw.map((a) => ({
+        /*album.featuredArtists = featuredArtists.raw.map((a) => ({
             id: a.artist_id,
             name: a.artist_name,
             artwork: {
                 id: a.artwork_id,
                 accentColor: a.artwork_accentColor
             }
-        } as Artist))
+        } as Artist))*/
 
         album.totalDuration = parseInt(result.raw[0].totalDuration);
         album.songsCount = parseInt(result.raw[0].songsCount)

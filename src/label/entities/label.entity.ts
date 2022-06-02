@@ -30,9 +30,9 @@ export class Label implements Resource {
     @OneToMany(() => Song, (song) => song.label)
     public songs: Song[]
 
-    @OneToOne(() => Artwork, { onDelete: "SET NULL", nullable: true })
+    /*@OneToOne(() => Artwork, { onDelete: "SET NULL", nullable: true })
     @JoinColumn()
-    public artwork: Artwork;
+    public artwork: Artwork;*/
 
     @BeforeInsert()
     public onBeforeInsert() {

@@ -15,12 +15,6 @@ export class CreateArtistDTO {
 
     @IsOptional()
     @IsUrl()
-    public geniusUrl?: string;
-
-    @IsOptional()
-    public mountForArtworkId?: string;
-
-
-    
+    public geniusUrl?: string;   
 
 }

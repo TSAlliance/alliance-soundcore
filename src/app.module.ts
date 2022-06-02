@@ -31,6 +31,7 @@ import { OIDCModule } from './authentication/oidc.module';
 import { ProfileModule } from './profile/profile.module';
 import { MountModule } from './mount/mount.module';
 import { FileModule } from './file/file.module';
+import { IndexerModule } from './indexer/indexer.module';
 
 @Module({
   imports: [
@@ -104,7 +105,8 @@ import { FileModule } from './file/file.module';
     }),
     ProfileModule,
     MountModule,
-    FileModule
+    FileModule,
+    IndexerModule
   ],
   controllers: [],
   providers: []

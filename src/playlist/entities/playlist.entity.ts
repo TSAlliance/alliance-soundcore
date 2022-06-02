@@ -46,9 +46,9 @@ export class Playlist implements Resource {
     @OneToMany(() => PlaylistItem, pi => pi.playlist)
     public items: PlaylistItem[];
 
-    @OneToOne(() => Artwork, { onDelete: "SET NULL", nullable: true })
-    @JoinColumn()
-    public artwork: Artwork;
+    // @OneToOne(() => Artwork, { onDelete: "SET NULL", nullable: true })
+    // @JoinColumn()
+    // public artwork: Artwork;
 
     @OneToMany(() => LikedResource, (l) => l.playlist)
     public likedBy: LikedResource[];

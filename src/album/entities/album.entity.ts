@@ -49,13 +49,13 @@ export class Album implements Resource {
     @JoinTable({ name: "song2album" })
     public songs: Song[];
 
-    @OneToOne(() => Artwork, { onDelete: "SET NULL" })
+    /*@ManyToOne(() => Artwork, { onDelete: "SET NULL" })
     @JoinColumn()
     public artwork: Artwork;
 
-    @OneToOne(() => Artwork, { onDelete: "SET NULL" })
+    @ManyToOne(() => Artwork, { onDelete: "SET NULL" })
     @JoinColumn()
-    public banner: Artwork;
+    public banner: Artwork;*/
 
     @ManyToOne(() => Distributor, { onDelete: "SET NULL" })
     @JoinColumn()

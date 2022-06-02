@@ -37,14 +37,14 @@ export class DistributorService {
         }
 
         if(createDistributorDto.externalImgUrl) {
-            const artwork = await this.artworkService.create({ 
-                type: "distributor",
-                url: createDistributorDto.externalImgUrl,
-                autoDownload: true,
-                mountId: createDistributorDto.artworkMountId || this.mountId,
-                dstFilename: distributor.name
-            })
-            if(artwork) distributor.artwork = artwork
+            // const artwork = await this.artworkService.create({ 
+            //     type: "distributor",
+            //     url: createDistributorDto.externalImgUrl,
+            //     autoDownload: true,
+            //     mountId: createDistributorDto.artworkMountId || this.mountId,
+            //     dstFilename: distributor.name
+            // })
+            // if(artwork) distributor.artwork = artwork
         }
 
         return this.distributorRepository.save(distributor)

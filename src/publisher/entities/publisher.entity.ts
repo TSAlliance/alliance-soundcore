@@ -27,9 +27,9 @@ export class Publisher implements Resource {
     @Column({ nullable: false })
     public name: string;
 
-    @OneToOne(() => Artwork, { onDelete: "SET NULL", nullable: true })
-    @JoinColumn()
-    public artwork: Artwork;
+    // @OneToOne(() => Artwork, { onDelete: "SET NULL", nullable: true })
+    // @JoinColumn()
+    // public artwork: Artwork;
 
     @OneToMany(() => Song, (user) => user.publisher)
     public songs: Song[];

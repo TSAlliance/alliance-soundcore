@@ -1,5 +1,5 @@
 
-import { BeforeInsert, BeforeUpdate, Column, Entity, Index, JoinColumn, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { BeforeInsert, BeforeUpdate, Column, Entity, Index, JoinColumn, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Song } from "../../song/entities/song.entity";
 import { Resource, ResourceType } from "../../utils/entities/resource";
@@ -26,10 +26,6 @@ export class Distributor implements Resource {
     @Index()
     @Column({ nullable: false })
     public name: string;
-
-    @OneToOne(() => Artwork, { onDelete: "SET NULL", nullable: true })
-    @JoinColumn()
-    public artwork: Artwork;
 
     @OneToMany(() => Song, (user) => user.publisher)
     public songs: Song[]

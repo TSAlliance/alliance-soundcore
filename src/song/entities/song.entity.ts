@@ -2,7 +2,6 @@
 import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn, Index as IndexDec } from "typeorm";
 import { Album } from "../../album/entities/album.entity";
 import { Artist } from "../../artist/entities/artist.entity";
-import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Distributor } from "../../distributor/entities/distributor.entity";
 import { Genre } from "../../genre/entities/genre.entity";
 import { Index } from "../../index/entities/index.entity";
@@ -14,6 +13,7 @@ import { SongAlbumOrder } from "./song-order.entity";
 import { Slug } from "../../utils/slugGenerator";
 import { Resource, ResourceType } from "../../utils/entities/resource";
 import { LikedResource } from "../../collection/entities/like.entity";
+import { File } from "../../file/entities/file.entity";
 
 @Entity()
 export class Song implements Resource {
@@ -68,13 +68,17 @@ export class Song implements Resource {
     @JoinColumn()
     public index: Index;
 
-    @OneToOne(() => Artwork, { onDelete: "SET NULL" })
+    @OneToOne(() => File, { onDelete: "CASCADE" })
     @JoinColumn()
-    public banner: Artwork;
+    public file: File;
 
-    @OneToOne(() => Artwork, { onDelete: "SET NULL" })
-    @JoinColumn()
-    public artwork: Artwork;
+    // @ManyToOne(() => Artwork, { onDelete: "SET NULL" })
+    // @JoinColumn()
+    // public banner: Artwork;
+
+    // @ManyToOne(() => Artwork, { onDelete: "SET NULL" })
+    // @JoinColumn()
+    // public artwork: Artwork;
 
     @ManyToMany(() => Artist)
     @JoinTable({ name: "artist2song" })

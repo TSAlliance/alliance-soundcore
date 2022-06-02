@@ -23,7 +23,7 @@ export class IndexGateway {
         try {
             const indexCopy = index;
             delete indexCopy?.song?.artists;
-            delete indexCopy?.song?.artwork?.mount;
+            // delete indexCopy?.song?.artwork?.mount;
             delete indexCopy?.song?.index;
             delete indexCopy?.report;
 
