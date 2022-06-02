@@ -1,17 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 
-import NodeID3 from 'node-id3';
-
-import ffprobe from 'ffprobe';
-import ffprobeStatic from "ffprobe-static";
-
-import fs from 'fs';
-
-import { Index } from '../index/entities/index.entity';
 import { CreateSongDTO } from './dtos/create-song.dto';
 import { Song } from './entities/song.entity';
 import { SongRepository } from './repositories/song.repository';
-import { ID3TagsDTO } from './dtos/id3-tags.dto';
 import { IndexStatus } from '../index/enum/index-status.enum';
 import { Page, Pageable } from 'nestjs-pager';
 import { User } from '../user/entities/user.entity';
@@ -22,12 +13,6 @@ export class SongService {
     private logger: Logger = new Logger(SongService.name)
 
     constructor(
-        // private geniusService: GeniusService,
-        // private albumService: AlbumService,
-        // private artworkService: ArtworkService,
-        // private artistService: ArtistService,
-        // private storageServie: StorageService,
-        // private indexReportService: IndexReportService,
         private readonly repository: SongRepository
     ){}
 
@@ -589,142 +574,6 @@ export class SongService {
         return this.repository.save(song).catch(() => {
             return this.repository.findOne(song);
         })
-    }
-
-    // public async findOrCreate(createSongDto: CreateSongDTO): Promise<Song> {
-
-        // Use following properties for creating a song:
-        // Title, Artist name,
-
-    // }
-
-    /**
-     * Create song metadata entry in database extracted from an indexed file.
-     * @param index Indexed file to get metadata from
-     * @returns Index
-     */
-    public async createFromIndex(index: Index): Promise<Song> {
-        // const filepath = this.storageServie.buildFilepath(index);
-        // this.indexReportService.appendInfo(index.report, `Extracting song metadata from file '${filepath}'`);
-
-        // if(!fs.existsSync(filepath)) {
-        //     this.indexReportService.appendError(index.report, `Could not find song file '${filepath}'`);
-        //     throw new NotFoundException("Could not find song file");
-        // }
-
-        // const id3tags = await this.readId3Tags(filepath, index);
-        // let song = null;
-
-        // if(index.song) {
-        //     song = index.song;
-        //     song.index = index;
-        // } else {
-        //     // TODO: Check if there is a song connected to an indexId
-        //     // Maybe the server stopped or crashed during relation saving and did not finish the task
-        //     // correctly somehow. This seems to happen actually.
-
-        //     // As there is no song on the current index at this point in code, maybe there is a song with exactly that index
-
-        //     song = await this.create({
-        //         duration: id3tags.duration,
-        //         title: (id3tags.title || path.parse(filepath).name)?.replace(/^[ ]+|[ ]+$/g,'')
-        //     }).catch((error: Error) => {
-        //         this.logger.error(`Could not save index relations in database for song ${filepath}: `, error);
-        //         this.indexReportService.appendError(index.report, `Could not create song: ${error.message}`)
-        //         throw error;
-        //     });
-
-        //     song.index = index;
-        //     await this.repository.save(song).catch((reason) => {
-        //         this.logger.error(`Could not save index relations in database for song ${filepath}: `, reason);
-        //         this.indexReportService.appendError(index.report, `Could not save index relations in database: ${reason.message}`)
-        //         throw reason;
-        //     });
-        // }
-
-        // if(!song) {
-        //     this.indexReportService.appendError(index.report, `Cannot create song entity for file '${filepath}'`);
-        //     throw new NotFoundException("Cannot create song entity.");
-        // }
-
-        // try {           
-        //     // Create artwork
-        //     const artwork = await this.artworkService.createFromIndexAndBuffer(index, id3tags.artwork).catch((error: Error) => {
-        //         this.indexReportService.appendStackTrace(index.report, `Failed creating artwork from ID3Tags: '${error.message}'`, error.stack);
-        //     });
-        //     if(artwork) song.artwork = artwork;
-
-        //     // If there are artists on id3 tags -> Create them if they do not exist already
-        //     // Otherwise they will be retrieved and added to the song.
-        //     if(!song.artists) song.artists = [];
-        //     if(id3tags.artists && id3tags.artists.length > 0) {
-        //         // Create all artists found on id3tags, but
-        //         // only if they do not exist
-        //         await Promise.all(id3tags.artists.map(async (id3Artist) => {
-        //             return await this.artistService.createIfNotExists({ name: id3Artist.name, mountForArtworkId: index.mount.id })
-        //         })).then((artists) => {
-        //             // Filter out duplicates
-        //             const existing = song.artists.map((artist) => artist.id)
-        //             song.artists.push(...artists.filter((artist) => !!artist && !existing.includes(artist.id)))
-        //             this.indexReportService.appendInfo(index.report, `Adding '${song.artists.map((a) => a.name).join(", ")}' as artists to song`);
-        //         }).catch((reason) => {
-        //             this.indexReportService.appendError(index.report, `Failed adding artist(s) to song: ${reason.message}`);
-        //         });
-        //     }
-
-        //     // If there is an album title on id3tags, create it if it does not exist already.
-        //     // If it exists, just add it to song.
-        //     if(!song.albums) song.albums = [];
-        //     if(id3tags.album) {
-
-        //         const album = await this.albumService.createIfNotExists({ title: id3tags.album, artist: song.artists[0], geniusSearchArtists: song.artists, mountForArtworkId: index.mount.id }).then((state) => state.album).catch((reason) => {
-        //             this.indexReportService.appendError(index.report, `Failed creating album '${id3tags.album}' for song: ${reason.message}`);
-        //             return null;
-        //         });
-
-        //         if(album) {
-        //             const existing = song.albums.map((album) => album.id);
-        //             if(!existing.includes(album?.id)) {
-        //                 song.albums.push(album);
-
-        //                 if(!song.albumOrders) song.albumOrders = [];
-        //                 const existsOrder = song.albumOrders.map((order) => order.album.id);
-        //                 if(!existsOrder.includes(album.id)) {
-        //                     const order = new SongAlbumOrder();
-        //                     order.album = album;
-        //                     order.song = song;
-        //                     order.nr = id3tags.orderNr;
-
-        //                     song.albumOrders.push(order);
-        //                 }
-                        
-        //                 this.indexReportService.appendInfo(index.report, `Added song to album '${album.title}'`);
-        //             }
-        //         }
-        //     }
-
-        //     // TODO: Make this sync
-        //     await this.geniusService.findAndApplySongInfo(song).then(() => {
-        //         song.hasGeniusLookupFailed = false;
-        //     }).catch((error: Error) => {
-        //         song.hasGeniusLookupFailed = true;
-        //         this.indexReportService.appendError(index.report, `Something went wrong on Genius.com lookup: ${error.message}`);
-        //     })
-
-        //     // Save relations to database
-        //     await this.repository.save(song).catch((reason) => {
-        //         this.logger.error(`Could not save relations in database for song ${filepath}: `, reason);
-        //         this.indexReportService.appendError(index.report, `Could not save relations in database: ${reason.message}`)
-        //     });
-        // } catch (error) {
-        //     await this.repository.delete({ id: song.id });
-        //     throw error;
-        // }
-
-        // // Make sure the index is updated to the song for future internal processing.
-        // song.index = index;
-        // return song;
-        return null;
     }
 
     /**
