@@ -39,7 +39,7 @@ export class Mount {
 
     // Below fields may only be populated
     // after custom database queries.
-    public indexCount?: number;
+    public fileCount?: number;
     public usedDiskSpace?: number;
 
 }

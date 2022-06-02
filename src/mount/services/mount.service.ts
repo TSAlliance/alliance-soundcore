@@ -69,6 +69,7 @@ export class MountService {
 
         const result = await this.repository.createQueryBuilder("mount")
             .leftJoinAndSelect("mount.bucket", "bucket")
+            .loadRelationCountAndMap("mount.fileCount", "mount.files")
             .where("bucket.id = :bucketId", { bucketId })
             .getManyAndCount();
         
@@ -129,8 +130,9 @@ export class MountService {
      */
     public async rescanMount(idOrObject: string | Mount): Promise<Bull.Job<MountScanProcessDTO>> {
         const mount = await this.resolveMount(idOrObject);
+        const priority = mount.fileCount;
 
-        return this.queue.add(new MountScanProcessDTO(mount, this.workerOptions)).then((job) => {
+        return this.queue.add(new MountScanProcessDTO(mount, this.workerOptions), { priority }).then((job) => {
             this.logger.debug(`Added mount '${mount.name} #${job.id}' to scanner queue.`);
             return job;
         });
