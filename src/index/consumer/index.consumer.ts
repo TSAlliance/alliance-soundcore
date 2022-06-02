@@ -74,8 +74,8 @@ export class IndexConsumer {
                         }
 
                         this.songService.createFromIndex(index).then((song) => {
-                            song.index = undefined;
-                            song.albumOrders = [];
+                            // song.index = undefined;
+                            // song.albumOrders = [];
                             
                             index.song = song;
                             index.status = IndexStatus.OK;

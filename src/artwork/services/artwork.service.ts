@@ -1,22 +1,26 @@
-import { InjectQueue } from "@nestjs/bull";
-import { Injectable } from "@nestjs/common";
-import { Job, Queue } from "bull";
-import { QUEUE_ARTWORKWRITE_NAME } from "../../constants";
-import { ArtworkProcessDTO } from "../dtos/artwork-process.dto";
+import { Injectable, Logger } from "@nestjs/common";
 import { CreateArtworkDTO } from "../dtos/create-artwork.dto";
-import { Artwork, ArtworkFlag } from "../entities/artwork.entity";
+import { Artwork, ArtworkColors, ArtworkFlag } from "../entities/artwork.entity";
 import { ArtworkRepository } from "../repositories/artwork.repository";
+import fs from "fs";
+import sharp from "sharp";
+import { ArtworkStorageHelper } from "../helper/artwork-storage.helper";
+import path from "path";
+import Vibrant from "node-vibrant";
+import { Slug } from "../../utils/slugGenerator";
 
 @Injectable()
 export class ArtworkService {
+    private logger: Logger = new Logger(ArtworkService.name);
 
     constructor(
         private readonly repository: ArtworkRepository,
-        @InjectQueue(QUEUE_ARTWORKWRITE_NAME) private readonly queue: Queue<ArtworkProcessDTO>
+        private readonly storageHelper: ArtworkStorageHelper
+        // @InjectQueue(QUEUE_ARTWORKWRITE_NAME) private readonly queue: Queue<ArtworkProcessDTO>
     ) {
-        this.queue.on("active", (job: Job<ArtworkProcessDTO>) => this.setFlag(job.data.artwork, ArtworkFlag.PROCESSING));
-        this.queue.on("completed", (job: Job<ArtworkProcessDTO>) => this.setFlag(job.data.artwork, ArtworkFlag.OK));
-        this.queue.on("failed", (job: Job<ArtworkProcessDTO>) => this.setFlag(job.data.artwork, ArtworkFlag.ERROR));
+        // this.queue.on("active", (job: Job<ArtworkProcessDTO>) => this.setFlag(job.data.artwork, ArtworkFlag.PROCESSING));
+        // this.queue.on("completed", (job: Job<ArtworkProcessDTO>) => this.setFlag(job.data.artwork, ArtworkFlag.OK));
+        // this.queue.on("failed", (job: Job<ArtworkProcessDTO>) => this.setFlag(job.data.artwork, ArtworkFlag.ERROR));
     }
 
     /**
@@ -37,54 +41,112 @@ export class ArtworkService {
      * Find an artwork or create it if it does not exist.
      * For finding the artwork, only the "name", "type" and "mount" properties
      * of the createArtworkDto object are used.
-     * NOTE: This operation is not atomic
      * @param createArtworkDto Creation and Find options
      * @returns Artwork
      */
     public async findOrCreateArtwork(createArtworkDto: CreateArtworkDTO): Promise<Artwork> {
-        return this.repository.manager.transaction((manager) => {
-            return manager.findOne(Artwork, { name: createArtworkDto.name, type: createArtworkDto.type, mount: { id: createArtworkDto.mount.id }}).then((result) => {
-                if(typeof result == "undefined" || result == null) {
-                    return this.create(createArtworkDto);
-                }
-
-                return result;
-            });
-        });
-    }
-
-    /**
-     * Create new artwork file in database.
-     * If the "writeSource" property is set, the created
-     * artwork will be added to the write-queue.
-     * @param createArtworkDto Creation options
-     * @returns Artwork
-     */
-    public async create(createArtworkDto: CreateArtworkDTO): Promise<Artwork> {
         const artwork = new Artwork();
         artwork.flag = ArtworkFlag.OK;
-        artwork.name = createArtworkDto.name;
+        artwork.name = `${Slug.format(createArtworkDto.name)}_${createArtworkDto.type}`;
         artwork.type = createArtworkDto.type;
         artwork.mount = createArtworkDto.mount;
 
         return this.repository.save(artwork).then((result) => {
-            if(createArtworkDto.writeSource) {
-                this.createWriteJob(createArtworkDto.writeSource, result)
-            }
-
-            return result;
+            if(!createArtworkDto.fromSource) return result;
+            
+            return this.writeBufferOrFile(createArtworkDto.fromSource, result).then((writtenArtwork) => {
+                return writtenArtwork;
+            }).catch((error) => {
+                // Delete from database if write failed.
+                this.logger.error(`Could not write artwork file: ${error.message}`, error.stack);
+                return this.repository.delete(result).then(() => null);
+            })
+        }).catch(() => {
+            return this.repository.createQueryBuilder("artwork")
+                .leftJoinAndSelect("artwork.mount", "mount")
+                .where("artwork.name = :name AND artwork.type = :type AND artwork.mountId = :mountId", {name: createArtworkDto.name, type: createArtworkDto.type, mountId: createArtworkDto.mount.id })
+                .getOne();
         });
     }
 
+    private async writeBufferOrFile(bufferOrFile: string | Buffer, artwork: Artwork): Promise<Artwork> {
+        return new Promise((resolve, reject) => {
+            const dstFile = this.storageHelper.findArtworkFilepath(artwork);
+
+            let srcBuffer: Buffer;
+
+            if(!Buffer.isBuffer(bufferOrFile)) {
+                srcBuffer = fs.readFileSync(bufferOrFile as string);
+            } else {
+                srcBuffer = bufferOrFile as Buffer;
+            }
+
+
+            // Create destination directory
+            fs.mkdir(path.dirname(dstFile), { recursive: true }, (err, directory) => {
+                if(err) {
+                    this.logger.warn(`Could not write artwork to disk: Could not create directory '${directory}': ${err.message}`);
+                    reject(err);
+                    return;
+                }
+
+                // Read source file into buffer and convert to jpeg,
+                // compress and resize it. This will write the result into dstFile path
+                sharp(srcBuffer).jpeg({ force: true, quality: 80, chromaSubsampling: "4:4:4" }).resize(512, 512, { fit: "cover" }).toFile(dstFile, (err) => {
+                    if(err) {
+                        this.logger.warn(`Could not write artwork to disk: Failed while processing using sharp: ${err.message}`);
+                        reject(err);
+                        return;
+                    }
+
+                    // Analyze colors from image
+                    this.getAccentColorFromArtwork(artwork).then((colors) => {
+                        artwork.colors = colors;
+
+                        this.repository.save(artwork).then((result) => {
+                            resolve(result);
+                        }).catch((error) => {
+                            reject(error);
+                        })
+                    }).catch((error) => {
+                        reject(error);
+                    })
+                })
+            })
+        })
+    }
+
     /**
-     * This function will create a job for writing a new artwork file.
-     * The created job will be returned to watch for its completion state if needed.
-     * @param srcFile File that should be written to an artwork.
-     * @param artwork Artwork entity
-     * @returns Job<ArtworkProcessDTO>
+     * Extract the accent color from an artwork file.
+     * @param artwork Artwork to extract color from
+     * @returns ArtworkColors
      */
-    public async createWriteJob(srcFile: string, artwork: Artwork): Promise<Job<ArtworkProcessDTO>> {
-        return this.queue.add(new ArtworkProcessDTO(artwork, srcFile));
+     public async getAccentColorFromArtwork(idOrObject: Artwork): Promise<ArtworkColors> {
+        const artwork = await this.resolveArtwork(idOrObject);
+        const filepath = this.storageHelper.findArtworkFilepath(artwork);
+
+        return new Promise((resolve, reject) => {
+            fs.access(filepath, (err) => {
+                if(err) {
+                    reject(err);
+                    return;
+                }
+
+                Vibrant.from(filepath).getPalette().then((palette) => {
+                    const colors = new ArtworkColors();
+                    colors.vibrant = palette.Vibrant.hex;
+                    colors.muted = palette.Muted.hex;
+                    colors.darkMuted = palette.DarkMuted.hex;
+                    colors.darkVibrant = palette.DarkVibrant.hex;
+                    colors.lightMuted = palette.LightMuted.hex;
+                    colors.lightVibrant = palette.LightVibrant.hex;
+                    resolve(colors);
+                }).catch((error) => {
+                    reject(error);
+                })
+            })
+        })
+        
     }
 
     /**

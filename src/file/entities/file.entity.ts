@@ -1,4 +1,4 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Mount } from "../../mount/entities/mount.entity";
 import { Song } from "../../song/entities/song.entity";
 
@@ -31,9 +31,8 @@ export class File {
     @Column({ type: "tinyint", nullable: true, default: 0 })
     public flag: FileFlag
 
-    @OneToOne(() => Song)
-    @JoinColumn()
-    public song: Song;
+    @OneToMany(() => Song, (song) => song.file)
+    public songs: Song[];
 
     @ManyToOne(() => Mount)
     public mount: Mount;

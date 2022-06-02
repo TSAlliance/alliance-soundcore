@@ -10,6 +10,7 @@ import { Resource, ResourceFlag, ResourceType } from "../../utils/entities/resou
 import { Slug } from "../../utils/slugGenerator";
 
 @Entity()
+@Index(["name", "artist"], { unique: true })
 export class Album implements Resource {
 
     @PrimaryGeneratedColumn("uuid")

@@ -8,9 +8,6 @@ import { IndexReportModule } from '../index-report/index-report.module';
 import { ArtworkService as ArtworkServiceV2 } from './services/artwork.service';
 import { ArtworkService } from './artwork.service';
 import { ArtworkStorageHelper } from './helper/artwork-storage.helper';
-import { BullModule } from '@nestjs/bull';
-import { QUEUE_ARTWORKWRITE_NAME } from '../constants';
-import path from 'path';
 
 @Module({
   controllers: [ArtworkController],
@@ -23,17 +20,7 @@ import path from 'path';
     SharedModule,
     StorageModule,
     IndexReportModule,
-    TypeOrmModule.forFeature([ ArtworkRepository ]),
-    BullModule.registerQueue({
-      name: QUEUE_ARTWORKWRITE_NAME,
-      processors: [
-        { path: path.join(__dirname, "worker", "artwork-write.worker.js"), concurrency: 4 }
-      ],
-      defaultJobOptions: {
-        removeOnComplete: true,
-        removeOnFail: true
-      }
-    })
+    TypeOrmModule.forFeature([ ArtworkRepository ])
   ],
   exports: [
     ArtworkServiceV2,

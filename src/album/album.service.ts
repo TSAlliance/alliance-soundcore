@@ -188,7 +188,7 @@ export class AlbumService {
      * @returns Album
      */
     public async findByTitleAndArtist(title: string, artist: Artist): Promise<Album> {
-        return await this.repository.findOne({ where: { name: title, artist: { id: artist.id } }, relations: ["artist", "artwork", "distributor", "label", "publisher", "banner"]});
+        return await this.repository.findOne({ where: { name: title, artist: { id: artist.id } }, relations: ["artist", "distributor", "label", "publisher"]});
     }
 
     public async findByGeniusId(geniusId: string): Promise<Album> {

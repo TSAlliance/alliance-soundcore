@@ -22,9 +22,9 @@ export class IndexGateway {
     public async broadcastUpdate(index: Index) {
         try {
             const indexCopy = index;
-            delete indexCopy?.song?.artists;
+            // delete indexCopy?.song?.artists;
             // delete indexCopy?.song?.artwork?.mount;
-            delete indexCopy?.song?.index;
+            // delete indexCopy?.song?.index;
             delete indexCopy?.report;
 
             this.server.emit(INDEX_STATUS_EVENT, indexCopy);

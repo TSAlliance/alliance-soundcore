@@ -51,9 +51,6 @@ export class Artwork {
     @CreateDateColumn()
     public createdAt: Date;
 
-    @Column()
-    public writtenAt: Date;
-
     @Column({ type: "tinyint", default: 0 })
     public flag: ArtworkFlag;
 

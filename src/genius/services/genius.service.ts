@@ -29,100 +29,101 @@ export class GeniusService {
     ) {}
 
     public async findAndApplySongInfo(song: Song): Promise<{ song: Song, dto?: GeniusSongDTO }> {
-        const title = song?.name?.replace(/^(?:\[[^\]]*\]|\([^()]*\))\s*|\s*(?:\[[^\]]*\]|\([^()]*\))/gm, "").split("-")[0];
-        const artists = song.artists[0]?.name || "";
-        let query: string;
+        // const title = song?.name?.replace(/^(?:\[[^\]]*\]|\([^()]*\))\s*|\s*(?:\[[^\]]*\]|\([^()]*\))/gm, "").split("-")[0];
+        // const artists = song.artists[0]?.name || "";
+        // let query: string;
 
-        if(!title) {
-            console.warn("Found a song without title: ", song.index.name)
-            return { song, dto: null };
-        }
+        // if(!title) {
+        //     console.warn("Found a song without title: ", song.index.name)
+        //     return { song, dto: null };
+        // }
 
-        if(artists != "") {
-            query = title + " " + artists
-        } else {
-            query = song.name
-        }
+        // if(artists != "") {
+        //     query = title + " " + artists
+        // } else {
+        //     query = song.name
+        // }
 
-        console.log("find song on genius for query: ", query)
+        // console.log("find song on genius for query: ", query)
 
-        return this.searchResourceIdOfType("song", query).then((resourceId) => {
-            console.log("found id: ", resourceId)
-            if(!resourceId) return { song };
+        // return this.searchResourceIdOfType("song", query).then((resourceId) => {
+        //     console.log("found id: ", resourceId)
+        //     if(!resourceId) return { song };
 
 
-            // Request more detailed song data
-            return this.fetchResourceByIdAndType<GeniusSongDTO>("song", resourceId).then(async (songDto) => {
-                console.log("found dto data? ", !!songDto)
-                if(!songDto) return { song };
+        //     // Request more detailed song data
+        //     return this.fetchResourceByIdAndType<GeniusSongDTO>("song", resourceId).then(async (songDto) => {
+        //         console.log("found dto data? ", !!songDto)
+        //         if(!songDto) return { song };
 
-                // Create distributor if not exists
-                const distributorResult = songDto.custom_performances.find((perf) => perf.label == "Distributor");
-                if(distributorResult) {
-                    const distributor = await this.distributorService.createIfNotExists({ name: distributorResult.artists[0].name, geniusId: distributorResult.artists[0].id, externalImgUrl: distributorResult.artists[0].image_url })
-                    if(distributor) song.distributor = distributor;
-                }
+        //         // Create distributor if not exists
+        //         const distributorResult = songDto.custom_performances.find((perf) => perf.label == "Distributor");
+        //         if(distributorResult) {
+        //             const distributor = await this.distributorService.createIfNotExists({ name: distributorResult.artists[0].name, geniusId: distributorResult.artists[0].id, externalImgUrl: distributorResult.artists[0].image_url })
+        //             if(distributor) song.distributor = distributor;
+        //         }
 
-                // Create publisher if not exists
-                const publisherResult = songDto.custom_performances.find((perf) => perf.label == "Publisher");
-                if(publisherResult) {
-                    const publisher = await this.publisherService.createIfNotExists({ name: publisherResult.artists[0].name, geniusId: publisherResult.artists[0].id, externalImgUrl: publisherResult.artists[0].image_url })
-                    if(publisher) song.publisher = publisher;
-                }
+        //         // Create publisher if not exists
+        //         const publisherResult = songDto.custom_performances.find((perf) => perf.label == "Publisher");
+        //         if(publisherResult) {
+        //             const publisher = await this.publisherService.createIfNotExists({ name: publisherResult.artists[0].name, geniusId: publisherResult.artists[0].id, externalImgUrl: publisherResult.artists[0].image_url })
+        //             if(publisher) song.publisher = publisher;
+        //         }
 
-                // Create label if not exists
-                const labelResult = songDto.custom_performances.find((perf) => perf.label == "Label");
-                if(labelResult) {
-                    const label = await this.labelService.createIfNotExists({ name: labelResult.artists[0].name, geniusId: labelResult.artists[0].id, externalImgUrl: labelResult.artists[0].image_url })
-                    if(label) song.label = label;
-                }
+        //         // Create label if not exists
+        //         const labelResult = songDto.custom_performances.find((perf) => perf.label == "Label");
+        //         if(labelResult) {
+        //             const label = await this.labelService.createIfNotExists({ name: labelResult.artists[0].name, geniusId: labelResult.artists[0].id, externalImgUrl: labelResult.artists[0].image_url })
+        //             if(label) song.label = label;
+        //         }
 
-                // Create genres if not existing
-                const genres = songDto.tags
-                if(genres) {
-                    song.genres = [];
+        //         // Create genres if not existing
+        //         const genres = songDto.tags
+        //         if(genres) {
+        //             song.genres = [];
 
-                    for(const genreDto of genres) {
-                        const result = await this.genreService.createIfNotExists({ name: genreDto.name, geniusId: genreDto.id })
-                        song.genres.push(result);
-                    }
-                }
+        //             for(const genreDto of genres) {
+        //                 const result = await this.genreService.createIfNotExists({ name: genreDto.name, geniusId: genreDto.id })
+        //                 song.genres.push(result);
+        //             }
+        //         }
 
-                song.geniusId = songDto.id;
-                song.geniusUrl = songDto.url;
-                // if(!song.banner) song.banner = await this.artworkService.create({ autoDownload: true, type: "banner_song", mountId: song.index.mount.id, url: songDto.header_image_url, dstFilename: song.index.name });
-                song.location = songDto.recording_location;
-                song.released = songDto.release_date;
-                song.youtubeUrl = songDto.youtube_url;
-                song.youtubeUrlStart = songDto.youtube_start;
-                song.explicit = songDto.explicit;
-                song.description = songDto.description_preview;
+        //         song.geniusId = songDto.id;
+        //         // song.geniusUrl = songDto.url;
+        //         // if(!song.banner) song.banner = await this.artworkService.create({ autoDownload: true, type: "banner_song", mountId: song.index.mount.id, url: songDto.header_image_url, dstFilename: song.index.name });
+        //         song.location = songDto.recording_location;
+        //         song.released = songDto.release_date;
+        //         song.youtubeUrl = songDto.youtube_url;
+        //         song.youtubeUrlStart = songDto.youtube_start;
+        //         song.explicit = songDto.explicit;
+        //         song.description = songDto.description_preview;
 
-                // If there is no existing artwork on the song, then
-                // take the url (if exists) from Genius.com and apply
-                // as the new artwork
-                // if(!song.artwork && songDto.song_art_image_thumbnail_url) {
-                //     const artwork = await this.artworkService.create({ 
-                //         type: "song",
-                //         autoDownload: true,
-                //         mountId: song.index.mount.id,
-                //         url: songDto.song_art_image_thumbnail_url,
-                //         dstFilename: song.index.name
-                //     });
-                //     // if(artwork) song.artwork = artwork
-                // }
+        //         // If there is no existing artwork on the song, then
+        //         // take the url (if exists) from Genius.com and apply
+        //         // as the new artwork
+        //         // if(!song.artwork && songDto.song_art_image_thumbnail_url) {
+        //         //     const artwork = await this.artworkService.create({ 
+        //         //         type: "song",
+        //         //         autoDownload: true,
+        //         //         mountId: song.index.mount.id,
+        //         //         url: songDto.song_art_image_thumbnail_url,
+        //         //         dstFilename: song.index.name
+        //         //     });
+        //         //     // if(artwork) song.artwork = artwork
+        //         // }
 
-                return { song, dto: songDto };
-            }).catch((error) => {
-                this.logger.warn("Error occured when searching for song info on Genius.com: ");
-                console.error(error)
-                throw error;
-            })
-        }).catch((error) => {
-            this.logger.warn("Error occured when searching for song info on Genius.com: ");
-            console.error(error)
-            throw error;
-        })
+        //         return { song, dto: songDto };
+        //     }).catch((error) => {
+        //         this.logger.warn("Error occured when searching for song info on Genius.com: ");
+        //         console.error(error)
+        //         throw error;
+        //     })
+        // }).catch((error) => {
+        //     this.logger.warn("Error occured when searching for song info on Genius.com: ");
+        //     console.error(error)
+        //     throw error;
+        // })
+        return null;
     }
 
     /**

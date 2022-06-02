@@ -6,6 +6,6 @@ export class CreateArtworkDTO {
     public name: string;
     public mount: Mount;
     public type: ArtworkType = ArtworkType.SONG;
-    public writeSource?: string;
+    public fromSource: string | Buffer;
 
 }

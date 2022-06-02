@@ -570,19 +570,25 @@ export class SongService {
     }
 
     /**
-     * Create new song entry in database.
+     * Create new song entry in database. If the same entry already exists,
+     * the existing one will be returned.
      * @param createSongDto Song data to be saved
      * @returns Song
      */
-    private async create(createSongDto: CreateSongDTO): Promise<Song> {
+    public async createIfNotExists(createSongDto: CreateSongDTO): Promise<Song> {
         const song = new Song();
-        song.name = createSongDto.title;
-        song.duration = createSongDto.duration;
-        
-        return this.repository.save(song).catch((error) => {
-            this.logger.error(`Could not create song '${createSongDto.title}' in database: `, error)
-            return null;
-        });
+        song.name = createSongDto.name;
+        song.primaryArtist = createSongDto.primaryArtist;
+        song.featuredArtists = createSongDto.featuredArtists;
+        song.album = createSongDto.album;
+        song.albumOrder = createSongDto.albumOrder || 0;
+        song.duration = createSongDto.duration || 0;
+        song.file = createSongDto.file;
+        song.cover = createSongDto.cover;
+
+        return this.repository.save(song).catch(() => {
+            return this.repository.findOne(song);
+        })
     }
 
     // public async findOrCreate(createSongDto: CreateSongDTO): Promise<Song> {
@@ -719,49 +725,6 @@ export class SongService {
         // song.index = index;
         // return song;
         return null;
-    }
-
-    /**
-     * Extract ID3-Tags from audio file.
-     * @param filepath Path to the file.
-     * @returns ID3TagsDTO
-     */
-    private async readId3Tags(filepath: string, indexContext: Index): Promise<ID3TagsDTO> {
-        const id3Tags = NodeID3.read(fs.readFileSync(filepath));
-
-        // Get duration in seconds
-        const probe = await ffprobe(filepath, { path: ffprobeStatic.path })
-        const durationInSeconds = Math.round(probe.streams[0].duration || 0);
-
-        // Get artists
-        const artists: string[] = [];
-        if(id3Tags.artist) {
-            artists.push(...(id3Tags.artist.split("/") || []))
-            for(const index in artists) {
-                artists.push(...artists[index].split(","))
-                artists.splice(parseInt(index), 1)
-            }
-        }
-        
-        // Get artwork buffer
-        let artworkBuffer: Buffer = undefined;
-        if(id3Tags?.image && id3Tags.image["imageBuffer"]) {
-            artworkBuffer = id3Tags.image["imageBuffer"]
-        }
-
-        const result: ID3TagsDTO = {
-            title: id3Tags.title,
-            duration: durationInSeconds,
-            artists: artists.map((name) => ({ name })),
-            album: id3Tags.album,
-            artwork: artworkBuffer,
-            orderNr: parseInt(id3Tags.trackNumber?.split("/")?.[0]) || undefined
-        }
-    
-        const context = {...result};
-        context.artwork = undefined
-        // this.indexReportService.appendInfo(indexContext.report, `Read ID3Tags from file '${filepath}'`, context);
-        return result
     }
 
     /**

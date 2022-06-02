@@ -13,7 +13,7 @@ export class ArtworkStorageHelper {
      * @returns string
      */
     public findArtworkFilepath(artwork: Artwork): string {
-        return path.join(artwork.mount.directory, `${artwork.name}.jpeg`);
+        return path.join(artwork.mount.directory, "artworks", `${artwork.name}.jpeg`);
     }
 
 }

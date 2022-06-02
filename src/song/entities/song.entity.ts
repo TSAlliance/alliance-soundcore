@@ -4,7 +4,6 @@ import { Album } from "../../album/entities/album.entity";
 import { Artist } from "../../artist/entities/artist.entity";
 import { Distributor } from "../../distributor/entities/distributor.entity";
 import { Genre } from "../../genre/entities/genre.entity";
-import { Index } from "../../index/entities/index.entity";
 import { Label } from "../../label/entities/label.entity";
 import { PlaylistItem } from "../../playlist/entities/playlist-item.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
@@ -14,6 +13,7 @@ import { Slug } from "../../utils/slugGenerator";
 import { Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
 import { LikedResource } from "../../collection/entities/like.entity";
 import { File } from "../../file/entities/file.entity";
+import { Artwork } from "../../artwork/entities/artwork.entity";
 
 @Entity()
 export class Song implements Resource {
@@ -59,17 +59,7 @@ export class Song implements Resource {
     @Column({ nullable: true, default: '0' })
     public youtubeUrlStart: string;
 
-    @Column({ nullable: true })
-    public geniusUrl: string;
-
-    @Column({ nullable: false, default: false})
-    public hasGeniusLookupFailed: boolean;
-
-    @OneToOne(() => Index, { onDelete: "CASCADE" })
-    @JoinColumn()
-    public index: Index;
-
-    @OneToOne(() => File, { onDelete: "CASCADE" })
+    @ManyToOne(() => File, { onDelete: "CASCADE" })
     @JoinColumn()
     public file: File;
 
@@ -77,13 +67,16 @@ export class Song implements Resource {
     // @JoinColumn()
     // public banner: Artwork;
 
-    // @ManyToOne(() => Artwork, { onDelete: "SET NULL" })
-    // @JoinColumn()
-    // public artwork: Artwork;
+    @ManyToOne(() => Artwork, { onDelete: "SET NULL" })
+    @JoinColumn()
+    public cover: Artwork;
+
+    @ManyToOne(() => Artist)
+    public primaryArtist: Artist;
 
     @ManyToMany(() => Artist)
-    @JoinTable({ name: "artist2song" })
-    public artists: Artist[];
+    @JoinTable({ name: "featuring2song" })
+    public featuredArtists: Artist[];
 
     @ManyToOne(() => Publisher, { onDelete: "SET NULL" })
     @JoinColumn()
@@ -97,12 +90,12 @@ export class Song implements Resource {
     @JoinColumn()
     public label: Label;
 
-    @ManyToMany(() => Album)
-    @JoinTable({ name: "song2album" })
-    public albums: Album[];
+    @ManyToOne(() => Album)
+    @JoinColumn()
+    public album: Album;
 
-    @OneToMany(() => SongAlbumOrder, (order) => order.song, { cascade: ["insert", "update", "remove"] })
-    public albumOrders: SongAlbumOrder[];
+    @Column({ nullable: true, default: null })
+    public albumOrder: number;
 
     @ManyToMany(() => Genre)
     @JoinTable({ name: "song2genre" })
