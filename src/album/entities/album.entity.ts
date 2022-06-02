@@ -1,7 +1,6 @@
 
 import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, Index, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Artist } from "../../artist/entities/artist.entity";
-import { Artwork } from "../../artwork/entities/artwork.entity";
 import { LikedResource } from "../../collection/entities/like.entity";
 import { Distributor } from "../../distributor/entities/distributor.entity";
 import { Label } from "../../label/entities/label.entity";
@@ -30,9 +29,6 @@ export class Album implements Resource {
     @Index()
     @Column({ nullable: false, name: "title" })
     public name: string;
-
-    @Column({ nullable: true, default: false })
-    public hasGeniusLookupFailed: boolean;
 
     @Column({ nullable: true })
     public released: Date;

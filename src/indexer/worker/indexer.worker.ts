@@ -17,6 +17,9 @@ import ffprobeStatic from "ffprobe-static";
 import { ID3TagsDTO } from "../../song/dtos/id3-tags.dto";
 import { Artist } from "../../artist/entities/artist.entity";
 import { Song } from "../../song/entities/song.entity";
+import { AlbumRepository } from "../../album/repositories/album.repository";
+import { AlbumService } from "../../album/album.service";
+import { Album } from "../../album/entities/album.entity";
 
 const logger = new Logger("MountWorker");
 
@@ -32,9 +35,11 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
     DBWorker.establishConnection(TYPEORM_CONNECTION_INDEXER, job.data.workerOptions).then((connection) => {
         const songRepo = connection.getCustomRepository(SongRepository);
         const artistRepo = connection.getCustomRepository(ArtistRepository);
+        const albumRepo = connection.getCustomRepository(AlbumRepository);
 
         const songService = new SongService(songRepo);
         const artistService = new ArtistService(artistRepo);
+        const albumService = new AlbumService(albumRepo);
 
         // Check if file is accessible by the process
         fs.access(filepath, (err) => {
@@ -48,7 +53,9 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
                 console.log(id3Tags);
 
                 const artists: Artist[] = await Promise.all(id3Tags.artists.map((artist) => artistService.findOrCreateByName(artist.name)))
-                console.log(artists);
+                const album: Album = await albumService.findOrCreateByNameAndArtist(id3Tags.album, artists[0]);
+
+                console.log(album.name);
                 
                 reportSuccess(startTime, job, null, dc);
             }).catch((error) => {
@@ -91,10 +98,10 @@ async function readMp3Tags(filepath: string): Promise<ID3TagsDTO> {
 
     // Build result DTO
     const result: ID3TagsDTO = {
-        title: id3Tags.title,
+        title: id3Tags.title.trim(),
         duration: durationInSeconds,
         artists: artists.map((name) => ({ name })),
-        album: id3Tags.album,
+        album: id3Tags.album.trim(),
         artwork: artworkBuffer,
         orderNr: parseInt(id3Tags.trackNumber?.split("/")?.[0]) || undefined
     }

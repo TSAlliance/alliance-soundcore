@@ -14,12 +14,12 @@ export class AlbumService {
     private logger: Logger = new Logger(AlbumService.name);
 
     constructor(
-        private albumRepository: AlbumRepository,
-        private geniusService: GeniusService
+        private repository: AlbumRepository,
+        // private geniusService: GeniusService
     ) {}
 
     public async findProfilesByArtist(artistId: string, pageable: Pageable, authentication?: User): Promise<Page<Album>> {
-        const result = await this.albumRepository.createQueryBuilder("album")
+        const result = await this.repository.createQueryBuilder("album")
             .leftJoinAndSelect("album.artwork", "artwork")
             .leftJoinAndSelect("album.banner", "banner")
             .leftJoin("album.artist", "artist")
@@ -43,7 +43,7 @@ export class AlbumService {
     }
 
     public async findFeaturedWithArtist(artistId: string, pageable: Pageable, authentication?: User): Promise<Page<Album>> {
-        const result = await this.albumRepository.createQueryBuilder("album")
+        const result = await this.repository.createQueryBuilder("album")
             .leftJoin("album.artwork", "artwork")
             .leftJoin("album.banner", "banner")
             .leftJoin("album.artist", "artist")
@@ -73,7 +73,7 @@ export class AlbumService {
             exceptAlbumIds = [ exceptAlbumIds ];
         }
 
-        let qb = await this.albumRepository.createQueryBuilder("album")
+        let qb = await this.repository.createQueryBuilder("album")
             .leftJoinAndSelect("album.artwork", "artwork")
             .leftJoinAndSelect("album.banner", "banner")
             .leftJoinAndSelect("album.artist", "artist")
@@ -93,7 +93,7 @@ export class AlbumService {
     }
 
     public async findByGenre(genreId: string, pageable: Pageable, authentication?: User): Promise<Page<Album>> {
-        const result = await this.albumRepository.createQueryBuilder("album")
+        const result = await this.repository.createQueryBuilder("album")
             .leftJoin("album.artist", "artist")
             .leftJoin("album.artwork", "artwork")
             .leftJoin("album.songs", "song")
@@ -120,7 +120,7 @@ export class AlbumService {
      * @returns Album
      */
     public async findProfileById(albumId: string, authentication?: User): Promise<Album> {
-        const result = await this.albumRepository.createQueryBuilder("album")
+        const result = await this.repository.createQueryBuilder("album")
                 .where("album.id = :albumId", { albumId })
                 .orWhere("album.slug = :albumId", { albumId })
 
@@ -153,7 +153,7 @@ export class AlbumService {
         const album = result.entities[0];
         if(!album) throw new NotFoundException("Album not found.")
 
-        const featuredArtists = await this.albumRepository.createQueryBuilder("album")
+        const featuredArtists = await this.repository.createQueryBuilder("album")
             .where("album.id = :albumId", { albumId })
             .orWhere("album.slug = :albumId", { albumId })
             .andWhere("artist.id != :artistId", { artistId: album.artist?.id })
@@ -188,11 +188,21 @@ export class AlbumService {
      * @returns Album
      */
     public async findByTitleAndArtist(title: string, artist: Artist): Promise<Album> {
-        return await this.albumRepository.findOne({ where: { name: title, artist: { id: artist.id } }, relations: ["artist", "artwork", "distributor", "label", "publisher", "banner"]});
+        return await this.repository.findOne({ where: { name: title, artist: { id: artist.id } }, relations: ["artist", "artwork", "distributor", "label", "publisher", "banner"]});
     }
 
     public async findByGeniusId(geniusId: string): Promise<Album> {
-        return await this.albumRepository.findOne({ where: { geniusId }, relations: ["artist"]});
+        return await this.repository.findOne({ where: { geniusId }, relations: ["artist"]});
+    }
+
+    public async findOrCreateByNameAndArtist(name: string, author: Artist): Promise<Album> {
+        const album = new Album();
+        album.name = name;
+        album.artist = author;
+
+        return this.repository.save(album).catch(() => {
+            return this.findByTitleAndArtist(name, author);
+        })
     }
 
     private async create(createAlbumDto: CreateAlbumDTO): Promise<Album> {
@@ -206,7 +216,7 @@ export class AlbumService {
         album.label = createAlbumDto.label;
         album.publisher = createAlbumDto.publisher;
 
-        return this.albumRepository.save(album)
+        return this.repository.save(album)
     }
 
     public async createIfNotExists(createAlbumDto: CreateAlbumDTO): Promise<{ album: Album, artist: GeniusArtistDTO}> {
@@ -221,22 +231,23 @@ export class AlbumService {
 
             // Find by genius id.
             // This returns created album entry and the artist that was found on genius
-            return this.geniusService.fetchResourceByIdAndType<GeniusAlbumResponse>("album", createAlbumDto.geniusId).then(async (response) => {
-                if(!response.album) return { album: null, artist: null };
+            // return this.geniusService.fetchResourceByIdAndType<GeniusAlbumResponse>("album", createAlbumDto.geniusId).then(async (response) => {
+            //     if(!response.album) return { album: null, artist: null };
 
-                return await this.albumRepository.save({
-                    geniusId: createAlbumDto.geniusId,
-                    title: response.album.name,
-                    description: response.album.description_preview,
-                    released: response.album.release_date
-                }).then((album) => {
-                    return { album, artist: response.album.artist }
-                }).catch(() => {
-                    return { album: null, artist: null }
-                })
-            }).catch(() => {
-                return { album: null, artist: null }
-            })
+            //     return await this.albumRepository.save({
+            //         geniusId: createAlbumDto.geniusId,
+            //         title: response.album.name,
+            //         description: response.album.description_preview,
+            //         released: response.album.release_date
+            //     }).then((album) => {
+            //         return { album, artist: response.album.artist }
+            //     }).catch(() => {
+            //         return { album: null, artist: null }
+            //     })
+            // }).catch(() => {
+            //     return { album: null, artist: null }
+            // })
+            return null;
         } else {
             // There was no geniusId provided
             // So we have to search a fitting resourceId by ourselves
@@ -246,17 +257,18 @@ export class AlbumService {
             if(album) return { album, artist: null };
 
             return this.create(createAlbumDto).then((album) => {
-                return this.geniusService.findAndApplyAlbumInfo(album, createAlbumDto.geniusSearchArtists, createAlbumDto.mountForArtworkId).then(async (result) => {
-                    album.hasGeniusLookupFailed = false;
+                // return this.geniusService.findAndApplyAlbumInfo(album, createAlbumDto.geniusSearchArtists, createAlbumDto.mountForArtworkId).then(async (result) => {
+                //     album.hasGeniusLookupFailed = false;
                     
-                    await this.albumRepository.save(album)
-                    return { album, artist: result.artist };
-                }).catch(() => {
-                    this.logger.warn("Could not find information for album '" + createAlbumDto.title + "'")
-                    album.hasGeniusLookupFailed = true;
-                    this.albumRepository.save(album)
-                    return {album, artist: null};
-                })
+                //     await this.albumRepository.save(album)
+                //     return { album, artist: result.artist };
+                // }).catch(() => {
+                //     this.logger.warn("Could not find information for album '" + createAlbumDto.title + "'")
+                //     album.hasGeniusLookupFailed = true;
+                //     this.albumRepository.save(album)
+                //     return {album, artist: null};
+                // })
+                return null;
             })
         }
     }
@@ -268,7 +280,7 @@ export class AlbumService {
             query = `%${query.replace(/\s/g, '%')}%`;
         }
 
-        let qb = this.albumRepository.createQueryBuilder("album")
+        let qb = this.repository.createQueryBuilder("album")
             .leftJoinAndSelect("album.artwork", "artwork")
             .leftJoin("album.artist", "artist")
 
@@ -288,7 +300,7 @@ export class AlbumService {
 
     public async setArtistOfAlbum(album: Album, artist: Artist): Promise<Album> {
         album.artist = artist;
-        return this.albumRepository.save(album);
+        return this.repository.save(album);
     }
 
 }
