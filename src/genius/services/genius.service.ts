@@ -233,7 +233,7 @@ export class GeniusService {
             if(!artistDto) return artist;
 
             artist.geniusId = artistDto.id;
-            artist.geniusUrl = artistDto.url;
+            // artist.geniusUrl = artistDto.url;
             artist.description = artistDto.description_preview
 
             // Create banner image locally by enabling autoDownload

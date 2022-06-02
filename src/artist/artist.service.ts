@@ -81,7 +81,7 @@ export class ArtistService {
             artist.name = createArtistDto.name;
             artist.description = createArtistDto.description;
             artist.geniusId = createArtistDto.geniusId;
-            artist.geniusUrl = createArtistDto.geniusUrl;
+            // artist.geniusUrl = createArtistDto.geniusUrl;
             artist = await this.repository.save(artist)
 
             // await this.geniusService.findAndApplyArtistInfo(artist, createArtistDto.mountForArtworkId).then(async () => {

@@ -22,12 +22,6 @@ export class Artist implements Resource {
     @Column({ nullable: true, unique: true })
     public geniusId: string;
 
-    @Column({ nullable: true, default: false })
-    public hasGeniusLookupFailed: boolean;
-
-    @Column({ nullable: true, type: "text" })
-    public geniusUrl: string;
-
     @Column({ nullable: true, type: "text" })
     public description: string;
 
