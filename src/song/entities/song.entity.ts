@@ -11,18 +11,19 @@ import { Publisher } from "../../publisher/entities/publisher.entity";
 import { Stream } from "../../stream/entities/stream.entity";
 import { SongAlbumOrder } from "./song-order.entity";
 import { Slug } from "../../utils/slugGenerator";
-import { Resource, ResourceType } from "../../utils/entities/resource";
+import { Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
 import { LikedResource } from "../../collection/entities/like.entity";
 import { File } from "../../file/entities/file.entity";
 
 @Entity()
 export class Song implements Resource {
+    public resourceType: ResourceType = "song";
 
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
-    @Column({ default: "song" as ResourceType, update: false })
-    public resourceType: ResourceType;
+    @Column({ type: "tinyint", default: 0 })
+    public flag: ResourceFlag;
 
     @Column({ nullable: true, length: 120 })
     public slug: string;

@@ -3,17 +3,18 @@ import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, OneToMany
 import { LikedResource } from "../../collection/entities/like.entity";
 import { Playlist } from "../../playlist/entities/playlist.entity";
 import { Stream } from "../../stream/entities/stream.entity";
-import { Resource, ResourceType } from "../../utils/entities/resource";
+import { Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
 import { Slug } from "../../utils/slugGenerator";
 
 @Entity()
 export class User implements Resource {
+    public resourceType: ResourceType = "user";
 
     @PrimaryColumn({ type: "varchar" })
     public id: string;
 
-    @Column({ default: "user" as ResourceType, update: false })
-    public resourceType: ResourceType;
+    @Column({ type: "tinyint", default: 0 })
+    public flag: ResourceFlag;
 
     @Column({ nullable: true, unique: true, length: 120 })
     public slug: string;

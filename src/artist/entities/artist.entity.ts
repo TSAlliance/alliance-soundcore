@@ -2,15 +2,19 @@
 import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, Index, JoinTable, ManyToMany, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { Album } from "../../album/entities/album.entity";
 import { Song } from "../../song/entities/song.entity";
-import { Resource, ResourceType } from "../../utils/entities/resource";
+import { Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
 import { Slug } from "../../utils/slugGenerator";
 
 @Entity()
 export class Artist implements Resource {
+    
     public resourceType: ResourceType = "artist";
 
     @PrimaryGeneratedColumn("uuid")
     public id: string;
+
+    @Column({ type: "tinyint", default: 0 })
+    public flag: ResourceFlag;
 
     @Column({ nullable: true, unique: true, length: 120 })
     public slug: string;

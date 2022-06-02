@@ -2,17 +2,18 @@
 import { BeforeInsert, BeforeUpdate, Column, Entity, Index, JoinColumn, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Song } from "../../song/entities/song.entity";
-import { Resource, ResourceType } from "../../utils/entities/resource";
+import { Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
 import { Slug } from "../../utils/slugGenerator";
 
 @Entity()
 export class Publisher implements Resource {
+    public resourceType: ResourceType = "publisher";
 
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
-    @Column({ default: "publisher" as ResourceType, update: false })
-    public resourceType: ResourceType;
+    @Column({ type: "tinyint", default: 0 })
+    public flag: ResourceFlag;
 
     @Column({ nullable: true, unique: true, length: 120 })
     public slug: string;
