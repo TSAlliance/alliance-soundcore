@@ -13,8 +13,15 @@ import { MountScanResultDTO } from "../dtos/scan-result.dto";
 import { File } from "../../file/entities/file.entity";
 import { MountScanReportDTO } from "../dtos/scan-report.dto";
 import { FileRepository } from "../../file/repositories/file.repository";
+import { ProgressInfoDTO } from "./progress-info.dto";
 
 const logger = new Logger("MountWorker");
+
+export const MOUNT_STEP_MKDIR = "CREATE_DIRECTORY";
+export const MOUNT_STEP_PREPARE = "PREPARING_SCAN";
+export const MOUNT_STEP_SCAN = "SCANNING";
+
+const MAX_STEPS = 3;
 
 export default function (job: Job<MountScanProcessDTO>, dc: DoneCallback) {
     const startTime = new Date().getTime();
@@ -30,14 +37,16 @@ export default function (job: Job<MountScanProcessDTO>, dc: DoneCallback) {
             DBWorker.establishConnection(TYPEORM_CONNECTION_SCANWORKER, job.data.workerOptions).then((connection) => {
                 const repository = connection.getCustomRepository(FileRepository);
                 repository.find({ where: { mount: { id: mount.id }, }, select: ["name", "directory"]}).then((existingFiles) => {
-                    preventStall(job);
+                    updateProgress(job, { currentStep: 1, totalSteps: MAX_STEPS, stepCode: MOUNT_STEP_MKDIR });
 
+                    // Create directory if it does not exist.
                     if(!fs.existsSync(mount.directory)) {
                         logger.warn(`Could not find directory '${mount.directory}'. Creating it...`);
                         fs.mkdirSync(mount.directory, { recursive: true });
                         logger.verbose(`Created directory '${mount.directory}'.`);
                     }
 
+                    // Execute scan
                     scanMount(pid, job, existingFiles).then((result) => {
                         reportSuccess(startTime, job, result, dc);
                     }).catch((error) => {
@@ -53,16 +62,28 @@ export default function (job: Job<MountScanProcessDTO>, dc: DoneCallback) {
     }
 }
 
+/**
+ * Scan the mount's directory for mp3 files.
+ * @param pid PID of the process
+ * @param job Job data
+ * @param exclude Exclude already scanned files.
+ * @returns MountScanResultDTO
+ */
 function scanMount(pid: number, job: Job<MountScanProcessDTO>, exclude: File[]): Promise<MountScanResultDTO> {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
+        // Update progress
+        await updateProgress(job, { currentStep: 2, totalSteps: MAX_STEPS, stepCode: MOUNT_STEP_PREPARE });
+
         const mount = job.data.mount;
         const startTime = Date.now();
 
         // Set an interval that periodically updates the job in queue.
         // This causes the job not be considered stalled.
-        const interval = setInterval(() => preventStall(job), 2000);
+        let interval = setInterval(() => preventStall(job), 2000);
         const excludeList: string[] = [];
 
+        // If there are files to exclude,
+        // build the filter list.
         if(exclude.length > 0) {
             logger.debug(`[${mount.name}] Building exclude list using ${exclude.length} files...`);
             for(let i = 0; i < exclude.length; i++) {
@@ -70,16 +91,20 @@ function scanMount(pid: number, job: Job<MountScanProcessDTO>, exclude: File[]):
             }
             logger.debug(`[${mount.name}] Building exclude list took ${Date.now()-startTime}ms.`);
         }
+        clearInterval(interval)
 
         logger.log(`Scanning directory '${mount.directory}' on mount '${mount.name}'. PID: ${pid}`);
 
+        // Execute scan
         const files: FileDTO[] = [];
+        interval = setInterval(() => updateProgress(job, { currentStep: 3, totalSteps: MAX_STEPS, stepCode: MOUNT_STEP_SCAN }), 2000);
         const globs = glob("**/*.mp3", { ignore: excludeList, cwd: mount.directory }, () => ({}));
 
         // Listen for match event
         // On every match, create a new object
         // for future processing
         globs.on("match", (match: any) => {
+            // On every match, create object.
             files.push(new MountedFile(path.dirname(match), path.basename(match), mount));
         })
 
@@ -97,9 +122,27 @@ function scanMount(pid: number, job: Job<MountScanProcessDTO>, exclude: File[]):
     })
 }
 
-function preventStall(job: Job<MountScanProcessDTO>) {
-    // Prevent job from being considered as stalled
-    job.update(job.data);
+/**
+ * Update job with current progress.
+ * @param job Job to update
+ * @param progress Progress information
+ */
+async function updateProgress(job: Job<MountScanProcessDTO>, progress: ProgressInfoDTO) {
+    const data = job.data;
+    data.progress = progress;
+    return job.progress(data);
+}
+
+/**
+ * This will send an update to the queue.
+ * Bull will receive the update and will not consider
+ * the job stalled.
+ * @param job Job to prevent stalling
+ * @param progress Optional progress information
+ */
+async function preventStall(job: Job<MountScanProcessDTO>, progress?: ProgressInfoDTO) {
+    if(progress) return updateProgress(job, progress);
+    return job.update(job.data);
 }
 
 function reportSuccess(startTime: number, job: Job<MountScanProcessDTO>, result: MountScanResultDTO, dc: DoneCallback) {

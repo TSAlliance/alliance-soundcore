@@ -8,13 +8,15 @@ import { MountRepository } from './repositories/mount.repository';
 import { MountService } from './services/mount.service'
 import { MountController } from './controllers/mount.controller';
 import { FileModule } from '../file/file.module';
+import { MountGateway } from './gateway/mount.gateway';
 
 @Module({
   controllers: [
     MountController
   ],
   providers: [
-    MountService
+    MountService,
+    MountGateway
   ],
   imports: [
     StorageModule,

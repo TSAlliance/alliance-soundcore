@@ -4,6 +4,7 @@ import { Queue } from 'bull';
 import { Page, Pageable } from 'nestjs-pager';
 import path from 'path';
 import { QUEUE_FILE_NAME } from '../../constants';
+import { IndexerService } from '../../indexer/services/indexer.service';
 import { FileDTO } from '../../mount/dtos/file.dto';
 import { DBWorkerOptions } from '../../utils/workers/worker.util';
 import { FileProcessDTO } from '../dto/file-process.dto';
@@ -16,11 +17,15 @@ export class FileService {
 
     constructor(
         private readonly repository: FileRepository,
+        private readonly indexerService: IndexerService,
         @InjectQueue(QUEUE_FILE_NAME) private readonly queue: Queue<FileProcessDTO>
     ) {
         this.queue.on("failed", (job, err) => {
             const filepath = path.join(job.data.file.mount.directory, job.data.file.directory, job.data.file.filename);
             this.logger.error(`Could not process file '${filepath}': ${err.message}`, err.stack);
+        })
+        this.queue.on("completed", (job, result: File) => {
+            this.indexerService.addToQueue(result);
         })
     }
 

@@ -18,6 +18,8 @@ import { MountScanProcessDTO } from '../dtos/mount-scan.dto';
 import { MountScanResultDTO } from '../dtos/scan-result.dto';
 import { FileService } from '../../file/services/file.service';
 import { DBWorkerOptions } from '../../utils/workers/worker.util';
+import { ProgressInfoDTO } from '../worker/progress-info.dto';
+import { MountGateway } from '../gateway/mount.gateway';
 
 @Injectable()
 export class MountService {
@@ -36,13 +38,18 @@ export class MountService {
         private readonly repository: MountRepository,
         private readonly storage: StorageService,
         private readonly fileService: FileService,
+        private readonly gateway: MountGateway,
         @Inject(BUCKET_ID) private readonly bucketId: string,
         @InjectQueue(QUEUE_MOUNTSCAN_NAME) private readonly queue: Queue<MountScanProcessDTO>
     ) {
         this.queue.on("failed", (job, err) => this.logger.error(`Failed scanning mount '${job?.data?.mount?.name}': ${err.message}`, err.stack));
         this.queue.on("error", (err) => this.logger.error(`Error occured on mount-scan-worker: ${err.message}`, err.stack));
+        this.queue.on("progress", (job, progress: ProgressInfoDTO) => {
+            this.gateway.sendMountUpdateEvent(job.data.mount, progress);
+        })
 
         this.queue.on("completed", (job, result: MountScanResultDTO) => {
+            this.gateway.sendMountUpdateEvent(job.data.mount, null);
             this.updateLastScanned(job.data.mount);
 
             for(const file of result.files) {

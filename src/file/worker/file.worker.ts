@@ -6,6 +6,7 @@ import { FileProcessDTO, FileProcessMode } from "../dto/file-process.dto";
 import { TYPEORM_CONNECTION_FILEWORKER } from "../../constants";
 import { FileRepository } from "../repositories/file.repository";
 import { DBWorker } from "../../utils/workers/worker.util";
+import { File } from "../entities/file.entity";
 
 const logger = new Logger("FileWorker")
 
@@ -55,7 +56,7 @@ export default function (job: Job<FileProcessDTO>, cb: DoneCallback) {
  * @param result Result to be passed to DoneCallback
  * @param cb DoneCallback
  */
-function reportSuccess(startTime: number, job: Job<FileProcessDTO>, result: any, cb: DoneCallback) {
+function reportSuccess(startTime: number, job: Job<FileProcessDTO>, result: File, cb: DoneCallback) {
     const file = job.data.file;
     const filepath = path.join(file.mount.directory, file.directory, file.filename);
 
