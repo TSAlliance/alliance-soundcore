@@ -11,11 +11,24 @@ export interface DBWorkerOptions {
     prefix?: string
 }
 
-class DBWorkerImpl {
-    private static _instance: DBWorkerImpl;
+export class DBWorker {
+    private static _instance: DBWorker;
     private logger: Logger = new Logger("DBWorker");
 
+    private readonly workerOptions: DBWorkerOptions = {
+        port: parseInt(process.env.DB_PORT),
+        host: process.env.DB_HOST,
+        database: process.env.DB_NAME,
+        password: process.env.DB_PASS,
+        username: process.env.DB_USER,
+        prefix: process.env.DB_PREFIX
+    }
+
     private readonly _connectionManager: ConnectionManager = getConnectionManager();
+
+    constructor() {
+        console.log("new dbworker instance");
+    }
 
     /**
      * Check if an active database connection exists. If so, return it and otherwise
@@ -24,7 +37,7 @@ class DBWorkerImpl {
      * @param options Database Connection Options
      * @returns Connection
      */
-    public createOrGetConnection(name: string, options: DBWorkerOptions): Connection {
+    public createOrGetConnection(name: string): Connection {
         const manager = this._connectionManager;
 
         if(manager.has(name)) {
@@ -35,12 +48,12 @@ class DBWorkerImpl {
         return manager.create({
             name: name,
             type: "mysql",
-            port: options.port,
-            host: options.host,
-            database: options.database,
-            username: options.username,
-            password: options.password,
-            entityPrefix: options.prefix,
+            port: this.workerOptions.port,
+            host: this.workerOptions.host,
+            database: this.workerOptions.database,
+            username: this.workerOptions.username,
+            password: this.workerOptions.password,
+            entityPrefix: this.workerOptions.prefix,
             connectTimeout: 2000,
             entities: [ "dist/**/*.entity.js" ]
         });
@@ -53,9 +66,9 @@ class DBWorkerImpl {
      * @param options Database Connection Options
      * @returns Connection
      */
-    public establishConnection(name: string, options: DBWorkerOptions): Promise<Connection> {
+    public establishConnection(name: string): Promise<Connection> {
         return new Promise((resolve) => {
-            const connection = this.createOrGetConnection(name, options);
+            const connection = this.createOrGetConnection(name);
             if(connection.isConnected) {
                 resolve(connection);
                 return
@@ -65,15 +78,13 @@ class DBWorkerImpl {
         })
     }
 
-
-    public static getInstance(): DBWorkerImpl {
-        if(typeof this._instance == "undefined" || this._instance == null) {
-            this._instance = new DBWorkerImpl();
-        }
-
-        return this._instance;
-    }
+    public static instance(): Promise<DBWorker> {
+        return new Promise((resolve) => {
+            if(!DBWorker._instance) {
+                DBWorker._instance = new DBWorker();
+            }
     
+            resolve(DBWorker._instance);
+        })
+    }
 }
-
-export const DBWorker = new DBWorkerImpl();

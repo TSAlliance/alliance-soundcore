@@ -1,4 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import Client from "ioredis";
+
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { CreateSongDTO } from './dtos/create-song.dto';
 import { Song } from './entities/song.entity';
@@ -6,15 +8,28 @@ import { SongRepository } from './repositories/song.repository';
 import { IndexStatus } from '../index/enum/index-status.enum';
 import { Page, Pageable } from 'nestjs-pager';
 import { User } from '../user/entities/user.entity';
+import { Artwork } from '../artwork/entities/artwork.entity';
+import Redlock, { Lock } from "redlock";
+import { SongUniqueFindDTO } from "./dtos/unique-find.dto";
+import { ResourceFlag } from "../utils/entities/resource";
+
+import fs from "fs";
+import NodeID3 from "node-id3";
+import ffprobe from 'ffprobe';
+import ffprobeStatic from "ffprobe-static";
+import { ID3TagsDTO } from "./dtos/id3-tags.dto";
+import { RedisLockableService } from "../utils/services/redis-lockable.service";
+import { RedlockError } from "../exceptions/redlock.exception";
 
 @Injectable()
-export class SongService {
-  
-    private logger: Logger = new Logger(SongService.name)
+export class SongService extends RedisLockableService {
+    private readonly logger: Logger = new Logger(SongService.name)
 
     constructor(
         private readonly repository: SongRepository
-    ){}
+    ){
+        super();
+    }
 
     /**
      * Find page with the 20 latest indexed songs.
@@ -557,23 +572,174 @@ export class SongService {
     /**
      * Create new song entry in database. If the same entry already exists,
      * the existing one will be returned.
+     * Existing song contains following relations: primaryArtist, featuredArtist, album
      * @param createSongDto Song data to be saved
+     * @returns [Song, hasExistedBefore]
+     */
+    public async createIfNotExists(createSongDto: CreateSongDTO): Promise<[Song, boolean]> {
+        // Do some validation to be sure there is an existing value
+        createSongDto.duration = createSongDto.duration || 0;
+        createSongDto.order = createSongDto.order || 0;
+        createSongDto.featuredArtists = createSongDto.featuredArtists || [];
+
+        const uniqueDto: SongUniqueFindDTO = {
+            name: createSongDto.name,
+            duration: createSongDto.duration,
+            album: createSongDto.album,
+            primaryArtist: createSongDto.primaryArtist,
+            featuredArtists: createSongDto.featuredArtists
+        }
+
+        const lockName = `${uniqueDto.name}_${uniqueDto.album?.name}_${uniqueDto.duration}_${uniqueDto.primaryArtist?.name}_${uniqueDto.featuredArtists.map((artist) => artist.name).join("-")}`;
+
+        return this.lock(lockName, async (signal) => {
+            // Execute find query.
+            const existingSong = await this.findUniqueSong(uniqueDto)
+            // If song already exists
+            if(existingSong) return [existingSong, true];
+            if(signal.aborted) throw new RedlockError();
+
+            const song = new Song();
+            song.name = createSongDto.name;
+            song.primaryArtist = createSongDto.primaryArtist;
+            song.featuredArtists = createSongDto.featuredArtists;
+            song.album = createSongDto.album;
+            song.order = createSongDto.order;
+            song.duration = createSongDto.duration;
+            song.file = createSongDto.file;
+            song.cover = createSongDto.cover;
+
+            return this.repository.save(song).then(async (result) => {
+                return [result, false]
+            });
+        });
+    }
+
+    /**
+     * Set the cover of a song.
+     * @param idOrObject Id or song object
+     * @param cover Cover to set
      * @returns Song
      */
-    public async createIfNotExists(createSongDto: CreateSongDTO): Promise<Song> {
-        const song = new Song();
-        song.name = createSongDto.name;
-        song.primaryArtist = createSongDto.primaryArtist;
-        song.featuredArtists = createSongDto.featuredArtists;
-        song.album = createSongDto.album;
-        song.albumOrder = createSongDto.albumOrder || 0;
-        song.duration = createSongDto.duration || 0;
-        song.file = createSongDto.file;
-        song.cover = createSongDto.cover;
+    public async setCover(idOrObject: string | Song, cover: Artwork): Promise<Song> {
+        const song = await this.resolveSong(idOrObject);
+        if(!song) throw new NotFoundException("Could not find song.");
 
-        return this.repository.save(song).catch(() => {
-            return this.repository.findOne(song);
+        song.cover = cover;
+        return this.repository.save(song);
+    }
+
+    /**
+     * Set the flag of a song.
+     * @param idOrObject Id or song object
+     * @param flag Flag to set
+     * @returns Song
+     */
+     public async setFlag(idOrObject: string | Song, flag: ResourceFlag): Promise<Song> {
+        const song = await this.resolveSong(idOrObject);
+        if(!song) throw new NotFoundException("Could not find song.");
+
+        song.flag = flag;
+        return this.repository.save(song);
+    }
+
+    /**
+     * Set the order in the song's album.
+     * @param idOrObject Id or song object
+     * @param order Updated album order number
+     * @returns Song
+     */
+    public async setAlbumOrder(idOrObject: string | Song, order: number): Promise<Song> {
+        const song = await this.resolveSong(idOrObject);
+        if(!song) throw new NotFoundException("Could not find song.");
+
+        song.order = order;
+        return this.repository.save(song);
+    }
+
+    /**
+     * Read ID3Tags from a mp3 file.
+     * @param filepath Path to mp3 file
+     * @returns ID3TagsDTO
+     */
+    public async readID3TagsFromFile(filepath: string): Promise<ID3TagsDTO> {
+        const id3Tags = NodeID3.read(fs.readFileSync(filepath));
+
+        // Get duration in seconds
+        const probe = await ffprobe(filepath, {
+            path: ffprobeStatic.path
         })
+
+        const durationInSeconds = Math.round(probe.streams[0].duration || 0);
+
+        // Get artists
+        const artists: string[] = [];
+        if (id3Tags.artist) {
+            artists.push(...(id3Tags.artist.split("/") || []))
+            for (const index in artists) {
+                artists.push(...artists[index].split(",").map((name) => name.trim()))
+                artists.splice(parseInt(index), 1)
+            }
+        }
+
+        // Get artwork buffer
+        let artworkBuffer: Buffer = undefined;
+        if (id3Tags?.image && id3Tags.image["imageBuffer"]) {
+            artworkBuffer = id3Tags.image["imageBuffer"]
+        }
+
+        // Build result DTO
+        const result: ID3TagsDTO = {
+            title: id3Tags.title.trim(),
+            duration: durationInSeconds,
+            artists: artists.map((name) => ({
+                name
+            })),
+            album: id3Tags.album.trim(),
+            cover: artworkBuffer,
+            orderNr: parseInt(id3Tags.trackNumber?.split("/")?.[0]) || null
+        }
+
+        return result
+    }
+
+    /**
+     * Resolve an id or object to song object.
+     * @param idOrObject ID of the song or song object.
+     * @returns Song
+     */
+    private async resolveSong(idOrObject: string | Song): Promise<Song> {
+        if(typeof idOrObject == "string") {
+            return this.findById(idOrObject);
+        }
+
+        return idOrObject as Song;
+    }
+
+    /**
+     * Find a unique song for certain criterias that are usually used to prove
+     * a songs uniqueness.
+     * @param uniqueSong Data to prove uniqueness
+     * @returns Song
+     */
+    private async findUniqueSong(uniqueSong: SongUniqueFindDTO): Promise<Song> {
+        let query = this.repository.createQueryBuilder("song")
+                .leftJoinAndSelect("song.primaryArtist", "primaryArtist")
+                .leftJoinAndSelect("song.featuredArtists", "featuredArtist")
+                .leftJoinAndSelect("song.album", "album")
+                .where("song.name = :name AND album.name = :album AND song.duration = :duration AND primaryArtist.name = :artist", { 
+                    name: uniqueSong.name,
+                    duration: uniqueSong.duration,
+                    album: uniqueSong.album?.name,
+                    artist: uniqueSong.primaryArtist?.name
+                });
+
+            // Build query to include all featuredArtists in where clause
+            const featuredArtists = uniqueSong.featuredArtists.map((artist) => artist.name);
+            query = query.andWhere(`featuredArtist.name = '${featuredArtists.join("' OR featuredArtist.name = '")}'`);
+
+            // Execute query.
+            return query.getOne();
     }
 
     /**

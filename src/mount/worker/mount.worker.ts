@@ -7,13 +7,13 @@ import { MountedFile } from "../../bucket/entities/mounted-file.entity";
 import path from "path";
 import { FileDTO } from "../dtos/file.dto";
 import { MountScanProcessDTO } from "../dtos/mount-scan.dto";
-import { DBWorker } from "../../utils/workers/worker.util";
 import { TYPEORM_CONNECTION_SCANWORKER } from "../../constants";
 import { MountScanResultDTO } from "../dtos/scan-result.dto";
 import { File } from "../../file/entities/file.entity";
 import { MountScanReportDTO } from "../dtos/scan-report.dto";
 import { FileRepository } from "../../file/repositories/file.repository";
 import { ProgressInfoDTO } from "./progress-info.dto";
+import { DBWorker } from "../../utils/workers/worker.util";
 
 const logger = new Logger("MountWorker");
 
@@ -34,28 +34,32 @@ export default function (job: Job<MountScanProcessDTO>, dc: DoneCallback) {
             reportError(mount, new Error("Invalid mount: null"), dc);
         } else {
             // Establish database connection
-            DBWorker.establishConnection(TYPEORM_CONNECTION_SCANWORKER, job.data.workerOptions).then((connection) => {
-                const repository = connection.getCustomRepository(FileRepository);
-                repository.find({ where: { mount: { id: mount.id }, }, select: ["name", "directory"]}).then((existingFiles) => {
-                    updateProgress(job, { currentStep: 1, totalSteps: MAX_STEPS, stepCode: MOUNT_STEP_MKDIR });
-
-                    // Create directory if it does not exist.
-                    if(!fs.existsSync(mount.directory)) {
-                        logger.warn(`Could not find directory '${mount.directory}'. Creating it...`);
-                        fs.mkdirSync(mount.directory, { recursive: true });
-                        logger.verbose(`Created directory '${mount.directory}'.`);
-                    }
-
-                    // Execute scan
-                    scanMount(pid, job, existingFiles).then((result) => {
-                        reportSuccess(startTime, job, result, dc);
+            DBWorker.instance().then((worker) => {
+                worker.establishConnection(TYPEORM_CONNECTION_SCANWORKER).then((connection) => {
+                    const repository = connection.getCustomRepository(FileRepository);
+                    repository.find({ where: { mount: { id: mount.id }, }, select: ["name", "directory"]}).then((existingFiles) => {
+                        updateProgress(job, { currentStep: 1, totalSteps: MAX_STEPS, stepCode: MOUNT_STEP_MKDIR });
+    
+                        // Create directory if it does not exist.
+                        if(!fs.existsSync(mount.directory)) {
+                            logger.warn(`Could not find directory '${mount.directory}'. Creating it...`);
+                            fs.mkdirSync(mount.directory, { recursive: true });
+                            logger.verbose(`Created directory '${mount.directory}'.`);
+                        }
+    
+                        // Execute scan
+                        scanMount(pid, job, existingFiles).then((result) => {
+                            reportSuccess(startTime, job, result, dc);
+                        }).catch((error) => {
+                            reportError(mount, error, dc);
+                        })
                     }).catch((error) => {
                         reportError(mount, error, dc);
                     })
                 }).catch((error) => {
                     reportError(mount, error, dc);
                 })
-            })
+            });
         }
     } catch(err: any) {
         reportError(mount, err, dc);

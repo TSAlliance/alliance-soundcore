@@ -1,11 +1,15 @@
 import { File } from "../../file/entities/file.entity";
-import { DBWorkerOptions } from "../../utils/workers/worker.util";
+
+export enum IndexerProcessMode {
+    SCAN = 0,
+    RESCAN = 1
+}
 
 export class IndexerProcessDTO {
 
     constructor(
         public readonly file: File,
-        public readonly workerOptions: DBWorkerOptions
+        public readonly mode: IndexerProcessMode = IndexerProcessMode.SCAN
     ) {}
 
 }

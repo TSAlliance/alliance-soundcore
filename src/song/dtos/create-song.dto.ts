@@ -27,7 +27,7 @@ export class CreateSongDTO {
     @IsOptional()
     @IsNumber()
     @Min(0)
-    public albumOrder?: number;
+    public order?: number;
 
     @IsOptional()
     @IsArray()

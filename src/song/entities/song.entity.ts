@@ -59,7 +59,7 @@ export class Song implements Resource {
     @Column({ nullable: true, default: '0' })
     public youtubeUrlStart: string;
 
-    @ManyToOne(() => File, { onDelete: "CASCADE" })
+    @OneToOne(() => File, { onDelete: "CASCADE" })
     @JoinColumn()
     public file: File;
 
@@ -95,7 +95,7 @@ export class Song implements Resource {
     public album: Album;
 
     @Column({ nullable: true, default: null })
-    public albumOrder: number;
+    public order: number;
 
     @ManyToMany(() => Genre)
     @JoinTable({ name: "song2genre" })
@@ -116,7 +116,6 @@ export class Song implements Resource {
     public streamCount?: number;
     public liked?: boolean;
     public likedAt?: Date;
-    public order?: number;
 
     @BeforeInsert()
     public onBeforeInsert() {

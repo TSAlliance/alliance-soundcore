@@ -7,7 +7,7 @@ import path from 'path';
 import fs from "fs";
 import { DeleteResult } from 'typeorm';
 import { Bucket } from '../../bucket/entities/bucket.entity';
-import { QUEUE_MOUNTSCAN_NAME } from '../../constants';
+import { EVENT_FILE_FOUND, QUEUE_MOUNTSCAN_NAME } from '../../constants';
 import { BUCKET_ID } from '../../shared/shared.module';
 import { StorageService } from '../../storage/storage.service';
 import { CreateMountDTO } from '../dtos/create-mount.dto';
@@ -16,29 +16,19 @@ import { Mount } from '../entities/mount.entity';
 import { MountRepository } from '../repositories/mount.repository';
 import { MountScanProcessDTO } from '../dtos/mount-scan.dto';
 import { MountScanResultDTO } from '../dtos/scan-result.dto';
-import { FileService } from '../../file/services/file.service';
-import { DBWorkerOptions } from '../../utils/workers/worker.util';
 import { ProgressInfoDTO } from '../worker/progress-info.dto';
 import { MountGateway } from '../gateway/mount.gateway';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class MountService {
     private logger: Logger = new Logger(MountService.name);
 
-    private readonly workerOptions: DBWorkerOptions = {
-        port: parseInt(process.env.DB_PORT),
-        host: process.env.DB_HOST,
-        database: process.env.DB_NAME,
-        password: process.env.DB_PASS,
-        username: process.env.DB_USER,
-        prefix: process.env.DB_PREFIX
-    }
-
     constructor(
         private readonly repository: MountRepository,
         private readonly storage: StorageService,
-        private readonly fileService: FileService,
         private readonly gateway: MountGateway,
+        private readonly eventEmitter: EventEmitter2,
         @Inject(BUCKET_ID) private readonly bucketId: string,
         @InjectQueue(QUEUE_MOUNTSCAN_NAME) private readonly queue: Queue<MountScanProcessDTO>
     ) {
@@ -53,7 +43,7 @@ export class MountService {
             this.updateLastScanned(job.data.mount);
 
             for(const file of result.files) {
-                this.fileService.processFile( file, this.workerOptions);
+                this.eventEmitter.emit(EVENT_FILE_FOUND, file);
             }
         });
     }
@@ -132,7 +122,7 @@ export class MountService {
         const mount = await this.resolveMount(idOrObject);
         const priority = mount.fileCount;
 
-        return this.queue.add(new MountScanProcessDTO(mount, this.workerOptions), { priority }).then((job) => {
+        return this.queue.add(new MountScanProcessDTO(mount), { priority }).then((job) => {
             this.logger.debug(`Added mount '${mount.name} #${job.id}' to scanner queue.`);
             return job;
         });

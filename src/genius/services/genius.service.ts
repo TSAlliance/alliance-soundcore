@@ -1,32 +1,97 @@
+import { InjectQueue } from '@nestjs/bull';
 import { Injectable, Logger } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
 import axios, { AxiosError, AxiosResponse } from 'axios';
+import { Job, Queue } from 'bull';
 import { Album } from '../../album/entities/album.entity';
 import { Artist } from '../../artist/entities/artist.entity';
-import { ArtworkService } from '../../artwork/artwork.service';
-import { DistributorService } from '../../distributor/distributor.service';
-import { GenreService } from '../../genre/genre.service';
-import { LabelService } from '../../label/label.service';
-import { PublisherService } from '../../publisher/publisher.service';
+import { EVENT_ALBUM_CREATED, EVENT_ARTIST_CREATED, EVENT_METADATA_CREATED, QUEUE_GENIUS_NAME } from '../../constants';
 import { Song } from '../../song/entities/song.entity';
+import { Resource } from '../../utils/entities/resource';
 import { Levenshtein } from '../../utils/levenshtein';
-import { GeniusAlbumDTO } from '../dtos/genius-album.dto';
-import { GeniusArtistDTO } from '../dtos/genius-artist.dto';
-import { GeniusReponseDTO, GeniusSearchResponse } from '../dtos/genius-response.dto';
-import { GeniusSongDTO } from '../dtos/genius-song.dto';
+import { GeniusProcessDTO, GeniusProcessType } from '../dtos/genius-process.dto';
+import { GeniusAlbumDTO } from '../lib/genius-album.dto';
+import { GeniusArtistDTO } from '../lib/genius-artist.dto';
+import { GeniusReponseDTO, GeniusSearchResponse } from '../lib/genius-response.dto';
+import { GeniusSongDTO } from '../lib/genius-song.dto';
 
 const GENIUS_BASE_URL = "https://genius.com/api"
 
 @Injectable()
 export class GeniusService {
-    private logger: Logger = new Logger(GeniusService.name);
+    private readonly logger: Logger = new Logger(GeniusService.name);
 
     constructor(
-        private publisherService: PublisherService,
-        private distributorService: DistributorService,
-        private labelService: LabelService,
-        private artworkService: ArtworkService,
-        private genreService: GenreService,
-    ) {}
+        @InjectQueue(QUEUE_GENIUS_NAME) private readonly queue: Queue<GeniusProcessDTO>
+    ) {
+        this.queue?.on("failed", (job, err) => {
+            this.logger.error(`${err.message}`, err.stack);
+        })
+        this.queue?.on("completed", (job: Job<GeniusProcessDTO>, result: Resource) => {
+            this.logger.log(`Genius lookup for resource type ${job.data.type} was successful. Resource name was: ${result.name}`);
+        })
+
+    }
+    
+    @OnEvent(EVENT_METADATA_CREATED)
+    public handleMetadataCreatedEvent(payload: Song) {
+        console.log("trigger genius lookup for song: ", payload.name);
+        this.createSongLookupJob(payload)
+    }
+
+    @OnEvent(EVENT_ARTIST_CREATED)
+    public handleArtistCreatedEvent(payload: Artist) {
+        console.log("trigger genius lookup for artist: ", payload.name);
+        this.createArtistLookupJob(payload);
+    }
+
+    @OnEvent(EVENT_ALBUM_CREATED)
+    public handleAlbumCreatedEvent(payload: Album) {
+        console.log("trigger genius lookup for album: ", payload.name);
+        this.createAlbumLookupJob(payload);
+    }
+
+    public async createSongLookupJob(song: Song) {
+        const dto = new GeniusProcessDTO<Song>(GeniusProcessType.SONG, song);
+        return this.queue.add(dto);
+    } 
+
+    public async createAlbumLookupJob(album: Album) {
+        const dto = new GeniusProcessDTO<Album>(GeniusProcessType.ALBUM, album);
+        return this.queue.add(dto);
+    } 
+
+    public async createArtistLookupJob(artist: Artist) {
+        const dto = new GeniusProcessDTO<Artist>(GeniusProcessType.ARTIST, artist);
+        return this.queue.add(dto);
+    } 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     public async findAndApplySongInfo(song: Song): Promise<{ song: Song, dto?: GeniusSongDTO }> {
         // const title = song?.name?.replace(/^(?:\[[^\]]*\]|\([^()]*\))\s*|\s*(?:\[[^\]]*\]|\([^()]*\))/gm, "").split("-")[0];
@@ -175,36 +240,37 @@ export class GeniusService {
         }
         
         return await this.fetchResourceByIdAndType<GeniusAlbumDTO>("album", bestMatch.hit.id).then(async (albumDto) => {
-            if(!albumDto) return { album, artist: null };
+        //     if(!albumDto) return { album, artist: null };
 
-            // Create distributor if not exists
-            const distributorResult = albumDto.performance_groups.find((perf) => perf.label == "Distributor");
-            if(distributorResult) {
-                const distributor = await this.distributorService.createIfNotExists({ name: distributorResult.artists[0].name, geniusId: distributorResult.artists[0].id, externalImgUrl: distributorResult.artists[0].image_url, artworkMountId: mountForArtwork })
-                if(distributor) album.distributor = distributor;
-            }
+        //     // Create distributor if not exists
+        //     const distributorResult = albumDto.performance_groups.find((perf) => perf.label == "Distributor");
+        //     if(distributorResult) {
+        //         const distributor = await this.distributorService.createIfNotExists({ name: distributorResult.artists[0].name, geniusId: distributorResult.artists[0].id, externalImgUrl: distributorResult.artists[0].image_url, artworkMountId: mountForArtwork })
+        //         if(distributor) album.distributor = distributor;
+        //     }
 
-            // Create publisher if not exists
-            const publisherResult = albumDto.performance_groups.find((perf) => perf.label == "Publisher");
-            if(publisherResult) {
-                const publisher = await this.publisherService.createIfNotExists({ name: publisherResult.artists[0].name, geniusId: publisherResult.artists[0].id, externalImgUrl: publisherResult.artists[0].image_url, artworkMountId: mountForArtwork })
-                if(publisher) album.publisher = publisher;
-            }
+        //     // Create publisher if not exists
+        //     const publisherResult = albumDto.performance_groups.find((perf) => perf.label == "Publisher");
+        //     if(publisherResult) {
+        //         const publisher = await this.publisherService.createIfNotExists({ name: publisherResult.artists[0].name, geniusId: publisherResult.artists[0].id, externalImgUrl: publisherResult.artists[0].image_url, artworkMountId: mountForArtwork })
+        //         if(publisher) album.publisher = publisher;
+        //     }
 
-            // Create label if not exists
-            const labelResult = albumDto.performance_groups.find((perf) => perf.label == "Label");
-            if(labelResult) {
-                const label = await this.labelService.createIfNotExists({ name: labelResult.artists[0].name, geniusId: labelResult.artists[0].id, externalImgUrl: labelResult.artists[0].image_url, artworkMountId: mountForArtwork })
-                if(label) album.label = label;
-            }
+        //     // Create label if not exists
+        //     const labelResult = albumDto.performance_groups.find((perf) => perf.label == "Label");
+        //     if(labelResult) {
+        //         const label = await this.labelService.createIfNotExists({ name: labelResult.artists[0].name, geniusId: labelResult.artists[0].id, externalImgUrl: labelResult.artists[0].image_url, artworkMountId: mountForArtwork })
+        //         if(label) album.label = label;
+        //     }
 
-            // album.banner = await this.artworkService.create({ type: "banner_album", autoDownload: true, dstFilename: album.name, url: albumDto.header_image_url, mountId: mountForArtwork })
-            // album.artwork = await this.artworkService.create({ type: "album", autoDownload: true, dstFilename: album.name, url: albumDto.cover_art_thumbnail_url, mountId: mountForArtwork })
-            album.geniusId = albumDto.id;
-            album.released = albumDto.release_date;
-            album.description = albumDto.description_preview;
+        //     // album.banner = await this.artworkService.create({ type: "banner_album", autoDownload: true, dstFilename: album.name, url: albumDto.header_image_url, mountId: mountForArtwork })
+        //     // album.artwork = await this.artworkService.create({ type: "album", autoDownload: true, dstFilename: album.name, url: albumDto.cover_art_thumbnail_url, mountId: mountForArtwork })
+        //     album.geniusId = albumDto.id;
+        //     album.released = albumDto.release_date;
+        //     album.description = albumDto.description_preview;
 
-            return { album, artist: albumDto.artist };
+        //     return { album, artist: albumDto.artist };
+        return null;
         }).catch((error) => {
             this.logger.warn("Error occured when searching for album info on Genius.com: ", error);
             console.error(error)

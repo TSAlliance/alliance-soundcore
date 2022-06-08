@@ -31,8 +31,9 @@ export class File {
     @Column({ type: "tinyint", nullable: true, default: 0 })
     public flag: FileFlag
 
-    @OneToMany(() => Song, (song) => song.file)
-    public songs: Song[];
+    @OneToOne(() => Song, { onDelete: "SET NULL" })
+    @JoinColumn()
+    public song: Song;
 
     @ManyToOne(() => Mount)
     public mount: Mount;

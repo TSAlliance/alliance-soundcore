@@ -1,11 +1,7 @@
 import { BullModule } from '@nestjs/bull';
 import { Module } from '@nestjs/common';
 import path from 'path';
-import { AlbumModule } from '../album/album.module';
-import { ArtistModule } from '../artist/artist.module';
-import { ArtworkModule } from '../artwork/artwork.module';
 import { QUEUE_INDEXER_NAME } from '../constants';
-import { SongModule } from '../song/song.module';
 import { IndexerService } from './services/indexer.service';
 
 @Module({
@@ -13,10 +9,6 @@ import { IndexerService } from './services/indexer.service';
         IndexerService
     ],
     imports: [
-        SongModule,
-        ArtistModule,
-        AlbumModule,
-        ArtworkModule,
         BullModule.registerQueue({
             name: QUEUE_INDEXER_NAME,
             processors: [
@@ -24,7 +16,8 @@ import { IndexerService } from './services/indexer.service';
             ],
             defaultJobOptions: {
                 removeOnComplete: true,
-                removeOnFail: true
+                attempts: 5,  // 5 attempts max on failure
+                backoff: 5000 // 5s delay between attempts
             }
         })
     ],

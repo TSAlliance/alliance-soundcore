@@ -35,6 +35,7 @@ import { IndexerModule } from './indexer/indexer.module';
 
 @Module({
   imports: [
+    EventEmitterModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: [
