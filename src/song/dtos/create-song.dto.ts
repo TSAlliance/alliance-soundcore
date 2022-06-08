@@ -34,6 +34,6 @@ export class CreateSongDTO {
     public featuredArtists?: Artist[];
 
     @IsOptional()
-    public cover?: Artwork;
+    public artwork?: Artwork;
 
 }

@@ -1,13 +1,14 @@
-import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import axios from 'axios';
-import { Response } from 'express';
-import { createReadStream, existsSync, mkdirSync } from 'fs';
 import path from 'path';
 import sharp from 'sharp';
 import fs from "fs"
+
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import axios from 'axios';
+import { Response } from 'express';
+import { createReadStream, existsSync, mkdirSync } from 'fs';
+
 import { ArtistService } from '../artist/artist.service';
 import { Index } from '../index/entities/index.entity';
-import { MOUNT_ID } from '../shared/shared.module';
 import { StorageService } from '../storage/storage.service';
 import { CreateArtworkDTO } from './dtos/create-artwork.dto';
 import { Artwork } from './entities/artwork.entity';
@@ -16,9 +17,6 @@ import { ArtworkType } from './types/artwork-type.enum';
 
 import Vibrant from "node-vibrant"
 import { v4 as uuidv4 } from "uuid"
-import sanitize from 'sanitize-filename';
-import { IndexReportService } from '../index-report/services/index-report.service';
-import { RandomUtil } from '@tsalliance/rest';
 
 @Injectable()
 export class ArtworkService {
@@ -26,9 +24,7 @@ export class ArtworkService {
 
     constructor(
         private storageService: StorageService,
-        private indexReportService: IndexReportService,
-        private artworkRepository: ArtworkRepository,
-        @Inject(MOUNT_ID) private mountId: string
+        private artworkRepository: ArtworkRepository
     ){}
 
     /**
@@ -153,7 +149,7 @@ export class ArtworkService {
         mkdirSync(dstDirectory, { recursive: true });
 
         if(!buffer) {
-            this.indexReportService.appendWarn(index.report, "Artwork buffer on file is empty. Not creating artwork")
+            //this.indexReportService.appendWarn(index.report, "Artwork buffer on file is empty. Not creating artwork")
             return null;
         }
 

@@ -10,7 +10,7 @@ import { Publisher } from "../../publisher/entities/publisher.entity";
 import { Stream } from "../../stream/entities/stream.entity";
 import { SongAlbumOrder } from "./song-order.entity";
 import { Slug } from "../../utils/slugGenerator";
-import { Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
+import { GeniusFlag, Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
 import { LikedResource } from "../../collection/entities/like.entity";
 import { File } from "../../file/entities/file.entity";
 import { Artwork } from "../../artwork/entities/artwork.entity";
@@ -24,6 +24,9 @@ export class Song implements Resource {
 
     @Column({ type: "tinyint", default: 0 })
     public flag: ResourceFlag;
+
+    @Column({ type: "tinyint", default: 0 })
+    public geniusFlag: GeniusFlag;
 
     @Column({ nullable: true, length: 120 })
     public slug: string;
@@ -45,7 +48,7 @@ export class Song implements Resource {
     public youtubeUrl: string;
 
     @Column({ nullable: true, type: "date" })
-    public released: Date;
+    public releasedAt: Date;
 
     @CreateDateColumn()
     public createdAt: Date;
@@ -63,13 +66,9 @@ export class Song implements Resource {
     @JoinColumn()
     public file: File;
 
-    // @ManyToOne(() => Artwork, { onDelete: "SET NULL" })
-    // @JoinColumn()
-    // public banner: Artwork;
-
     @ManyToOne(() => Artwork, { onDelete: "SET NULL" })
     @JoinColumn()
-    public cover: Artwork;
+    public artwork: Artwork;
 
     @ManyToOne(() => Artist)
     public primaryArtist: Artist;

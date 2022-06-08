@@ -7,7 +7,7 @@ import { Distributor } from "../../distributor/entities/distributor.entity";
 import { Label } from "../../label/entities/label.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
 import { Song } from "../../song/entities/song.entity";
-import { Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
+import { GeniusFlag, Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
 import { Slug } from "../../utils/slugGenerator";
 
 @Entity()
@@ -20,6 +20,9 @@ export class Album implements Resource {
 
     @Column({ type: "tinyint", default: 0 })
     public flag: ResourceFlag;
+
+    @Column({ type: "tinyint", default: 0 })
+    public geniusFlag: GeniusFlag;
 
     @Column({ nullable: true, unique: true, length: 120 })
     public slug: string;
@@ -50,7 +53,7 @@ export class Album implements Resource {
 
     @ManyToOne(() => Artwork, { onDelete: "SET NULL" })
     @JoinColumn()
-    public cover: Artwork;
+    public artwork?: Artwork;
 
     /*@ManyToOne(() => Artwork, { onDelete: "SET NULL" })
     @JoinColumn()

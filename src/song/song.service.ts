@@ -1,7 +1,9 @@
-import Client from "ioredis";
+import fs from "fs";
+import NodeID3 from "node-id3";
+import ffprobe from 'ffprobe';
+import ffprobeStatic from "ffprobe-static";
 
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-
 import { CreateSongDTO } from './dtos/create-song.dto';
 import { Song } from './entities/song.entity';
 import { SongRepository } from './repositories/song.repository';
@@ -9,14 +11,8 @@ import { IndexStatus } from '../index/enum/index-status.enum';
 import { Page, Pageable } from 'nestjs-pager';
 import { User } from '../user/entities/user.entity';
 import { Artwork } from '../artwork/entities/artwork.entity';
-import Redlock, { Lock } from "redlock";
 import { SongUniqueFindDTO } from "./dtos/unique-find.dto";
-import { ResourceFlag } from "../utils/entities/resource";
-
-import fs from "fs";
-import NodeID3 from "node-id3";
-import ffprobe from 'ffprobe';
-import ffprobeStatic from "ffprobe-static";
+import { GeniusFlag, ResourceFlag } from "../utils/entities/resource";
 import { ID3TagsDTO } from "./dtos/id3-tags.dto";
 import { RedisLockableService } from "../utils/services/redis-lockable.service";
 import { RedlockError } from "../exceptions/redlock.exception";
@@ -570,13 +566,22 @@ export class SongService extends RedisLockableService {
     }
 
     /**
+     * Save an song entity.
+     * @param song Entity data to be saved
+     * @returns Song
+     */
+    public async save(song: Song): Promise<Song> {
+        return this.repository.save(song);
+    }
+
+    /**
      * Create new song entry in database. If the same entry already exists,
      * the existing one will be returned.
      * Existing song contains following relations: primaryArtist, featuredArtist, album
      * @param createSongDto Song data to be saved
      * @returns [Song, hasExistedBefore]
      */
-    public async createIfNotExists(createSongDto: CreateSongDTO): Promise<[Song, boolean]> {
+    public async createIfNotExists(createSongDto: CreateSongDTO): Promise<{ song: Song, existed: boolean }> {
         // Do some validation to be sure there is an existing value
         createSongDto.duration = createSongDto.duration || 0;
         createSongDto.order = createSongDto.order || 0;
@@ -596,7 +601,7 @@ export class SongService extends RedisLockableService {
             // Execute find query.
             const existingSong = await this.findUniqueSong(uniqueDto)
             // If song already exists
-            if(existingSong) return [existingSong, true];
+            if(existingSong) return { song: existingSong, existed: true };
             if(signal.aborted) throw new RedlockError();
 
             const song = new Song();
@@ -607,25 +612,25 @@ export class SongService extends RedisLockableService {
             song.order = createSongDto.order;
             song.duration = createSongDto.duration;
             song.file = createSongDto.file;
-            song.cover = createSongDto.cover;
+            song.artwork = createSongDto.artwork;
 
             return this.repository.save(song).then(async (result) => {
-                return [result, false]
+                return { song: result, existed: false }
             });
         });
     }
 
     /**
-     * Set the cover of a song.
+     * Set the artwork of a song.
      * @param idOrObject Id or song object
-     * @param cover Cover to set
+     * @param artwork Artwork to set
      * @returns Song
      */
-    public async setCover(idOrObject: string | Song, cover: Artwork): Promise<Song> {
+    public async setArtwork(idOrObject: string | Song, artwork: Artwork): Promise<Song> {
         const song = await this.resolveSong(idOrObject);
         if(!song) throw new NotFoundException("Could not find song.");
 
-        song.cover = cover;
+        song.artwork = artwork;
         return this.repository.save(song);
     }
 
@@ -635,11 +640,25 @@ export class SongService extends RedisLockableService {
      * @param flag Flag to set
      * @returns Song
      */
-     public async setFlag(idOrObject: string | Song, flag: ResourceFlag): Promise<Song> {
+    public async setFlag(idOrObject: string | Song, flag: ResourceFlag): Promise<Song> {
         const song = await this.resolveSong(idOrObject);
         if(!song) throw new NotFoundException("Could not find song.");
 
         song.flag = flag;
+        return this.repository.save(song);
+    }
+
+    /**
+     * Set the genius flag of a song.
+     * @param idOrObject Id or song object
+     * @param flag Genius Flag to set
+     * @returns Song
+     */
+    public async setGeniusFlag(idOrObject: string | Song, flag: GeniusFlag): Promise<Song> {
+        const song = await this.resolveSong(idOrObject);
+        if(!song) throw new NotFoundException("Could not find song.");
+
+        song.geniusFlag = flag;
         return this.repository.save(song);
     }
 

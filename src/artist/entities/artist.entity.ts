@@ -1,8 +1,7 @@
-
 import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { Album } from "../../album/entities/album.entity";
 import { Artwork } from "../../artwork/entities/artwork.entity";
-import { Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
+import { GeniusFlag, Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
 import { Slug } from "../../utils/slugGenerator";
 
 @Entity()
@@ -15,6 +14,9 @@ export class Artist implements Resource {
 
     @Column({ type: "tinyint", default: 0 })
     public flag: ResourceFlag;
+
+    @Column({ type: "tinyint", default: 0 })
+    public geniusFlag: GeniusFlag;
 
     @Column({ nullable: true, unique: true, length: 120 })
     public slug: string;
@@ -37,7 +39,7 @@ export class Artist implements Resource {
 
     @ManyToOne(() => Artwork, { onDelete: "SET NULL" })
     @JoinColumn()
-    public avatar: Artwork;
+    public artwork: Artwork;
 
     songCount?: number;
     albumCount?: number;

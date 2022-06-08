@@ -6,21 +6,12 @@ import path from "path";
 import { EVENT_FILE_PROCESSED, EVENT_METADATA_CREATED, QUEUE_INDEXER_NAME } from "../../constants";
 import { File } from "../../file/entities/file.entity";
 import { Song } from "../../song/entities/song.entity";
-import { DBWorkerOptions } from "../../utils/workers/worker.util";
 import { IndexerProcessDTO, IndexerProcessMode } from "../dtos/indexer-process.dto";
+import { IndexerResultDTO } from "../dtos/indexer-result.dto";
 
 @Injectable()
 export class IndexerService {
     private logger: Logger = new Logger(IndexerService.name);
-
-    private readonly workerOptions: DBWorkerOptions = {
-        port: parseInt(process.env.DB_PORT),
-        host: process.env.DB_HOST,
-        database: process.env.DB_NAME,
-        password: process.env.DB_PASS,
-        username: process.env.DB_USER,
-        prefix: process.env.DB_PREFIX
-    }
 
     constructor(
         private readonly eventEmitter: EventEmitter2,
@@ -31,9 +22,10 @@ export class IndexerService {
             this.logger.error(`Failed creating metadata from file ${filepath}: ${error.message}`, error.stack);
         })
 
-        this.queue?.on("completed", (job, result: Song) => {
+        this.queue?.on("completed", (job, result: IndexerResultDTO) => {
             if(result) {
-                const filepath = path.join(result.file.mount.directory, result.file.directory, result.file.name);
+                const file = result?.song.file
+                const filepath = path.join(file.mount.directory, file.directory, file.name);
                 this.logger.verbose(`Successfully created metadata from file ${filepath}`);
                 this.eventEmitter.emit(EVENT_METADATA_CREATED, result);
             }

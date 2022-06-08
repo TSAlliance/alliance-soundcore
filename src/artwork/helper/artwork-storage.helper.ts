@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, NotFoundException } from "@nestjs/common";
 import path from "path";
 import { Artwork } from "../entities/artwork.entity";
 
@@ -13,7 +13,8 @@ export class ArtworkStorageHelper {
      * @returns string
      */
     public findArtworkFilepath(artwork: Artwork): string {
-        return path.join(artwork.mount.directory, "artworks", `${artwork.name}.jpeg`);
+        if(typeof artwork.mount == "undefined" || artwork.mount == null) throw new NotFoundException("No mount present on artwork object.");
+        return path.join(artwork.mount.directory, "artworks", `${artwork.name}_${artwork.type}.jpeg`);
     }
 
 }

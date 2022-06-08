@@ -1,3 +1,7 @@
+// Base urls
+export const GENIUS_API_BASE_URL = "https://genius.com/api"
+
+
 // Queue names
 export const QUEUE_INDEX_NAME = "index-queue"
 export const QUEUE_FILE_NAME = "file-queue"

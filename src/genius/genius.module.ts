@@ -7,19 +7,19 @@ import { DistributorModule } from '../distributor/distributor.module';
 import { GenreModule } from '../genre/genre.module';
 import { LabelModule } from '../label/label.module';
 import { PublisherModule } from '../publisher/publisher.module';
+import { GeniusClientService } from './services/genius-client.service';
 import { GeniusService } from './services/genius.service';
 
-// TODO: Maybe implement song relations in the future?
-
 @Module({
-  providers: [GeniusService],
-  exports: [ GeniusService ],
+  providers: [GeniusService, GeniusClientService ],
+  exports: [ GeniusService, GeniusClientService ],
   imports: [
     ArtworkModule,
     PublisherModule,
     LabelModule,
     DistributorModule,
     GenreModule,
+    ArtworkModule,
     BullModule.registerQueue({
       name: QUEUE_GENIUS_NAME,
       processors: [
@@ -27,7 +27,8 @@ import { GeniusService } from './services/genius.service';
       ],
       defaultJobOptions: {
         removeOnComplete: true,
-        removeOnFail: true
+        attempts: 10,
+        delay: 5000
       }
     })
   ]

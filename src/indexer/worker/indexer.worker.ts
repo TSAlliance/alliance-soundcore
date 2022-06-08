@@ -9,20 +9,19 @@ import { IndexerProcessDTO, IndexerProcessMode } from "../dtos/indexer-process.d
 import fs from "fs";
 import path from "path";
 import { Artist } from "../../artist/entities/artist.entity";
-import { Song } from "../../song/entities/song.entity";
 import { AlbumRepository } from "../../album/repositories/album.repository";
 import { AlbumService } from "../../album/album.service";
-import { Album } from "../../album/entities/album.entity";
 import { ArtworkRepository } from "../../artwork/repositories/artwork.repository";
 import { ArtworkService } from "../../artwork/services/artwork.service";
 import { ArtworkStorageHelper } from "../../artwork/helper/artwork-storage.helper";
-import { Artwork, ArtworkType } from "../../artwork/entities/artwork.entity";
+import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Logger } from "@nestjs/common";
 import { DBWorker } from "../../utils/workers/worker.util";
 import { FileRepository } from "../../file/repositories/file.repository";
 import { FileService } from "../../file/services/file.service";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { FileFlag } from "../../file/entities/file.entity";
+import { IndexerResultDTO } from "../dtos/indexer-result.dto";
 
 const logger = new Logger("IndexerWorker");
 
@@ -39,12 +38,14 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
             const albumRepo = connection.getCustomRepository(AlbumRepository);
             const artworkRepo = connection.getCustomRepository(ArtworkRepository);
             const fileRepo = connection.getCustomRepository(FileRepository);
+
+            const eventEmitter = new EventEmitter2();
     
             const songService = new SongService(songRepo);
-            const artistService = new ArtistService(artistRepo, new EventEmitter2());
-            const albumService = new AlbumService(albumRepo, new EventEmitter2());
+            const artistService = new ArtistService(artistRepo, eventEmitter);
+            const albumService = new AlbumService(albumRepo, eventEmitter);
             const artworkService = new ArtworkService(artworkRepo, new ArtworkStorageHelper());
-            const fileService = new FileService(fileRepo, new EventEmitter2(), null);
+            const fileService = new FileService(fileRepo, eventEmitter, null);
     
             // Check if file is accessible by the process
             fs.access(filepath, (err) => {
@@ -58,45 +59,40 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
                     const songTitle = id3Tags.title.trim();
     
                     // Create all artists found in id3tags if they do not already exist in database.
-                    const featuredArtists: Artist[] = await Promise.all(id3Tags.artists.map((artist) => artistService.createIfNotExists({
+                    const featuredArtistsResults = await Promise.all(id3Tags.artists.map(async (artist) => (await artistService.createIfNotExists({
                         name: artist.name,
                         lookupGenius: true
-                    })));
+                    }, mount))));
 
                     // First artist in artists array becomes primary artist
                     // as they are listed first most of the times (can be changed later
                     // by admins)
-                    const primaryArtist: Artist = featuredArtists.splice(0, 1)[0];
+                    const primaryArtistResult = featuredArtistsResults.splice(0, 1)[0];
+                    const primaryArtist = primaryArtistResult.artist;
 
                     // Create album found in id3tags if not exists.
-                    const album: Album = await albumService.createIfNotExists({
+                    const albumResult = await albumService.createIfNotExists({
                         name: id3Tags.album,
                         primaryArtist: primaryArtist,
                         lookupGenius: true
-                    });
-    
-                    // Create artwork if a similar one does not already exist.
-                    const cover: Artwork = await artworkService.findOrCreateArtwork({
-                        fromSource: id3Tags.cover,
-                        name: `${songTitle} ${primaryArtist.name}`,
-                        mount: mount,
-                        type: ArtworkType.SONG
-                    })
-    
+                    }, mount);
+
                     // Create song if not exists.
-                    const result: [Song, boolean] = await songService.createIfNotExists({
+                    const songResult = await songService.createIfNotExists({
                         duration: id3Tags.duration,
                         name: songTitle,
                         file: file,
-                        album: album,
+                        album: albumResult.album,
                         order: id3Tags.orderNr,
                         primaryArtist: primaryArtist,
-                        featuredArtists: featuredArtists,
-                        cover: cover
+                        featuredArtists: featuredArtistsResults.map((result) => result.artist)
                     });
+                    const song = songResult.song;
+                    const existed = songResult.existed;
     
-                    const song = result[0];
-                    const existed = result[1];
+                    // Create artwork if a similar one does not already exist.
+                    const artwork: Artwork = await artworkService.createForSongIfNotExists(song, mount, id3Tags.cover);
+                    songService.setArtwork(song, artwork);
     
                     // If the mode is set to SCAN, it means the file will be 
                     // scanned from scratch and possibly overwrite data.
@@ -120,7 +116,7 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
                         } else {
                             // At this point, the scan-mode is set to RESCAN (meaning the file should be updated)
                             logger.warn(`Song for file '${filepath}' already existed. Updating song metadata...`);
-                            await songService.setCover(song, cover);
+                            await songService.setArtwork(song, artwork);
                             await songService.setAlbumOrder(song, id3Tags.orderNr);
                             await fileService.setSong(file, song);
                         }
@@ -129,8 +125,25 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
                     // Clear circular structure
                     file.song = null;
 
+                    const createdArtists: Artist[] = [];
+                    // Check if primaryArtist was newly created.
+                    if(!primaryArtistResult.existed) {
+                        createdArtists.push(primaryArtist);
+                    }
+
+                    // Add artists to array, that were newly created.
+                    for(const featuredResult of featuredArtistsResults) {
+                        if(!featuredResult.existed) createdArtists.push(featuredResult.artist);
+                    }
+
                     // End worker by reporting success
-                    reportSuccess(song);
+                    reportSuccess({
+                        mount,
+                        song,
+                        createdSong: existed ? null : song,
+                        createdAlbum: albumResult.existed ? null : albumResult.album,
+                        createdArtists: createdArtists
+                    });
                 }).catch((error) => {
                     reportError(error);
                 });
@@ -140,7 +153,7 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
              * Report success and return the result to the queue.
              * @param result Result to return to queue.
              */
-            async function reportSuccess(result: Song) {
+            async function reportSuccess(result: IndexerResultDTO) {
                 job.finishedOn = Date.now();
                 dc(null, result);
             }

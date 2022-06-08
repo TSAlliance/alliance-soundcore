@@ -4,7 +4,9 @@ import { Page, Pageable } from 'nestjs-pager';
 import { Artist } from '../artist/entities/artist.entity';
 import { EVENT_ALBUM_CREATED } from '../constants';
 import { RedlockError } from '../exceptions/redlock.exception';
+import { Mount } from '../mount/entities/mount.entity';
 import { User } from '../user/entities/user.entity';
+import { GeniusFlag, ResourceFlag } from '../utils/entities/resource';
 import { RedisLockableService } from '../utils/services/redis-lockable.service';
 import { CreateAlbumDTO } from './dto/create-album.dto';
 import { Album } from './entities/album.entity';
@@ -198,17 +200,26 @@ export class AlbumService extends RedisLockableService {
     }
 
     /**
+     * Save an album entity.
+     * @param album Entity data to be saved
+     * @returns Album
+     */
+    public async save(album: Album): Promise<Album> {
+        return this.repository.save(album);
+    }
+
+    /**
      * Create an album if not exists.
      * @param createAlbumDto Data to create album from
      * @returns Album
      */
-     public async createIfNotExists(createAlbumDto: CreateAlbumDTO): Promise<Album> {
+     public async createIfNotExists(createAlbumDto: CreateAlbumDTO, useMount: Mount): Promise<{ album: Album, existed: boolean }> {
         createAlbumDto.name = createAlbumDto.name?.replace(/^[ ]+|[ ]+$/g,'').trim();
 
         // Acquire lock
         return this.lock(createAlbumDto.name, async (signal) => {
             const existingAlbum = await this.findByNameAndArtist(createAlbumDto.name, createAlbumDto.primaryArtist);
-            if(existingAlbum) return existingAlbum; 
+            if(existingAlbum) return { album: existingAlbum, existed: true }; 
             if(signal.aborted) throw new RedlockError();
 
             const album = new Album();
@@ -221,8 +232,8 @@ export class AlbumService extends RedisLockableService {
                 // If genius lookup is triggered on creation,
                 // emit event for the genius service to catch
                 // the album and trigger the lookup.
-                if(createAlbumDto.lookupGenius) this.eventEmitter.emit(EVENT_ALBUM_CREATED, album)
-                return result;
+                if(createAlbumDto.lookupGenius) this.eventEmitter.emit(EVENT_ALBUM_CREATED, album, useMount);
+                return { album: result, existed: false };
             }).catch(async (error) => {
                 throw error;
             });
@@ -240,6 +251,34 @@ export class AlbumService extends RedisLockableService {
         if(!album) throw new NotFoundException("Album not found.");
 
         album.primaryArtist = primaryArtist;
+        return this.repository.save(album);
+    }
+
+    /**
+     * Set resource flag of an album.
+     * @param idOrObject Album id or object
+     * @param flag Resource flag
+     * @returns Album
+     */
+    public async setFlag(idOrObject: string | Album, flag: ResourceFlag): Promise<Album> {
+        const artist = await this.resolveAlbum(idOrObject);
+        if(!artist) throw new NotFoundException("Artist not found.");
+
+        artist.flag = flag;
+        return this.repository.save(artist);
+    }
+
+    /**
+     * Set resource flag of an Album.
+     * @param idOrObject Album id or object
+     * @param flag Genius flag
+     * @returns Album
+     */
+    public async setGeniusFlag(idOrObject: string | Album, flag: GeniusFlag): Promise<Album> {
+        const album = await this.resolveAlbum(idOrObject);
+        if(!album) throw new NotFoundException("Album not found.");
+
+        album.geniusFlag = flag;
         return this.repository.save(album);
     }
 
