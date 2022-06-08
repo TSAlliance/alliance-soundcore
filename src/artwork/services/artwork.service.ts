@@ -16,6 +16,7 @@ import { Artist } from "../../artist/entities/artist.entity";
 import { Mount } from "../../mount/entities/mount.entity";
 import { Album } from "../../album/entities/album.entity";
 import { Song } from "../../song/entities/song.entity";
+import { Label } from "../../label/entities/label.entity";
 
 @Injectable()
 export class ArtworkService extends RedisLockableService {
@@ -113,6 +114,19 @@ export class ArtworkService extends RedisLockableService {
     public async createForAlbumIfNotExists(album: Album, mount: Mount, fromSource?: string | Buffer): Promise<Artwork> {
         if(!album.primaryArtist) throw new NotFoundException("No primary artist present on album data but is required.");
         return this.createIfNotExists({ mount, name: `${album.name} ${album.primaryArtist.name}`, type: ArtworkType.ALBUM, fromSource })
+    }
+
+    /**
+     * Function that calls the native createIfNotExists() function but with 
+     * preconfigured options to fit requirements for label artworks.
+     * Should always be called in separate process, as its blocking.
+     * @param label Label's data
+     * @param mount Mount to write artwork to
+     * @param fromSource (Optional) Filepath or buffer. If not set, no artwork will be written during creation.
+     * @returns Artwork
+     */
+     public async createForLabelIfNotExists(label: Label, mount: Mount, fromSource?: string | Buffer): Promise<Artwork> {
+        return this.createIfNotExists({ mount, name: `${label.name}`, type: ArtworkType.LABEL, fromSource })
     }
 
     /**

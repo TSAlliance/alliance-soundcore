@@ -8,7 +8,6 @@ import { Label } from "../../label/entities/label.entity";
 import { PlaylistItem } from "../../playlist/entities/playlist-item.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
 import { Stream } from "../../stream/entities/stream.entity";
-import { SongAlbumOrder } from "./song-order.entity";
 import { Slug } from "../../utils/slugGenerator";
 import { GeniusFlag, Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
 import { LikedResource } from "../../collection/entities/like.entity";

@@ -5,6 +5,8 @@ import { Artist } from "../../artist/entities/artist.entity";
 import { ArtworkType } from "../../artwork/entities/artwork.entity";
 import { ArtworkService } from "../../artwork/services/artwork.service";
 import { GENIUS_API_BASE_URL } from "../../constants";
+import { Label } from "../../label/entities/label.entity";
+import { LabelService } from "../../label/services/label.service";
 import { Mount } from "../../mount/entities/mount.entity";
 import { Song } from "../../song/entities/song.entity";
 import { Levenshtein } from "../../utils/levenshtein";
@@ -19,7 +21,8 @@ export class GeniusClientService {
     private readonly logger: Logger = new Logger(GeniusClientService.name);
 
     constructor(
-        private readonly artworkService: ArtworkService
+        private readonly artworkService: ArtworkService,
+        private readonly labelService: LabelService
     ) {}
 
     /**
@@ -81,10 +84,10 @@ export class GeniusClientService {
     /**
      * Find album information on genius.com. If found, all information are applied and returned as new artist object.
      * @param album Album to lookup
-     * @param useMount Mount to use for album's images
+     * @param mount Mount to use for album's images
      * @returns Album
      */
-     public async lookupAlbum(album: Album, useMount: Mount): Promise<Album> {
+     public async lookupAlbum(album: Album, mount: Mount): Promise<Album> {
         const result: Album = Object.assign(new Album(), album);
         const title = album?.name?.replace(/^(?:\[[^\]]*\]|\([^()]*\))\s*|\s*(?:\[[^\]]*\]|\([^()]*\))/gm, "").split("-")[0].trim();
         const artist = album.primaryArtist.name;
@@ -102,11 +105,31 @@ export class GeniusClientService {
             // then return unmodified album object.
             if(!resource) return album;
 
+            // Update metadata
             result.geniusId = resource.id;
             result.description = resource.description_preview;
             result.releasedAt = resource.release_date;
 
-            // TODO: Create label, publisher and distributor
+            // TODO: Create publisher and distributor
+            // Create label
+            const labelResource = resource.performance_groups.find((perf) => perf.label == "Label")?.artists?.[0];
+            const label: Label = !labelResource ? null : await this.labelService.createIfNotExists({
+                name: labelResource.name,
+                geniusId: labelResource.id,
+                description: labelResource.description_preview
+            }).then(async (result) => {
+                return this.artworkService.downloadToBuffer(labelResource.image_url).then((buffer) => {
+                    return this.artworkService.createForLabelIfNotExists(result.data, mount, buffer).then((artwork) => {
+                        result.data.artwork = artwork;
+                        return result.data;
+                    })
+                })
+            }).catch(() => null);
+
+
+
+            // Update relations
+            result.label = label;
 
             // If there is an image url present on the resource.
             // Download it and create an artwork for the album
@@ -114,7 +137,7 @@ export class GeniusClientService {
                 // Download url to buffer
                 return this.artworkService.downloadToBuffer(resource.cover_art_thumbnail_url).then((buffer) => {
                     // Create artwork and write buffer to file
-                    return this.artworkService.createForAlbumIfNotExists(album, useMount, buffer).then((artwork) => {
+                    return this.artworkService.createForAlbumIfNotExists(album, mount, buffer).then((artwork) => {
                         // Update relation
                         result.artwork = artwork;
                         return result;
@@ -130,10 +153,10 @@ export class GeniusClientService {
     /**
      * Find song information on genius.com. If found, all information are applied and returned as new artist object.
      * @param song Song to lookup
-     * @param useMount Mount to use for song's images
+     * @param mount Mount to use for song's images
      * @returns Song
      */
-     public async lookupSong(song: Song, useMount: Mount): Promise<Song> {
+     public async lookupSong(song: Song, mount: Mount): Promise<Song> {
         const result: Song = Object.assign(new Song(), song);
         const title = song?.name?.replace(/^(?:\[[^\]]*\]|\([^()]*\))\s*|\s*(?:\[[^\]]*\]|\([^()]*\))/gm, "").split("-")[0].trim();
         const artist = song.primaryArtist.name;
@@ -151,6 +174,7 @@ export class GeniusClientService {
             // then return unmodified artist object.
             if(!resource) return song;
 
+            // Update metadata
             result.geniusId = resource.id;
             result.description = resource.description_preview;
             result.releasedAt = resource.release_date;
@@ -159,7 +183,27 @@ export class GeniusClientService {
             result.youtubeUrl = resource.youtube_url;
             result.youtubeUrlStart = resource.youtube_start;
 
-            // TODO: Create label, publisher and distributor, genres
+            // TODO: Create publisher and distributor, genres
+
+            // Create label if not exists
+            const labelResource = resource.custom_performances.find((perf) => perf.label == "Label")?.artists?.[0];
+            const label: Label = !labelResource ? null : await this.labelService.createIfNotExists({
+                name: labelResource.name,
+                geniusId: labelResource.id,
+                description: labelResource.description_preview
+            }).then(async (result) => {
+                return this.artworkService.downloadToBuffer(labelResource.image_url).then((buffer) => {
+                    return this.artworkService.createForLabelIfNotExists(result.data, mount, buffer).then((artwork) => {
+                        result.data.artwork = artwork;
+                        return result.data;
+                    })
+                })
+            }).catch(() => null);
+
+
+
+            // Update relations
+            result.label = label;
 
             // If there is an image url present on the resource.
             // Download it and create an artwork for the artist
@@ -167,7 +211,7 @@ export class GeniusClientService {
                 // Download url to buffer
                 return this.artworkService.downloadToBuffer(resource.song_art_image_thumbnail_url).then((buffer) => {
                     // Create artwork and write buffer to file
-                    return this.artworkService.createForSongIfNotExists(song, useMount, buffer).then((artwork) => {
+                    return this.artworkService.createForSongIfNotExists(song, mount, buffer).then((artwork) => {
                         // Update relation
                         result.artwork = artwork;
                         return result;

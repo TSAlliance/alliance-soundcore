@@ -10,7 +10,8 @@ import { ArtworkStorageHelper } from "../../artwork/helper/artwork-storage.helpe
 import { ArtworkRepository } from "../../artwork/repositories/artwork.repository";
 import { ArtworkService } from "../../artwork/services/artwork.service";
 import { TYPEORM_CONNECTION_GENERAL } from "../../constants";
-import { LabelService } from "../../label/label.service";
+import { LabelRepository } from "../../label/repositories/label.repository";
+import { LabelService } from "../../label/services/label.service";
 import { Song } from "../../song/entities/song.entity";
 import { SongRepository } from "../../song/repositories/song.repository";
 import { SongService } from "../../song/song.service";
@@ -30,9 +31,10 @@ export default function (job: Job<GeniusProcessDTO>, dc: DoneCallback) {
             const artistService = new ArtistService(connection.getCustomRepository(ArtistRepository), eventEmitter);
             const albumService = new AlbumService(connection.getCustomRepository(AlbumRepository), eventEmitter);
             const songService = new SongService(connection.getCustomRepository(SongRepository));
+            const labelService = new LabelService(connection.getCustomRepository(LabelRepository));
 
             // Build GeniusClientService
-            const clientService = new GeniusClientService(artworkService);
+            const clientService = new GeniusClientService(artworkService, labelService);
 
             // Handle different types of
             // genius lookup processes

@@ -5,7 +5,6 @@ import { Queue } from "bull";
 import path from "path";
 import { EVENT_FILE_PROCESSED, EVENT_METADATA_CREATED, QUEUE_INDEXER_NAME } from "../../constants";
 import { File } from "../../file/entities/file.entity";
-import { Song } from "../../song/entities/song.entity";
 import { IndexerProcessDTO, IndexerProcessMode } from "../dtos/indexer-process.dto";
 import { IndexerResultDTO } from "../dtos/indexer-result.dto";
 

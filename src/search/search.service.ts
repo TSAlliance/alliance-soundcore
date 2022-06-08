@@ -6,7 +6,7 @@ import { DistributorService } from '../distributor/distributor.service';
 import { GenreService } from '../genre/genre.service';
 import { Index } from '../index/entities/index.entity';
 import { IndexService } from '../index/services/index.service';
-import { LabelService } from '../label/label.service';
+import { LabelService } from '../label/services/label.service';
 import { PlaylistService } from '../playlist/playlist.service';
 import { PublisherService } from '../publisher/publisher.service';
 import { SongService } from '../song/song.service';

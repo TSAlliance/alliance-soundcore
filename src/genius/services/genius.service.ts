@@ -23,7 +23,8 @@ export class GeniusService {
             this.logger.error(`${err.message}`, err.stack);
         })
         this.queue?.on("completed", (job: Job<GeniusProcessDTO>, result: Resource) => {
-            this.logger.verbose(`Genius lookup for resource type ${job.data.type} was successful. Resource name was: ${result.name}`);
+            const type = result.resourceType;
+            this.logger.verbose(`Successfully looked up ${type} '${result.name}' on genius.`);
         })
     }
     
