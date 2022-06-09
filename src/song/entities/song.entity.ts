@@ -76,17 +76,17 @@ export class Song implements Resource {
     @JoinTable({ name: "featuring2song" })
     public featuredArtists: Artist[];
 
-    @ManyToOne(() => Publisher, { onDelete: "SET NULL" })
-    @JoinColumn()
-    public publisher: Publisher;
+    @ManyToMany(() => Publisher)
+    @JoinTable({ name: "song2publisher" })
+    public publishers: Publisher[];
 
-    @ManyToOne(() => Distributor, { onDelete: "SET NULL" })
-    @JoinColumn()
-    public distributor: Distributor;
+    @ManyToMany(() => Distributor)
+    @JoinTable({ name: "song2distributor" })
+    public distributors: Distributor[];
 
-    @ManyToOne(() => Label, { onDelete: "SET NULL" })
-    @JoinColumn()
-    public label: Label;
+    @ManyToMany(() => Label)
+    @JoinTable({ name: "song2label" })
+    public labels: Label[];
 
     @ManyToOne(() => Album)
     @JoinColumn()

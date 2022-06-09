@@ -11,12 +11,14 @@ import { Slug } from "../../utils/slugGenerator";
 import { RedisLockableService } from "../../utils/services/redis-lockable.service";
 import { RedlockError } from "../../exceptions/redlock.exception";
 import axios from "axios";
-import { DeleteResult } from "typeorm";
+import { DeleteResult, QueryFailedError } from "typeorm";
 import { Artist } from "../../artist/entities/artist.entity";
 import { Mount } from "../../mount/entities/mount.entity";
 import { Album } from "../../album/entities/album.entity";
 import { Song } from "../../song/entities/song.entity";
 import { Label } from "../../label/entities/label.entity";
+import { Distributor } from "../../distributor/entities/distributor.entity";
+import { Publisher } from "../../publisher/entities/publisher.entity";
 
 @Injectable()
 export class ArtworkService extends RedisLockableService {
@@ -85,6 +87,14 @@ export class ArtworkService extends RedisLockableService {
 
                 // Otherwise write to artwork
                 return this.writeFromBufferOrFile(createArtworkDto.fromSource, result);
+            }).catch((error) => {
+                if(error instanceof QueryFailedError) {
+                    console.error(error);
+                    // TODO
+                    return null;
+                } else {
+                    throw error;
+                }
             });
         });
     }
@@ -125,8 +135,34 @@ export class ArtworkService extends RedisLockableService {
      * @param fromSource (Optional) Filepath or buffer. If not set, no artwork will be written during creation.
      * @returns Artwork
      */
-     public async createForLabelIfNotExists(label: Label, mount: Mount, fromSource?: string | Buffer): Promise<Artwork> {
+    public async createForLabelIfNotExists(label: Label, mount: Mount, fromSource?: string | Buffer): Promise<Artwork> {
         return this.createIfNotExists({ mount, name: `${label.name}`, type: ArtworkType.LABEL, fromSource })
+    }
+
+    /**
+     * Function that calls the native createIfNotExists() function but with 
+     * preconfigured options to fit requirements for distributor artworks.
+     * Should always be called in separate process, as its blocking.
+     * @param distributor Distributor's data
+     * @param mount Mount to write artwork to
+     * @param fromSource (Optional) Filepath or buffer. If not set, no artwork will be written during creation.
+     * @returns Artwork
+     */
+    public async createForDistributorIfNotExists(distributor: Distributor, mount: Mount, fromSource?: string | Buffer): Promise<Artwork> {
+        return this.createIfNotExists({ mount, name: `${distributor.name}`, type: ArtworkType.DISTRIBUTOR, fromSource })
+    }
+
+    /**
+     * Function that calls the native createIfNotExists() function but with 
+     * preconfigured options to fit requirements for publisher artworks.
+     * Should always be called in separate process, as its blocking.
+     * @param publisher Publisher's data
+     * @param mount Mount to write artwork to
+     * @param fromSource (Optional) Filepath or buffer. If not set, no artwork will be written during creation.
+     * @returns Artwork
+     */
+     public async createForPublisherIfNotExists(publisher: Publisher, mount: Mount, fromSource?: string | Buffer): Promise<Artwork> {
+        return this.createIfNotExists({ mount, name: `${publisher.name}`, type: ArtworkType.PUBLISHER, fromSource })
     }
 
     /**

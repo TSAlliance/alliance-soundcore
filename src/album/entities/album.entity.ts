@@ -55,21 +55,17 @@ export class Album implements Resource {
     @JoinColumn()
     public artwork?: Artwork;
 
-    /*@ManyToOne(() => Artwork, { onDelete: "SET NULL" })
-    @JoinColumn()
-    public banner: Artwork;*/
+    @ManyToMany(() => Distributor)
+    @JoinTable({ name: "album2distributor" })
+    public distributors: Distributor[];
 
-    @ManyToOne(() => Distributor, { onDelete: "SET NULL" })
-    @JoinColumn()
-    public distributor: Distributor;
+    @ManyToMany(() => Label)
+    @JoinTable({ name: "album2label" })
+    public labels: Label[];
 
-    @ManyToOne(() => Label, { onDelete: "SET NULL" })
-    @JoinColumn()
-    public label: Label;
-
-    @ManyToOne(() => Publisher, { onDelete: "SET NULL" })
-    @JoinColumn()
-    public publisher: Publisher;
+    @ManyToMany(() => Publisher)
+    @JoinTable({ name: "album2publisher" })
+    public publishers: Publisher[];
 
     @OneToMany(() => LikedResource, (l) => l.album)
     public likedBy: LikedResource[];

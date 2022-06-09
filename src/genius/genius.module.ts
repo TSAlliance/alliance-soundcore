@@ -23,6 +23,8 @@ import { GeniusService } from './services/genius.service';
     BullModule.registerQueue({
       name: QUEUE_GENIUS_NAME,
       processors: [
+        // The GeniusWorker is limited to 1 process, to prevent spamming the api
+        // and risk being blocked.
         { path: path.join(__dirname, "worker", "genius.worker.js"), concurrency: 1 }
       ],
       defaultJobOptions: {

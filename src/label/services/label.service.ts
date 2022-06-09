@@ -52,17 +52,14 @@ export class LabelService extends RedisLockableService {
      * @returns Label
      */
     public async createIfNotExists(createLabelDto: CreateLabelDTO): Promise<CreateResult<Label>> {
-        createLabelDto.name = createLabelDto.name.replace(/^[ ]+|[ ]+$/g,'').trim();
-        createLabelDto.description = createLabelDto.description.trim();
-
-
-        // Check if label exists before
-        // acquiring lock for creation
-        const existingLabel = await this.findByName(createLabelDto.name);
-        if(existingLabel) return new CreateResult(existingLabel, true); 
+        createLabelDto.name = createLabelDto.name?.replace(/^[ ]+|[ ]+$/g,'')?.trim();
+        createLabelDto.description = createLabelDto.description?.trim();
 
         // Acquire lock
         return this.lock(createLabelDto.name, async (signal) => {
+            // Check if label exists
+            const existingLabel = await this.findByName(createLabelDto.name);
+            if(existingLabel) return new CreateResult(existingLabel, true); 
             if(signal.aborted) throw new RedlockError();
 
             const label = new Label();

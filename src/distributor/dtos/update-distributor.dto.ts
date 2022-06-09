@@ -1,6 +1,7 @@
 import { IsNotEmpty, IsOptional, Length } from "class-validator";
+import { Artwork } from "../../artwork/entities/artwork.entity";
 
-export class CreateDistributorDTO {
+export class UpdateDistributorDTO {
 
     @IsNotEmpty()
     @Length(3, 254)
@@ -11,5 +12,8 @@ export class CreateDistributorDTO {
 
     @IsOptional()
     public description?: string;
+
+    @IsOptional()
+    public artwork?: Artwork;
 
 }

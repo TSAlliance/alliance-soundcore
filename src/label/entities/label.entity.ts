@@ -1,5 +1,5 @@
 
-import { BeforeInsert, BeforeUpdate, Column, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import { BeforeInsert, BeforeUpdate, Column, Entity, Index, JoinColumn, ManyToMany, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Song } from "../../song/entities/song.entity";
 import { Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
@@ -28,7 +28,7 @@ export class Label implements Resource {
     @Column({ nullable: false })
     public name: string;
 
-    @OneToMany(() => Song, (song) => song.label)
+    @ManyToMany(() => Song)
     public songs: Song[]
 
     @ManyToOne(() => Artwork, { onDelete: "SET NULL", nullable: true })

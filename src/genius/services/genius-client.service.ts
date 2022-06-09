@@ -5,16 +5,19 @@ import { Artist } from "../../artist/entities/artist.entity";
 import { ArtworkType } from "../../artwork/entities/artwork.entity";
 import { ArtworkService } from "../../artwork/services/artwork.service";
 import { GENIUS_API_BASE_URL } from "../../constants";
+import { Distributor } from "../../distributor/entities/distributor.entity";
+import { DistributorService } from "../../distributor/services/distributor.service";
 import { Label } from "../../label/entities/label.entity";
 import { LabelService } from "../../label/services/label.service";
 import { Mount } from "../../mount/entities/mount.entity";
 import { Song } from "../../song/entities/song.entity";
 import { Levenshtein } from "../../utils/levenshtein";
+import { CreateResult } from "../../utils/results/creation.result";
 import { GeniusAlbumDTO } from "../lib/genius-album.dto";
 import { GeniusArtistDTO } from "../lib/genius-artist.dto";
 import { GeniusReponseDTO, GeniusSearchResponse } from "../lib/genius-response.dto";
 import { GeniusSearchPageResultDTO } from "../lib/genius-search-page.dto";
-import { GeniusSongDTO } from "../lib/genius-song.dto";
+import { GeniusCustomPerformance, GeniusSongDTO } from "../lib/genius-song.dto";
 
 @Injectable()
 export class GeniusClientService {
@@ -22,7 +25,8 @@ export class GeniusClientService {
 
     constructor(
         private readonly artworkService: ArtworkService,
-        private readonly labelService: LabelService
+        private readonly labelService: LabelService,
+        private readonly distributorService: DistributorService
     ) {}
 
     /**
@@ -110,26 +114,16 @@ export class GeniusClientService {
             result.description = resource.description_preview;
             result.releasedAt = resource.release_date;
 
-            // TODO: Create publisher and distributor
-            // Create label
-            const labelResource = resource.performance_groups.find((perf) => perf.label == "Label")?.artists?.[0];
-            const label: Label = !labelResource ? null : await this.labelService.createIfNotExists({
-                name: labelResource.name,
-                geniusId: labelResource.id,
-                description: labelResource.description_preview
-            }).then(async (result) => {
-                return this.artworkService.downloadToBuffer(labelResource.image_url).then((buffer) => {
-                    return this.artworkService.createForLabelIfNotExists(result.data, mount, buffer).then((artwork) => {
-                        result.data.artwork = artwork;
-                        return result.data;
-                    })
-                })
-            }).catch(() => null);
-
-
+            // TODO: Create publisher
+            
+            // Create labels if not exists
+            const labels = await this.parseAndCreateLabels(resource.performance_groups, mount);
+            // Create distributors if not exists
+            const distributors = await this.parseAndCreateDistributors(resource.performance_groups, mount);
 
             // Update relations
-            result.label = label;
+            result.labels = labels;
+            result.distributors = distributors;
 
             // If there is an image url present on the resource.
             // Download it and create an artwork for the album
@@ -183,27 +177,16 @@ export class GeniusClientService {
             result.youtubeUrl = resource.youtube_url;
             result.youtubeUrlStart = resource.youtube_start;
 
-            // TODO: Create publisher and distributor, genres
+            // TODO: Create publisher and genres
 
-            // Create label if not exists
-            const labelResource = resource.custom_performances.find((perf) => perf.label == "Label")?.artists?.[0];
-            const label: Label = !labelResource ? null : await this.labelService.createIfNotExists({
-                name: labelResource.name,
-                geniusId: labelResource.id,
-                description: labelResource.description_preview
-            }).then(async (result) => {
-                return this.artworkService.downloadToBuffer(labelResource.image_url).then((buffer) => {
-                    return this.artworkService.createForLabelIfNotExists(result.data, mount, buffer).then((artwork) => {
-                        result.data.artwork = artwork;
-                        return result.data;
-                    })
-                })
-            }).catch(() => null);
-
-
+            // Create labels if not exists
+            const labels = await this.parseAndCreateLabels(resource.custom_performances, mount);
+            // Create distributors if not exists
+            const distributors = await this.parseAndCreateDistributors(resource.custom_performances, mount);
 
             // Update relations
-            result.label = label;
+            result.labels = labels;
+            result.distributors = distributors;
 
             // If there is an image url present on the resource.
             // Download it and create an artwork for the artist
@@ -222,6 +205,108 @@ export class GeniusClientService {
             // If no artwork to download, just return
             return result;
         });
+    }
+
+    /**
+     * Parses the custom_performances or performance_groups array of a genius album or song resource.
+     * This function then searches for the section labeled "Label" and create a label resource from
+     * the given data inside.
+     * @param custom_performances Genius custom_performances or performance_groups array that may contain a label section
+     * @param mount Mount to store artworks
+     * @returns Label[]
+     */
+    protected async parseAndCreateLabels(custom_performances: GeniusCustomPerformance[], mount: Mount): Promise<Label[]> {
+        const resources = custom_performances.find((value) => value.label == "Label");
+        if(typeof resources == "undefined" || resources == null || resources.artists?.length <= 0) return [];
+        const labels: Label[] = [];
+
+        for(const resource of resources.artists) {   
+            // Create label if not exists.       
+            const labelResult: Label = await this.labelService.createIfNotExists({
+                name: resource.name,
+                description: resource.description_preview,
+                geniusId: resource.id
+            }).then((result) => {
+                const label = result.data;
+
+                // Download image url to buffer
+                return this.artworkService.downloadToBuffer(resource.image_url).then((buffer) => {
+                    // Write artwork
+                    return this.artworkService.createForLabelIfNotExists(label, mount, buffer).then((artwork) => {
+                        // Set artwork to label
+                        return this.labelService.setArtwork(label, artwork);
+                    });
+                }).catch((error) => {
+                    // In case of error during artwork creation,
+                    // just return the label without an artwork.
+                    this.logger.warn(`Failed creating artwork for label '${resource.name}': ${error.message}`);
+                    return label;
+                })        
+
+            }).catch((error) => {
+                // In case of error just skip this label
+                // by returning null and printing a short
+                // warning to the console.
+                this.logger.warn(`Failed creating label '${resource.name}' whilst looking up a resource on genius. Worst result of this error can just be a song or album not being put in relation with the label. Error: ${error.message}`);
+                return null;
+            });
+
+            if(!labelResult) continue;
+            labels.push(labelResult);
+        }
+
+        return labels;
+    }
+
+    /**
+     * Parses the custom_performances or performance_groups array of a genius album or song resource.
+     * This function then searches for the section labeled "Distributor" and create a distributor resource from
+     * the given data inside.
+     * @param custom_performances Genius custom_performances or performance_groups array that may contain a distributor section
+     * @param mount Mount to store artworks
+     * @returns Distributor[]
+     */
+     protected async parseAndCreateDistributors(custom_performances: GeniusCustomPerformance[], mount: Mount): Promise<Distributor[]> {
+        const resources = custom_performances.find((value) => value.label == "Distributor");
+        if(typeof resources == "undefined" || resources == null || resources.artists?.length <= 0) return [];
+        const distributors: Distributor[] = [];
+
+        for(const resource of resources.artists) {   
+            // Create distributor if not exists.       
+            const distributorResult: Distributor = await this.distributorService.createIfNotExists({
+                name: resource.name,
+                description: resource.description_preview,
+                geniusId: resource.id
+            }).then((result) => {
+                const distributor = result.data;
+
+                // Download image url to buffer
+                return this.artworkService.downloadToBuffer(resource.image_url).then((buffer) => {
+                    // Write artwork
+                    return this.artworkService.createForDistributorIfNotExists(distributor, mount, buffer).then((artwork) => {
+                        // Set artwork to distributor
+                        return this.distributorService.setArtwork(distributor, artwork);
+                    });
+                }).catch((error) => {
+                    // In case of error during artwork creation,
+                    // just return the distributor without an artwork.
+                    this.logger.warn(`Failed creating artwork for distributor '${resource.name}': ${error.message}`);
+                    return distributor;
+                })        
+
+            }).catch((error) => {
+                // In case of error just skip this distributor
+                // by returning null and printing a short
+                // warning to the console.
+                this.logger.warn(`Failed creating distributor '${resource.name}' whilst looking up a resource on genius. Worst result of this error can just be a song or album not being put in relation with the distributor. Error: ${error.message}`);
+                return null;
+            });
+
+            if(!distributorResult) continue;
+            distributors.push(distributorResult);
+        }
+
+        return distributors;
     }
 
     /**
