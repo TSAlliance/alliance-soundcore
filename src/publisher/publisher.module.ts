@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { PublisherService } from './publisher.service';
-import { PublisherController } from './publisher.controller';
+import { PublisherController } from './controllers/publisher.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PublisherRepository } from './repositories/publisher.repository';
 import { ArtworkModule } from '../artwork/artwork.module';
+import { PublisherService } from './services/publisher.service';
 
 @Module({
   controllers: [PublisherController],

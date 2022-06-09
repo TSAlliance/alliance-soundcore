@@ -14,6 +14,8 @@ import { DistributorRepository } from "../../distributor/repositories/distributo
 import { DistributorService } from "../../distributor/services/distributor.service";
 import { LabelRepository } from "../../label/repositories/label.repository";
 import { LabelService } from "../../label/services/label.service";
+import { PublisherRepository } from "../../publisher/repositories/publisher.repository";
+import { PublisherService } from "../../publisher/services/publisher.service";
 import { Song } from "../../song/entities/song.entity";
 import { SongRepository } from "../../song/repositories/song.repository";
 import { SongService } from "../../song/song.service";
@@ -37,7 +39,8 @@ export default function (job: Job<GeniusProcessDTO>, dc: DoneCallback) {
             const artworkService = new ArtworkService(connection.getCustomRepository(ArtworkRepository), new ArtworkStorageHelper());
             const labelService = new LabelService(connection.getCustomRepository(LabelRepository));
             const distributorService = new DistributorService(connection.getCustomRepository(DistributorRepository));
-            const clientService = new GeniusClientService(artworkService, labelService, distributorService);
+            const publisherService = new PublisherService(connection.getCustomRepository(PublisherRepository));
+            const clientService = new GeniusClientService(artworkService, labelService, distributorService, publisherService);
 
             // Handle different types of
             // genius lookup processes

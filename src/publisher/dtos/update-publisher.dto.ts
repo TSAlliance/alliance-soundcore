@@ -1,6 +1,6 @@
 import { IsNotEmpty, IsOptional, Length } from "class-validator";
 
-export class UpdateDistributorDTO {
+export class UpdatePublisherDTO {
 
     @IsNotEmpty()
     @Length(3, 254)

@@ -8,7 +8,7 @@ import { Index } from '../index/entities/index.entity';
 import { IndexService } from '../index/services/index.service';
 import { LabelService } from '../label/services/label.service';
 import { PlaylistService } from '../playlist/playlist.service';
-import { PublisherService } from '../publisher/publisher.service';
+import { PublisherService } from '../publisher/services/publisher.service';
 import { SongService } from '../song/song.service';
 import { User } from '../user/entities/user.entity';
 import { UserService } from '../user/user.service';

@@ -80,11 +80,13 @@ export class LabelService extends RedisLockableService {
      * @returns Label
      */
     public async update(labelId: string, updateLabelDto: UpdateLabelDTO): Promise<Label> {
+        updateLabelDto.name = updateLabelDto.name?.replace(/^[ ]+|[ ]+$/g,'')?.trim();
+        updateLabelDto.description = updateLabelDto.description?.trim();
+
         const label = await this.findById(labelId);
         if(!label) throw new NotFoundException("Label not found.");
 
         label.name = updateLabelDto.name;
-        label.artwork = updateLabelDto.artwork;
         label.geniusId = updateLabelDto.geniusId;
         label.description = updateLabelDto.description;
 

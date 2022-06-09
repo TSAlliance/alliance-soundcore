@@ -80,13 +80,15 @@ export class DistributorService extends RedisLockableService {
      * @returns Distributor
      */
     public async update(distributorId: string, updateDistributorDto: UpdateDistributorDTO): Promise<Distributor> {
+        updateDistributorDto.name = updateDistributorDto.name.replace(/^[ ]+|[ ]+$/g,'').trim();
+        updateDistributorDto.description = updateDistributorDto.description?.trim();
+
         const distributor = await this.findById(distributorId);
         if(!distributor) throw new NotFoundException("Distributor not found.");
 
-        distributor.name = updateDistributorDto.name.trim();
-        distributor.artwork = updateDistributorDto.artwork;
+        distributor.name = updateDistributorDto.name;
         distributor.geniusId = updateDistributorDto.geniusId;
-        distributor.description = updateDistributorDto.description?.trim();
+        distributor.description = updateDistributorDto.description;
 
         return this.repository.save(distributor);
     }

@@ -10,9 +10,10 @@ import { DistributorService } from "../../distributor/services/distributor.servi
 import { Label } from "../../label/entities/label.entity";
 import { LabelService } from "../../label/services/label.service";
 import { Mount } from "../../mount/entities/mount.entity";
+import { Publisher } from "../../publisher/entities/publisher.entity";
+import { PublisherService } from "../../publisher/services/publisher.service";
 import { Song } from "../../song/entities/song.entity";
 import { Levenshtein } from "../../utils/levenshtein";
-import { CreateResult } from "../../utils/results/creation.result";
 import { GeniusAlbumDTO } from "../lib/genius-album.dto";
 import { GeniusArtistDTO } from "../lib/genius-artist.dto";
 import { GeniusReponseDTO, GeniusSearchResponse } from "../lib/genius-response.dto";
@@ -26,7 +27,8 @@ export class GeniusClientService {
     constructor(
         private readonly artworkService: ArtworkService,
         private readonly labelService: LabelService,
-        private readonly distributorService: DistributorService
+        private readonly distributorService: DistributorService,
+        private readonly publisherService: PublisherService
     ) {}
 
     /**
@@ -113,17 +115,18 @@ export class GeniusClientService {
             result.geniusId = resource.id;
             result.description = resource.description_preview;
             result.releasedAt = resource.release_date;
-
-            // TODO: Create publisher
             
             // Create labels if not exists
             const labels = await this.parseAndCreateLabels(resource.performance_groups, mount);
             // Create distributors if not exists
             const distributors = await this.parseAndCreateDistributors(resource.performance_groups, mount);
+            // Create publishers if not exists
+            const publishers = await this.parseAndCreatePublishers(resource.performance_groups, mount);
 
             // Update relations
             result.labels = labels;
             result.distributors = distributors;
+            result.publishers = publishers;
 
             // If there is an image url present on the resource.
             // Download it and create an artwork for the album
@@ -177,16 +180,19 @@ export class GeniusClientService {
             result.youtubeUrl = resource.youtube_url;
             result.youtubeUrlStart = resource.youtube_start;
 
-            // TODO: Create publisher and genres
+            // TODO: Create genres
 
             // Create labels if not exists
             const labels = await this.parseAndCreateLabels(resource.custom_performances, mount);
             // Create distributors if not exists
             const distributors = await this.parseAndCreateDistributors(resource.custom_performances, mount);
+            // Create publishers if not exists
+            const publishers = await this.parseAndCreatePublishers(resource.custom_performances, mount);
 
             // Update relations
             result.labels = labels;
             result.distributors = distributors;
+            result.publishers = publishers;
 
             // If there is an image url present on the resource.
             // Download it and create an artwork for the artist
@@ -307,6 +313,57 @@ export class GeniusClientService {
         }
 
         return distributors;
+    }
+
+    /**
+     * Parses the custom_performances or performance_groups array of a genius album or song resource.
+     * This function then searches for the section labeled "Publisher" and create a publisher resource from
+     * the given data inside.
+     * @param custom_performances Genius custom_performances or performance_groups array that may contain a publisher section
+     * @param mount Mount to store artworks
+     * @returns Publisher[]
+     */
+     protected async parseAndCreatePublishers(custom_performances: GeniusCustomPerformance[], mount: Mount): Promise<Publisher[]> {
+        const resources = custom_performances.find((value) => value.label == "Publisher");
+        if(typeof resources == "undefined" || resources == null || resources.artists?.length <= 0) return [];
+        const publishers: Publisher[] = [];
+
+        for(const resource of resources.artists) {   
+            // Create publisher if not exists.       
+            const publisherResult: Publisher = await this.publisherService.createIfNotExists({
+                name: resource.name,
+                description: resource.description_preview,
+                geniusId: resource.id
+            }).then((result) => {
+                const publisher = result.data;
+
+                // Download image url to buffer
+                return this.artworkService.downloadToBuffer(resource.image_url).then((buffer) => {
+                    // Write artwork
+                    return this.artworkService.createForPublisherIfNotExists(publisher, mount, buffer).then((artwork) => {
+                        // Set artwork to publisher
+                        return this.publisherService.setArtwork(publisher, artwork);
+                    });
+                }).catch((error) => {
+                    // In case of error during artwork creation,
+                    // just return the publisher without an artwork.
+                    this.logger.warn(`Failed creating artwork for publisher '${resource.name}': ${error.message}`);
+                    return publisher;
+                })        
+
+            }).catch((error) => {
+                // In case of error just skip this publisher
+                // by returning null and printing a short
+                // warning to the console.
+                this.logger.warn(`Failed creating publisher '${resource.name}' whilst looking up a resource on genius. Worst result of this error can just be a song or album not being put in relation with the publisher. Error: ${error.message}`);
+                return null;
+            });
+
+            if(!publisherResult) continue;
+            publishers.push(publisherResult);
+        }
+
+        return publishers;
     }
 
     /**
