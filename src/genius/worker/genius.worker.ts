@@ -29,14 +29,14 @@ export default function (job: Job<GeniusProcessDTO>, dc: DoneCallback) {
             const eventEmitter = new EventEmitter2();
 
             // Build services
-            const artworkService = new ArtworkService(connection.getCustomRepository(ArtworkRepository), new ArtworkStorageHelper());
             const artistService = new ArtistService(connection.getCustomRepository(ArtistRepository), eventEmitter);
             const albumService = new AlbumService(connection.getCustomRepository(AlbumRepository), eventEmitter);
             const songService = new SongService(connection.getCustomRepository(SongRepository));
+
+            // Build GeniusClientService and dependencies
+            const artworkService = new ArtworkService(connection.getCustomRepository(ArtworkRepository), new ArtworkStorageHelper());
             const labelService = new LabelService(connection.getCustomRepository(LabelRepository));
             const distributorService = new DistributorService(connection.getCustomRepository(DistributorRepository));
-
-            // Build GeniusClientService
             const clientService = new GeniusClientService(artworkService, labelService, distributorService);
 
             // Handle different types of

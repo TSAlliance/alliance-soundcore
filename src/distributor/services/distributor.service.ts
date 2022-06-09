@@ -83,10 +83,10 @@ export class DistributorService extends RedisLockableService {
         const distributor = await this.findById(distributorId);
         if(!distributor) throw new NotFoundException("Distributor not found.");
 
-        distributor.name = updateDistributorDto.name;
+        distributor.name = updateDistributorDto.name.trim();
         distributor.artwork = updateDistributorDto.artwork;
         distributor.geniusId = updateDistributorDto.geniusId;
-        distributor.description = updateDistributorDto.description;
+        distributor.description = updateDistributorDto.description?.trim();
 
         return this.repository.save(distributor);
     }
