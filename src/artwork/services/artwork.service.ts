@@ -11,7 +11,7 @@ import { Slug } from "../../utils/slugGenerator";
 import { RedisLockableService } from "../../utils/services/redis-lockable.service";
 import { RedlockError } from "../../exceptions/redlock.exception";
 import axios from "axios";
-import { DeleteResult, QueryFailedError } from "typeorm";
+import { DeleteResult } from "typeorm";
 import { Artist } from "../../artist/entities/artist.entity";
 import { Mount } from "../../mount/entities/mount.entity";
 import { Album } from "../../album/entities/album.entity";
@@ -87,15 +87,7 @@ export class ArtworkService extends RedisLockableService {
 
                 // Otherwise write to artwork
                 return this.writeFromBufferOrFile(createArtworkDto.fromSource, result);
-            }).catch((error) => {
-                if(error instanceof QueryFailedError) {
-                    console.error(error);
-                    // TODO
-                    return null;
-                } else {
-                    throw error;
-                }
-            });
+            })
         });
     }
 
