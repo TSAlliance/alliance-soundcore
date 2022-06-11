@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
-import { GenreService } from './genre.service';
-import { GenreController } from './genre.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { GenreController } from './controllers/genre.controller';
 import { GenreRepository } from './repositories/genre.repository';
+import { GenreService } from './services/genre.service';
 
 @Module({
   controllers: [GenreController],

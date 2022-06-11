@@ -7,6 +7,8 @@ import { ArtworkService } from "../../artwork/services/artwork.service";
 import { GENIUS_API_BASE_URL } from "../../constants";
 import { Distributor } from "../../distributor/entities/distributor.entity";
 import { DistributorService } from "../../distributor/services/distributor.service";
+import { Genre } from "../../genre/entities/genre.entity";
+import { GenreService } from "../../genre/services/genre.service";
 import { Label } from "../../label/entities/label.entity";
 import { LabelService } from "../../label/services/label.service";
 import { Mount } from "../../mount/entities/mount.entity";
@@ -19,6 +21,7 @@ import { GeniusArtistDTO } from "../lib/genius-artist.dto";
 import { GeniusReponseDTO, GeniusSearchResponse } from "../lib/genius-response.dto";
 import { GeniusSearchPageResultDTO } from "../lib/genius-search-page.dto";
 import { GeniusCustomPerformance, GeniusSongDTO } from "../lib/genius-song.dto";
+import { GeniusTagDTO } from "../lib/genius-tag.dto";
 
 @Injectable()
 export class GeniusClientService {
@@ -28,7 +31,8 @@ export class GeniusClientService {
         private readonly artworkService: ArtworkService,
         private readonly labelService: LabelService,
         private readonly distributorService: DistributorService,
-        private readonly publisherService: PublisherService
+        private readonly publisherService: PublisherService,
+        private readonly genreService: GenreService
     ) {}
 
     /**
@@ -117,11 +121,11 @@ export class GeniusClientService {
             result.releasedAt = resource.release_date;
             
             // Create labels if not exists
-            const labels = await this.parseAndCreateLabels(resource.performance_groups, mount);
+            const labels = await this.parseAndCreateLabels(resource.performance_groups, mount).catch(() => []);
             // Create distributors if not exists
-            const distributors = await this.parseAndCreateDistributors(resource.performance_groups, mount);
+            const distributors = await this.parseAndCreateDistributors(resource.performance_groups, mount).catch(() => []);
             // Create publishers if not exists
-            const publishers = await this.parseAndCreatePublishers(resource.performance_groups, mount);
+            const publishers = await this.parseAndCreatePublishers(resource.performance_groups, mount).catch(() => []);
 
             // Update relations
             result.labels = labels;
@@ -180,19 +184,20 @@ export class GeniusClientService {
             result.youtubeUrl = resource.youtube_url;
             result.youtubeUrlStart = resource.youtube_start;
 
-            // TODO: Create genres
-
             // Create labels if not exists
-            const labels = await this.parseAndCreateLabels(resource.custom_performances, mount);
+            const labels = await this.parseAndCreateLabels(resource.custom_performances, mount).catch(() => []);
             // Create distributors if not exists
-            const distributors = await this.parseAndCreateDistributors(resource.custom_performances, mount);
+            const distributors = await this.parseAndCreateDistributors(resource.custom_performances, mount).catch(() => []);
             // Create publishers if not exists
-            const publishers = await this.parseAndCreatePublishers(resource.custom_performances, mount);
+            const publishers = await this.parseAndCreatePublishers(resource.custom_performances, mount).catch(() => []);
+            // Create genres if not exist
+            const genres = await this.parseAndCreateGenres(resource.tags).catch(() => []);
 
             // Update relations
             result.labels = labels;
             result.distributors = distributors;
             result.publishers = publishers;
+            result.genres = genres;
 
             // If there is an image url present on the resource.
             // Download it and create an artwork for the artist
@@ -323,7 +328,7 @@ export class GeniusClientService {
      * @param mount Mount to store artworks
      * @returns Publisher[]
      */
-     protected async parseAndCreatePublishers(custom_performances: GeniusCustomPerformance[], mount: Mount): Promise<Publisher[]> {
+    protected async parseAndCreatePublishers(custom_performances: GeniusCustomPerformance[], mount: Mount): Promise<Publisher[]> {
         const resources = custom_performances.find((value) => value.label == "Publisher");
         if(typeof resources == "undefined" || resources == null || resources.artists?.length <= 0) return [];
         const publishers: Publisher[] = [];
@@ -364,6 +369,36 @@ export class GeniusClientService {
         }
 
         return publishers;
+    }
+
+    /**
+     * Parses the tags array of a genius album or song resource.
+     * @param tags List of tags provided by genius. Those will be converted into Genres
+     * @returns Genre[]
+     */
+     protected async parseAndCreateGenres(tags: GeniusTagDTO[]): Promise<Genre[]> {
+        const genres: Genre[] = [];
+
+        for(const resource of tags) {   
+            // Create publisher if not exists.       
+            const genreResult: Genre = await this.genreService.createIfNotExists({
+                name: resource.name,
+                description: null
+            }).then((result) => {
+                return result.data;
+            }).catch((error) => {
+                // In case of error just skip this publisher
+                // by returning null and printing a short
+                // warning to the console.
+                this.logger.warn(`Failed creating genre '${resource.name}' whilst looking up a resource on genius. Worst result of this error can just be a song or album not being put in relation with the genre. Error: ${error.message}`);
+                return null;
+            });
+
+            if(!genreResult) continue;
+            genres.push(genreResult);
+        }
+
+        return genres;
     }
 
     /**

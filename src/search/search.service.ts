@@ -3,7 +3,7 @@ import { Page, Pageable } from 'nestjs-pager';
 import { AlbumService } from '../album/album.service';
 import { ArtistService } from '../artist/artist.service';
 import { DistributorService } from '../distributor/services/distributor.service';
-import { GenreService } from '../genre/genre.service';
+import { GenreService } from '../genre/services/genre.service';
 import { Index } from '../index/entities/index.entity';
 import { IndexService } from '../index/services/index.service';
 import { LabelService } from '../label/services/label.service';

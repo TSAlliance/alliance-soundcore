@@ -1,6 +1,6 @@
 import { IsNotEmpty, IsOptional, Length } from "class-validator";
 
-export class CreateGenreDTO {
+export class UpdateGenreDTO {
 
     @IsNotEmpty()
     @Length(3, 120)
