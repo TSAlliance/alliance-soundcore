@@ -16,6 +16,7 @@ import { GeniusFlag, ResourceFlag } from "../utils/entities/resource";
 import { ID3TagsDTO } from "./dtos/id3-tags.dto";
 import { RedisLockableService } from "../utils/services/redis-lockable.service";
 import { RedlockError } from "../exceptions/redlock.exception";
+import path from "path";
 
 @Injectable()
 export class SongService extends RedisLockableService {
@@ -709,12 +710,12 @@ export class SongService extends RedisLockableService {
 
         // Build result DTO
         const result: ID3TagsDTO = {
-            title: id3Tags.title.trim(),
+            title: id3Tags.title?.trim() || path.basename(filepath),
             duration: durationInSeconds,
             artists: artists.map((name) => ({
                 name
             })),
-            album: id3Tags.album.trim(),
+            album: id3Tags.album?.trim(),
             cover: artworkBuffer,
             orderNr: parseInt(id3Tags.trackNumber?.split("/")?.[0]) || null
         }
