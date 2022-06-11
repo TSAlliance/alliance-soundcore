@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { LabelService } from './label.service';
-import { LabelController } from './label.controller';
+import { LabelService } from './services/label.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { LabelRepository } from './repositories/label.repository';
 import { ArtworkModule } from '../artwork/artwork.module';
+import { LabelController } from './controllers/label.controller';
 
 @Module({
   controllers: [LabelController],

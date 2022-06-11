@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/ban-types */
 import { Logger } from "@nestjs/common";
-import { Connection, ConnectionManager, EntitySchema, getConnectionManager } from "typeorm";
+import { Connection, ConnectionManager, getConnectionManager } from "typeorm";
 
 export interface DBWorkerOptions {
     port: number
@@ -15,6 +15,15 @@ export class DBWorker {
     private static _instance: DBWorker;
     private logger: Logger = new Logger("DBWorker");
 
+    private readonly workerOptions: DBWorkerOptions = {
+        port: parseInt(process.env.DB_PORT),
+        host: process.env.DB_HOST,
+        database: process.env.DB_NAME,
+        password: process.env.DB_PASS,
+        username: process.env.DB_USER,
+        prefix: process.env.DB_PREFIX
+    }
+
     private readonly _connectionManager: ConnectionManager = getConnectionManager();
 
     /**
@@ -24,7 +33,7 @@ export class DBWorker {
      * @param options Database Connection Options
      * @returns Connection
      */
-    public createOrGetConnection(name: string, options: DBWorkerOptions, entities: (string | Function | EntitySchema<any>)[]): Connection {
+    public createOrGetConnection(name: string): Connection {
         const manager = this._connectionManager;
 
         if(manager.has(name)) {
@@ -35,14 +44,14 @@ export class DBWorker {
         return manager.create({
             name: name,
             type: "mysql",
-            port: options.port,
-            host: options.host,
-            database: options.database,
-            username: options.username,
-            password: options.password,
-            entityPrefix: options.prefix,
+            port: this.workerOptions.port,
+            host: this.workerOptions.host,
+            database: this.workerOptions.database,
+            username: this.workerOptions.username,
+            password: this.workerOptions.password,
+            entityPrefix: this.workerOptions.prefix,
             connectTimeout: 2000,
-            entities: entities
+            entities: [ "dist/**/*.entity.js" ]
         });
     }
 
@@ -53,9 +62,9 @@ export class DBWorker {
      * @param options Database Connection Options
      * @returns Connection
      */
-    public establishConnection(name: string, options: DBWorkerOptions, entities: (string | Function | EntitySchema<any>)[]): Promise<Connection> {
+    public establishConnection(name: string): Promise<Connection> {
         return new Promise((resolve) => {
-            const connection = this.createOrGetConnection(name, options, entities);
+            const connection = this.createOrGetConnection(name);
             if(connection.isConnected) {
                 resolve(connection);
                 return
@@ -65,13 +74,13 @@ export class DBWorker {
         })
     }
 
-
-    public static getInstance(): DBWorker {
-        if(typeof this._instance == "undefined" || this._instance == null) {
-            this._instance = new DBWorker();
-        }
-
-        return this._instance;
-    }
+    public static instance(): Promise<DBWorker> {
+        return new Promise((resolve) => {
+            if(!DBWorker._instance) {
+                DBWorker._instance = new DBWorker();
+            }
     
+            resolve(DBWorker._instance);
+        })
+    }
 }

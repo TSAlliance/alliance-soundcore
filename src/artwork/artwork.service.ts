@@ -1,13 +1,14 @@
-import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import axios from 'axios';
-import { Response } from 'express';
-import { createReadStream, existsSync, mkdirSync } from 'fs';
 import path from 'path';
 import sharp from 'sharp';
 import fs from "fs"
+
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import axios from 'axios';
+import { Response } from 'express';
+import { createReadStream, existsSync, mkdirSync } from 'fs';
+
 import { ArtistService } from '../artist/artist.service';
 import { Index } from '../index/entities/index.entity';
-import { MOUNT_ID } from '../shared/shared.module';
 import { StorageService } from '../storage/storage.service';
 import { CreateArtworkDTO } from './dtos/create-artwork.dto';
 import { Artwork } from './entities/artwork.entity';
@@ -16,9 +17,6 @@ import { ArtworkType } from './types/artwork-type.enum';
 
 import Vibrant from "node-vibrant"
 import { v4 as uuidv4 } from "uuid"
-import sanitize from 'sanitize-filename';
-import { IndexReportService } from '../index-report/services/index-report.service';
-import { RandomUtil } from '@tsalliance/rest';
 
 @Injectable()
 export class ArtworkService {
@@ -26,9 +24,7 @@ export class ArtworkService {
 
     constructor(
         private storageService: StorageService,
-        private indexReportService: IndexReportService,
-        private artworkRepository: ArtworkRepository,
-        @Inject(MOUNT_ID) private mountId: string
+        private artworkRepository: ArtworkRepository
     ){}
 
     /**
@@ -67,7 +63,8 @@ export class ArtworkService {
      * @returns string
      */
     public buildArtworkFile(artwork: Artwork): string {
-        return path.join(this.storageService.getArtworksDir(artwork.mount), (artwork.type || "song").toString() , `${sanitize(artwork.dstFilename)}.jpeg`)
+        //return path.join(this.storageService.getArtworksDir(artwork.mount), (artwork.type || "song").toString() , `${sanitize(artwork.dstFilename)}.jpeg`)
+        return ""
     }
 
     /**
@@ -111,18 +108,19 @@ export class ArtworkService {
     }
 
     public async duplicateArtwork(src: Artwork, dstType: ArtworkType, dstName: string): Promise<Artwork> {
-        const artwork = await this.create({
-            dstFilename: sanitize(dstName),
-            mountId: src.mount?.id || this.mountId,
-            type: dstType
-        }, true)
+        // const artwork = await this.create({
+        //     dstFilename: sanitize(dstName),
+        //     mountId: src.mount?.id || this.mountId,
+        //     type: dstType
+        // }, true)
 
-        const srcPath = this.buildArtworkFile(src);
-        const dstPath = this.buildArtworkFile(artwork);
-        const srcBuffer = fs.readFileSync(srcPath);
+        // const srcPath = this.buildArtworkFile(src);
+        // const dstPath = this.buildArtworkFile(artwork);
+        // const srcBuffer = fs.readFileSync(srcPath);
 
-        this.writeBufferToFile(srcBuffer, dstPath);
-        return artwork;
+        // this.writeBufferToFile(srcBuffer, dstPath);
+        // return artwork;
+        return null;
     }
 
     /**
@@ -151,7 +149,7 @@ export class ArtworkService {
         mkdirSync(dstDirectory, { recursive: true });
 
         if(!buffer) {
-            this.indexReportService.appendWarn(index.report, "Artwork buffer on file is empty. Not creating artwork")
+            //this.indexReportService.appendWarn(index.report, "Artwork buffer on file is empty. Not creating artwork")
             return null;
         }
 
@@ -161,20 +159,21 @@ export class ArtworkService {
 
         // Create new artwork instance in database
 
-        const artwork = await this.create({
-            type: "song",
-            mountId: index.mount.id,
-            dstFilename: index.name,
-            autoDownload: false // There is nothing that could be downloaded
-        }).catch((reason) => {
-            this.indexReportService.appendError(index.report, `Unable to save artwork to database: ${reason.message}`);
-            return null;
-        })
+        // const artwork = await this.create({
+        //     type: "song",
+        //     mountId: index.mount.id,
+        //     dstFilename: index.name,
+        //     autoDownload: false // There is nothing that could be downloaded
+        // }).catch((reason) => {
+        //     this.indexReportService.appendError(index.report, `Unable to save artwork to database: ${reason.message}`);
+        //     return null;
+        // })
 
         // Write artwork to file
-        return this.writeArtwork(buffer, artwork, index).catch((reason) => {
-            throw reason
-        })
+        // return this.writeArtwork(buffer, artwork, index).catch((reason) => {
+        //     throw reason
+        // })
+        return null;
     }
 
     /**
@@ -183,26 +182,26 @@ export class ArtworkService {
      * @returns Artwork
      */
      public async create(createArtworkDto: CreateArtworkDTO, autoGenerated = false): Promise<Artwork> {
-        if(createArtworkDto.url && createArtworkDto.url.includes("default_avatar")) return null;
+        // if(createArtworkDto.url && createArtworkDto.url.includes("default_avatar")) return null;
 
-        const artworkCreateResult = await this.artworkRepository.save({
-            mount: { id: createArtworkDto.mountId || this.mountId },
-            type: createArtworkDto.type,
-            externalUrl: createArtworkDto.url,
-            autoGenerated,
-            key: RandomUtil.randomString(6),
-            dstFilename: createArtworkDto.dstFilename  // Prevent naming duplicates
-        }).catch((error) => {
-            console.error(error)
-            return null;
-        });
+        // const artworkCreateResult = await this.artworkRepository.save({
+        //     mount: { id: createArtworkDto.mountId || this.mountId },
+        //     type: createArtworkDto.type,
+        //     externalUrl: createArtworkDto.url,
+        //     autoGenerated,
+        //     key: RandomUtil.randomString(6),
+        //     dstFilename: createArtworkDto.dstFilename  // Prevent naming duplicates
+        // }).catch((error) => {
+        //     console.error(error)
+        //     return null;
+        // });
 
-        if(!artworkCreateResult) return null;
-        const artwork = await this.artworkRepository.findOne({ where: { id: artworkCreateResult.id }, relations: ["mount"]})
+        //if(!artworkCreateResult) return null;
+        //const artwork = await this.artworkRepository.findOne({ where: { id: artworkCreateResult.id }, relations: ["mount"]})
 
         // Check if a url was specified and the image should be
         // downloaded automatically.
-        if(artwork.externalUrl && createArtworkDto.autoDownload) {
+        /*if(artwork.externalUrl && createArtworkDto.autoDownload) {
             // Download the image from the url.
             return await this.downloadAndWriteArtworkByUrl(artwork).then(async (artwork) => {
                 artwork.externalUrl = null;
@@ -212,9 +211,9 @@ export class ArtworkService {
                 this.artworkRepository.delete(artwork);
                 return null;
             })
-        }
+        }*/
         
-        return artwork;
+        return null;
     }
 
     /**
@@ -292,20 +291,20 @@ export class ArtworkService {
         if(!buffer) return null;
         const dstFilepath = this.buildArtworkFile(artwork);
 
-        return this.optimizeImageBuffer(buffer, artwork.type).then(async () => {
-            await (this.writeBufferToFile(buffer, dstFilepath).catch((reason) => {
-                if(indexContext) this.indexReportService.appendError(indexContext.report, `Failed writing artwork to disk: ${reason.message}`)
-            }))
+        // return this.optimizeImageBuffer(buffer, artwork.type).then(async () => {
+        //     await (this.writeBufferToFile(buffer, dstFilepath).catch((reason) => {
+        //         if(indexContext) this.indexReportService.appendError(indexContext.report, `Failed writing artwork to disk: ${reason.message}`)
+        //     }))
 
-            // Extract accent color and save to database
-            artwork.accentColor = await this.getAccentColorFromArtwork(artwork);
-            await this.artworkRepository.save(artwork)
-            return artwork;
-        }).catch((reason) => {
-            this.logger.error(reason)
-            this.artworkRepository.delete(artwork)
-            throw reason;
-        })
+        //     // Extract accent color and save to database
+        //     // artwork.accentColor = await this.getAccentColorFromArtwork(artwork);
+        //     await this.artworkRepository.save(artwork)
+        //     return artwork;
+        // }).catch((reason) => {
+        //     this.logger.error(reason)
+        //     this.artworkRepository.delete(artwork)
+        //     throw reason;
+        // })
     }
 
     /**
@@ -314,14 +313,14 @@ export class ArtworkService {
      * @returns 
      */
     private async downloadAndWriteArtworkByUrl(artwork: Artwork) {
-        return axios.get(artwork.externalUrl, { responseType: "arraybuffer" }).then((response) => {
+        /*return axios.get(artwork.externalUrl, { responseType: "arraybuffer" }).then((response) => {
             if(response.status == 200 && response.data) {
                 return this.writeArtwork(Buffer.from(response.data), artwork)
             }
         }).catch((error) => {
             this.logger.error(error)
             throw error;
-        })
+        })*/
     }
 
     /**

@@ -4,7 +4,7 @@ import { IndexReport } from "../../index-report/entities/report.entity";
 import { Mount } from "../../mount/entities/mount.entity";
 import { Song } from "../../song/entities/song.entity";
 import { User } from "../../user/entities/user.entity";
-import { Resource, ResourceType } from "../../utils/entities/resource";
+import { Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
 import { Slug } from "../../utils/slugGenerator";
 import { IndexStatus } from "../enum/index-status.enum";
 
@@ -21,8 +21,10 @@ export class Index implements Resource {
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
-    @Column({ default: "index" as ResourceType, update: false })
-    public resourceType: ResourceType;
+    @Column({ type: "tinyint", default: 0 })
+    public flag: ResourceFlag;
+
+    public resourceType: ResourceType = "index";
 
     @Column({ nullable: false, default: '.' })
     public directory: string;

@@ -7,25 +7,25 @@ import { StorageModule } from '../storage/storage.module';
 import { MountRepository } from './repositories/mount.repository';
 import { MountService } from './services/mount.service'
 import { MountController } from './controllers/mount.controller';
-import { FileModule } from '../file/file.module';
+import { MountGateway } from './gateway/mount.gateway';
 
 @Module({
   controllers: [
     MountController
   ],
   providers: [
-    MountService
+    MountService,
+    MountGateway
   ],
   imports: [
     StorageModule,
-    FileModule,
     TypeOrmModule.forFeature([ MountRepository ]),
     BullModule.registerQueue({
       name: QUEUE_MOUNTSCAN_NAME,
       processors: [
         { 
-          path: path.join(__dirname, "worker", "scan.worker.js"), 
-          concurrency: parseInt(process.env.MAX_SCANNERS) || 3 
+          path: path.join(__dirname, "worker", "mount.worker.js"), 
+          concurrency: parseInt(process.env.MAX_SCANNERS) || 4 
         }
       ],
       defaultJobOptions: {

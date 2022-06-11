@@ -1,7 +1,7 @@
 import { Controller } from '@nestjs/common';
-import { PublisherService } from './publisher.service';
+import { PublisherService } from '../services/publisher.service';
 
-@Controller('publisher')
+@Controller('publishers')
 export class PublisherController {
   constructor(private readonly publisherService: PublisherService) {}
 }

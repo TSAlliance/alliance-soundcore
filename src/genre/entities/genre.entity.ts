@@ -1,27 +1,32 @@
 
-import { BeforeInsert, BeforeUpdate, Column, Entity, Index, JoinTable, ManyToMany, PrimaryGeneratedColumn } from "typeorm";
+import { BeforeInsert, BeforeUpdate, Column, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Song } from "../../song/entities/song.entity";
-import { Resource, ResourceType } from "../../utils/entities/resource";
+import { Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
 import { Slug } from "../../utils/slugGenerator";
 
 @Entity()
-export class Genre implements Resource {
+export class Genre {
+    public resourceType: ResourceType = "genre";
 
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
-    @Column({ default: "genre" as ResourceType, update: false })
-    public resourceType: ResourceType;
-
     @Column({ nullable: true, unique: true, length: 120 })
     public slug: string;
-    
+
+    @Column({ nullable: false, unique: true })
+    public name: string;
+
+    @Column({ nullable: true, type: "text" })
+    public description: string;
+
     @Column({ nullable: true })
     public geniusId: string;
 
-    @Index()
-    @Column({ nullable: false })
-    public name: string;
+    @ManyToOne(() => Artwork, { onDelete: "SET NULL" })
+    @JoinColumn()
+    public artwork: Artwork;
 
     @ManyToMany(() => Song)
     @JoinTable({ name: "song2genre" })

@@ -1,57 +1,58 @@
 import { Logger } from "@nestjs/common";
 import { DoneCallback, Job } from "bull";
-import pathfs from "path";
-import { FileProcessDTO } from "../dto/file-process.dto";
+import path from "path";
+import fs from "fs";
+import { FileProcessDTO, FileProcessMode } from "../dto/file-process.dto";
 import { TYPEORM_CONNECTION_FILEWORKER } from "../../constants";
-import { File } from "../entities/file.entity";
-import { Mount } from "../../mount/entities/mount.entity";
-import { Bucket } from "../../bucket/entities/bucket.entity";
 import { FileRepository } from "../repositories/file.repository";
+import { File } from "../entities/file.entity";
 import { DBWorker } from "../../utils/workers/worker.util";
-import { Repository } from "typeorm";
-import { FileFlag } from "../enums/file-flag.enum";
-import { FileDTO } from "../../mount/dtos/file.dto";
 
-const logger = new Logger("FileProcessor")
+const logger = new Logger("FileWorker")
 
 export default function (job: Job<FileProcessDTO>, cb: DoneCallback) {    
     const startTime = Date.now();
 
+    const mode = job.data.mode;
     const file = job.data.file;
     const mount = job.data.file.mount;
-    const path = pathfs.join(mount.directory, file.directory || ".", file.filename);
+    const filepath = path.join(mount.directory, file.directory || ".", file.filename);
 
-    logger.verbose(`Started processing file '${path}'`);
+    // Get file stats
+    fs.stat(filepath, (err, stat) => {
+        file.size = stat?.size || 0;
 
-    DBWorker.getInstance().establishConnection(TYPEORM_CONNECTION_FILEWORKER, job.data.workerOptions, [ File, Mount, Bucket ]).then((connection) => {
-        const repository = connection.getCustomRepository(FileRepository);
+        if(err) {
+            logger.warn(`Could not get filesystem information for file '${filepath}': ${err.message}`);
+        }
 
-        findOrCreateFile(file, repository).then((file) => {
-            reportSuccess(startTime, job, file, cb);
-        }).catch((error) => {
-            reportError(job, error, cb);
-        })
-    }).catch((error: Error) => {
-        // Handle error
-        reportError(job, error, cb);
-    })
-}
+        logger.verbose(`Started processing file '${filepath}'`);
 
-async function findOrCreateFile(fileDto: FileDTO, repository: Repository<File>): Promise<File> {
-    return repository.manager.transaction((entityManager) => {
-        return entityManager.createQueryBuilder(File, "file").setLock("pessimistic_read").where({ name: fileDto.filename, directory: fileDto.directory, mount: { id: fileDto.mount.id }}).getOne().then(async (result) => {
-            if(typeof result == "undefined" || result == null) {
-                const file = new File();
-                file.flag = FileFlag.PROCESSING;
-                file.mount = fileDto.mount;
-                file.directory = fileDto.directory;
-                file.name = fileDto.filename;
+        DBWorker.instance().then((worker) => {
+            worker.establishConnection(TYPEORM_CONNECTION_FILEWORKER).then((connection) => {
+                const repository = connection.getCustomRepository(FileRepository);
 
-                return await entityManager.save(file);
-            }
-            return result;
-        })
-    })
+                // TODO: Use ffprobe to check file codec_type = "audio" and codec_name = "mp3"
+
+                // const service = new FileService(repository, null, null);
+        
+                repository.findOrCreateFile(file).then(([file, existed]) => {
+                    if(existed && mode == FileProcessMode.SCAN) {
+                        logger.warn(`Worker received file that was scanned already and is now tried to be rescanned using a wrong processing mode (${mode} (SCAN), expected: ${FileProcessMode.RESCAN} (RESCAN)). This usually means, the previous step on scanning the directory did not filter out all existing files. A reason for this can be unusual file path names, that are incorrectly escaped by the underlying glob library. There is no fix available besides renaming the file's path and filtering out possible illegal characters.`)
+                        reportError(job, null, cb);
+                        return;
+                    }
+    
+                    reportSuccess(startTime, job, file, cb);
+                }).catch((error) => {
+                    reportError(job, error, cb);
+                });
+            }).catch((error: Error) => {
+                // Handle error
+                reportError(job, error, cb);
+            });
+        });
+    });
 }
 
 /**
@@ -61,11 +62,11 @@ async function findOrCreateFile(fileDto: FileDTO, repository: Repository<File>):
  * @param result Result to be passed to DoneCallback
  * @param cb DoneCallback
  */
-function reportSuccess(startTime: number, job: Job<FileProcessDTO>, result: any, cb: DoneCallback) {
+function reportSuccess(startTime: number, job: Job<FileProcessDTO>, result: File, cb: DoneCallback) {
     const file = job.data.file;
-    const path = pathfs.join(file.mount.directory, file.directory, file.filename);
+    const filepath = path.join(file.mount.directory, file.directory, file.filename);
 
-    logger.verbose(`Processed file '${path}' in ${Date.now()-startTime}ms.`);
+    logger.verbose(`Processed file '${filepath}' in ${Date.now()-startTime}ms.`);
     cb(null, result);
 }
 
@@ -78,9 +79,5 @@ function reportSuccess(startTime: number, job: Job<FileProcessDTO>, result: any,
  * @param cb DoneCallback
  */
  function reportError(job: Job<FileProcessDTO>, error: Error, cb: DoneCallback) {
-    const file = job.data.file
-    const path = pathfs.join(file.mount.directory, file.directory, file.filename);
-
-    logger.error(`Failed processing file '${path}': ${error.message}`, error.stack);
     cb(error, null);
 }

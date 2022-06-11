@@ -1,21 +1,11 @@
-import { IsNotEmpty, IsOptional, Length } from "class-validator";
-import { ArtworkType } from "../types/artwork-type.enum";
+import { Mount } from "../../mount/entities/mount.entity";
+import { ArtworkType } from "../entities/artwork.entity";
 
 export class CreateArtworkDTO {
 
-    public type: ArtworkType;
-
-    @IsNotEmpty()
-    @Length(3, 254)
-    public dstFilename: string;
-
-    @IsOptional()
-    public url?: string;
-
-    @IsOptional()
-    public mountId?: string;
-
-    @IsOptional()
-    public autoDownload?: boolean;
+    public name: string;
+    public mount: Mount;
+    public type: ArtworkType = ArtworkType.SONG;
+    public fromSource: string | Buffer;
 
 }

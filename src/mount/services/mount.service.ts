@@ -5,48 +5,45 @@ import Bull, { Queue } from 'bull';
 import { Page, Pageable } from 'nestjs-pager';
 import path from 'path';
 import fs from "fs";
-import { DeleteResult, EntityManager } from 'typeorm';
+import { DeleteResult } from 'typeorm';
 import { Bucket } from '../../bucket/entities/bucket.entity';
-import { QUEUE_MOUNTSCAN_NAME } from '../../constants';
+import { EVENT_FILE_FOUND, QUEUE_MOUNTSCAN_NAME } from '../../constants';
 import { BUCKET_ID } from '../../shared/shared.module';
 import { StorageService } from '../../storage/storage.service';
 import { CreateMountDTO } from '../dtos/create-mount.dto';
 import { UpdateMountDTO } from '../dtos/update-mount.dto';
-import { Mount, MountType } from '../entities/mount.entity';
+import { Mount } from '../entities/mount.entity';
 import { MountRepository } from '../repositories/mount.repository';
 import { MountScanProcessDTO } from '../dtos/mount-scan.dto';
 import { MountScanResultDTO } from '../dtos/scan-result.dto';
-import { FileService } from '../../file/services/file.service';
-import { DBWorkerOptions } from '../../utils/workers/worker.util';
+import { ProgressInfoDTO } from '../worker/progress-info.dto';
+import { MountGateway } from '../gateway/mount.gateway';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class MountService {
     private logger: Logger = new Logger(MountService.name);
 
-    private readonly workerOptions: DBWorkerOptions = {
-        port: parseInt(process.env.DB_PORT),
-        host: process.env.DB_HOST,
-        database: process.env.DB_NAME,
-        password: process.env.DB_PASS,
-        username: process.env.DB_USER,
-        prefix: process.env.DB_PREFIX
-    }
-
     constructor(
         private readonly repository: MountRepository,
         private readonly storage: StorageService,
-        private readonly fileService: FileService,
+        private readonly gateway: MountGateway,
+        private readonly eventEmitter: EventEmitter2,
         @Inject(BUCKET_ID) private readonly bucketId: string,
         @InjectQueue(QUEUE_MOUNTSCAN_NAME) private readonly queue: Queue<MountScanProcessDTO>
     ) {
         this.queue.on("failed", (job, err) => this.logger.error(`Failed scanning mount '${job?.data?.mount?.name}': ${err.message}`, err.stack));
         this.queue.on("error", (err) => this.logger.error(`Error occured on mount-scan-worker: ${err.message}`, err.stack));
+        this.queue.on("progress", (job, progress: ProgressInfoDTO) => {
+            this.gateway.sendMountUpdateEvent(job.data.mount, progress);
+        })
 
         this.queue.on("completed", (job, result: MountScanResultDTO) => {
+            this.gateway.sendMountUpdateEvent(job.data.mount, null);
             this.updateLastScanned(job.data.mount);
 
             for(const file of result.files) {
-                this.fileService.processFile( file, this.workerOptions);
+                this.eventEmitter.emit(EVENT_FILE_FOUND, file);
             }
         });
     }
@@ -62,6 +59,7 @@ export class MountService {
 
         const result = await this.repository.createQueryBuilder("mount")
             .leftJoinAndSelect("mount.bucket", "bucket")
+            .loadRelationCountAndMap("mount.fileCount", "mount.files")
             .where("bucket.id = :bucketId", { bucketId })
             .getManyAndCount();
         
@@ -122,65 +120,12 @@ export class MountService {
      */
     public async rescanMount(idOrObject: string | Mount): Promise<Bull.Job<MountScanProcessDTO>> {
         const mount = await this.resolveMount(idOrObject);
-        if(mount.type != MountType.FILES) return null;
+        const priority = mount.fileCount;
 
-        return this.queue.add(new MountScanProcessDTO(mount, this.workerOptions)).then((job) => {
+        return this.queue.add(new MountScanProcessDTO(mount), { priority }).then((job) => {
             this.logger.debug(`Added mount '${mount.name} #${job.id}' to scanner queue.`);
             return job;
         });
-    }
-
-    private async findOrCreateArtworkMountLocked() {
-        return this.repository.manager.transaction((entityManager: EntityManager): Promise<Mount> => {
-                return entityManager
-                    .createQueryBuilder(Mount, "mount")
-                    .setLock("dirty_read")                    
-                    .where({ type: MountType.ARTWORKS, bucket: { id: this.bucketId }})                    
-                    .getOne()
-                    .then((result) => {
-                        if (typeof result == "undefined" || result == null) {
-                            this.logger.verbose(`Artwork mount was requested but does not exist yet. Creating it...`);
-
-                            return this.create({
-                                bucketId: this.bucketId,
-                                name: `Artworks #${RandomUtil.randomString(4)}`,
-                                directory: path.join(this.storage.getSoundcoreDir(), `artworks-${this.bucketId}`)
-                            }, MountType.ARTWORKS)
-                        }
-
-                        return result;
-                    });
-            }
-        );
-    }
-
-    /**
-     * Find or create the artwork mount for the local bucket.
-     * @returns Mount
-     */
-    public async findOrCreateArtworkMount(): Promise<Mount> {
-        const maxRetries = 10;
-        let currentTry = 0;
-        let canRetryTransaction = true;
-
-        let mount = null;
-        while (canRetryTransaction) {
-            currentTry++;
-
-            try {
-                mount = await this.findOrCreateArtworkMountLocked();
-            } catch (e) {}
-
-            if (typeof mount != "undefined" || mount != null) {
-                canRetryTransaction = false; // proceed, because everything is fine
-            }
-
-            if (currentTry >= maxRetries) {
-                throw new Error("Deadlock on findOrCreateArtworkMount found.");
-            }
-        }
-
-        return mount;
     }
 
     /**
@@ -188,12 +133,11 @@ export class MountService {
      * @param createMountDto Mount data
      * @returns Mount
      */
-    public async create(createMountDto: CreateMountDTO, type: MountType = MountType.FILES): Promise<Mount> {
+    public async create(createMountDto: CreateMountDTO): Promise<Mount> {
         const mount = this.repository.create();
         mount.name = createMountDto.name;
         mount.directory = createMountDto.directory;
         mount.bucket = { id: createMountDto.bucketId } as Bucket;
-        mount.type = type;
 
         return new Promise<Mount>((resolve, reject) => {
             fs.mkdir(createMountDto.directory, { recursive: true }, (err: Error) => {
@@ -261,7 +205,7 @@ export class MountService {
                 directory: path.join(this.storage.getSoundcoreDir(), RandomUtil.randomString(32)),
                 name: `Default Mount #${RandomUtil.randomString(4)}`,
                 setAsDefault: true,
-            }, MountType.FILES);
+            });
         }
 
         return defaultMount;

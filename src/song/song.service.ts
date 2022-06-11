@@ -1,43 +1,31 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-
-import NodeID3 from 'node-id3';
-
+import fs from "fs";
+import NodeID3 from "node-id3";
 import ffprobe from 'ffprobe';
 import ffprobeStatic from "ffprobe-static";
 
-import fs from 'fs';
-
-import { Index } from '../index/entities/index.entity';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { CreateSongDTO } from './dtos/create-song.dto';
 import { Song } from './entities/song.entity';
 import { SongRepository } from './repositories/song.repository';
-import { ID3TagsDTO } from './dtos/id3-tags.dto';
-import { ArtistService } from '../artist/artist.service';
 import { IndexStatus } from '../index/enum/index-status.enum';
-import { GeniusService } from '../genius/services/genius.service';
 import { Page, Pageable } from 'nestjs-pager';
-import { AlbumService } from '../album/album.service';
-import { ArtworkService } from '../artwork/artwork.service';
-import { StorageService } from '../storage/storage.service';
-import path from 'path';
 import { User } from '../user/entities/user.entity';
-import { IndexReportService } from '../index-report/services/index-report.service';
-import { SongAlbumOrder } from './entities/song-order.entity';
+import { Artwork } from '../artwork/entities/artwork.entity';
+import { SongUniqueFindDTO } from "./dtos/unique-find.dto";
+import { GeniusFlag, ResourceFlag } from "../utils/entities/resource";
+import { ID3TagsDTO } from "./dtos/id3-tags.dto";
+import { RedisLockableService } from "../utils/services/redis-lockable.service";
+import { RedlockError } from "../exceptions/redlock.exception";
 
 @Injectable()
-export class SongService {
-  
-    private logger: Logger = new Logger(SongService.name)
+export class SongService extends RedisLockableService {
+    private readonly logger: Logger = new Logger(SongService.name)
 
     constructor(
-        private geniusService: GeniusService,
-        private albumService: AlbumService,
-        private artworkService: ArtworkService,
-        private artistService: ArtistService,
-        private storageServie: StorageService,
-        private indexReportService: IndexReportService,
-        private songRepository: SongRepository
-    ){}
+        private readonly repository: SongRepository
+    ){
+        super();
+    }
 
     /**
      * Find page with the 20 latest indexed songs.
@@ -45,7 +33,7 @@ export class SongService {
      */
     public async findLatestPage(user?: User): Promise<Page<Song>> {
         const MAX_ELEMENTS = 20;
-        const result = await this.songRepository.createQueryBuilder("song")
+        const result = await this.repository.createQueryBuilder("song")
             .leftJoinAndSelect("song.artwork", "artwork")
             .leftJoin("song.artists", "artist")
             .leftJoin("song.index", "index")
@@ -75,7 +63,7 @@ export class SongService {
      */
     public async findOldestReleasePage(user?: User): Promise<Page<Song>> {
         const MAX_ELEMENTS = 20;
-        const result = await this.songRepository.createQueryBuilder("song")
+        const result = await this.repository.createQueryBuilder("song")
             .leftJoinAndSelect("song.artwork", "artwork")
             .leftJoin("song.artists", "artist")
             .leftJoin("song.index", "index")
@@ -105,7 +93,7 @@ export class SongService {
      * @returns Song
      */
     public async findById(songId: string, user?: User): Promise<Song> {
-        const qb = this.songRepository.createQueryBuilder("song")
+        const qb = this.repository.createQueryBuilder("song")
             .leftJoinAndSelect("song.artwork", "artwork")
             .leftJoinAndSelect("song.label", "label")
             .leftJoinAndSelect("song.publisher", "publisher")
@@ -130,11 +118,11 @@ export class SongService {
     }
 
     public async findByIdWithArtwork(songId: string) {
-        return this.songRepository.findOne({ where: { id: songId }, relations: ["artwork", "artwork.mount"]});
+        return this.repository.findOne({ where: { id: songId }, relations: ["artwork", "artwork.mount"]});
     }
 
     public async findByTitleAndArtists(title: string, artists: string[]) {
-        const result = await this.songRepository.createQueryBuilder("song")
+        const result = await this.repository.createQueryBuilder("song")
             .leftJoin("song.artists", "artist")
             .where("song.title = :title AND artist.name IN(:artists)", { title, artists })
             .select(["song.id"])
@@ -149,7 +137,7 @@ export class SongService {
      * @returns Song
      */
     public async findByIdWithIndex(songId: string): Promise<Song> {
-        return this.songRepository.findOne({ where: { id: songId }, relations: ["index", "index.mount"]})
+        return this.repository.findOne({ where: { id: songId }, relations: ["index", "index.mount"]})
     }
 
     /**
@@ -158,7 +146,7 @@ export class SongService {
      * @returns Song[]
      */
     public async findTopSongsByArtist(artistId: string, user?: User, pageable?: Pageable): Promise<Page<Song>> {
-        const qb = await this.songRepository.createQueryBuilder('song')
+        const qb = await this.repository.createQueryBuilder('song')
             // Join for relations
             .leftJoin("song.artists", "artist")
             .leftJoin("song.artists", "featArtist")
@@ -212,7 +200,7 @@ export class SongService {
      * @returns Song[]
      */
      public async findTopSongsIdsByArtist(artistId: string): Promise<Page<Song>> {
-        const qb = await this.songRepository.createQueryBuilder('song')
+        const qb = await this.repository.createQueryBuilder('song')
             // Join for relations
             .leftJoin("song.likedBy", "likedByAll")
             .leftJoin("song.index", "index")
@@ -251,7 +239,7 @@ export class SongService {
      * @returns Page<Song>
      */
     public async findSongsByArtist(artistId: string, pageable: Pageable, user?: User): Promise<Page<Song>> {
-        const qb = await this.songRepository.createQueryBuilder('song')
+        const qb = await this.repository.createQueryBuilder('song')
             // Join for relations
             .leftJoin("song.artists", "artist")
             .leftJoinAndSelect("song.artwork", "artwork")
@@ -300,7 +288,7 @@ export class SongService {
      * @returns Page<Song>
      */
      public async findIdsByArtist(artistId: string): Promise<Page<Song>> {
-        const qb = await this.songRepository.createQueryBuilder('song')
+        const qb = await this.repository.createQueryBuilder('song')
             // Join for relations
             .leftJoin("song.artists", "artist")
             .leftJoin("song.index", "index")
@@ -326,7 +314,7 @@ export class SongService {
      * @returns Page<Song>
      */
     public async findByGenreAndOrArtist(genreId: string, artistId?: string, pageable?: Pageable, user?: User): Promise<Page<Song>> {
-        let qb = this.songRepository.createQueryBuilder("song")
+        let qb = this.repository.createQueryBuilder("song")
             .leftJoin("song.genres", "genre")
             .leftJoinAndSelect("song.artwork", "artwork")
             .leftJoin("song.artists", "artist")
@@ -357,7 +345,7 @@ export class SongService {
      * @returns Page<Song>
      */
     public async findByAlbum(albumId: string, pageable: Pageable, user?: User): Promise<Page<Song>> {
-        const qb = this.songRepository.createQueryBuilder("song")
+        const qb = this.repository.createQueryBuilder("song")
             .leftJoin("song.artists", "artist")
             .leftJoin("song.albums", "album")
             .leftJoin("song.index", "index")
@@ -396,7 +384,7 @@ export class SongService {
      * @returns Page<Song>
      */
     public async findIdsByAlbum(albumId: string): Promise<Page<Song>> {
-        const qb = this.songRepository.createQueryBuilder("song")
+        const qb = this.repository.createQueryBuilder("song")
             .leftJoin("song.index", "index")
             .leftJoin("song.albums", "album")
 
@@ -420,7 +408,7 @@ export class SongService {
     public async findByCollectionAndOrArtist(user: User, pageable: Pageable, artistId?: string): Promise<Page<Song>> {
         // TODO: Ignore indexes that are not OK
         // Fetch available elements
-        let qb = await this.songRepository.createQueryBuilder('song')
+        let qb = await this.repository.createQueryBuilder('song')
             .leftJoin("song.likedBy", "likedBy")
             .leftJoin("song.index", "index")
 
@@ -441,7 +429,7 @@ export class SongService {
         if(artistId) qb = qb.andWhere("artist.id = :artistId", { artistId });
 
         // Count available elements
-        let countQb = await this.songRepository.createQueryBuilder("song")
+        let countQb = await this.repository.createQueryBuilder("song")
             .leftJoin("song.likedBy", "likedBy")
             .leftJoin("song.index", "index")
 
@@ -472,7 +460,7 @@ export class SongService {
      */
     public async findIdsByCollection(user: User, artistId?: string): Promise<Page<Song>> {
         // Fetch available elements
-        let qb = this.songRepository.createQueryBuilder('song')
+        let qb = this.repository.createQueryBuilder('song')
             .leftJoin("song.index", "index")
             .leftJoin("song.likedBy", "likedBy")
             .where("index.status = :status AND likedBy.userId = :userId", { status: IndexStatus.OK, userId: user?.id })
@@ -491,7 +479,7 @@ export class SongService {
      */
     public async findByPlaylist(playlistId: string, user?: User, pageable?: Pageable): Promise<Page<Song>> {
         // TODO: Check if user has access to playlist
-        const qb = this.songRepository.createQueryBuilder("song")
+        const qb = this.repository.createQueryBuilder("song")
             .leftJoinAndSelect("song.artwork", "artwork")
             .leftJoin("song.artists", "artist")
             .leftJoin("song.albums", "album")
@@ -524,7 +512,7 @@ export class SongService {
      */
      public async findIdsByPlaylist(playlistId: string, user?: User): Promise<Page<Song>> {
         // TODO: Check if user has access to playlist
-        const qb = this.songRepository.createQueryBuilder("song")
+        const qb = this.repository.createQueryBuilder("song")
             .leftJoin("song.playlists", "item")
             .leftJoin("item.playlist", "playlist")
             .leftJoin("song.index", "index")
@@ -540,7 +528,7 @@ export class SongService {
     }
 
     public async findCoverSongsInPlaylist(playlistId: string): Promise<Page<Song>> {
-        const qb = this.songRepository.createQueryBuilder("song")
+        const qb = this.repository.createQueryBuilder("song")
             .leftJoinAndSelect("song.artwork", "artwork")
             .leftJoinAndSelect("artwork.mount", "mount")
             .leftJoin("song.playlists", "item")
@@ -565,7 +553,7 @@ export class SongService {
      * @returns Page<Song>
      */
     public async findByUploaderId(uploaderId: string, pageable: Pageable): Promise<Page<Song>> {
-        return this.songRepository.findAll(pageable, {
+        return this.repository.findAll(pageable, {
             relations: ["index", "index.uploader", "artwork", "artists"],
             where: {
                 index: {
@@ -578,190 +566,199 @@ export class SongService {
     }
 
     /**
-     * Create new song entry in database.
-     * @param createSongDto Song data to be saved
+     * Save an song entity.
+     * @param song Entity data to be saved
      * @returns Song
      */
-    private async create(createSongDto: CreateSongDTO): Promise<Song> {
-        const song = new Song();
-        song.name = createSongDto.title;
-        song.duration = createSongDto.duration;
-        
-        return this.songRepository.save(song).catch((error) => {
-            this.logger.error(`Could not create song '${createSongDto.title}' in database: `, error)
-            return null;
+    public async save(song: Song): Promise<Song> {
+        return this.repository.save(song);
+    }
+
+    /**
+     * Create new song entry in database. If the same entry already exists,
+     * the existing one will be returned.
+     * Existing song contains following relations: primaryArtist, featuredArtist, album
+     * @param createSongDto Song data to be saved
+     * @returns [Song, hasExistedBefore]
+     */
+    public async createIfNotExists(createSongDto: CreateSongDTO): Promise<{ song: Song, existed: boolean }> {
+        // Do some validation to be sure there is an existing value
+        createSongDto.duration = createSongDto.duration || 0;
+        createSongDto.order = createSongDto.order || 0;
+        createSongDto.featuredArtists = createSongDto.featuredArtists || [];
+
+        const uniqueDto: SongUniqueFindDTO = {
+            name: createSongDto.name,
+            duration: createSongDto.duration,
+            album: createSongDto.album,
+            primaryArtist: createSongDto.primaryArtist,
+            featuredArtists: createSongDto.featuredArtists
+        }
+
+        const lockName = `${uniqueDto.name}_${uniqueDto.album?.name}_${uniqueDto.duration}_${uniqueDto.primaryArtist?.name}_${uniqueDto.featuredArtists.map((artist) => artist.name).join("-")}`;
+
+        return this.lock(lockName, async (signal) => {
+            // Execute find query.
+            const existingSong = await this.findUniqueSong(uniqueDto)
+            // If song already exists
+            if(existingSong) return { song: existingSong, existed: true };
+            if(signal.aborted) throw new RedlockError();
+
+            const song = new Song();
+            song.name = createSongDto.name;
+            song.primaryArtist = createSongDto.primaryArtist;
+            song.featuredArtists = createSongDto.featuredArtists;
+            song.album = createSongDto.album;
+            song.order = createSongDto.order;
+            song.duration = createSongDto.duration;
+            song.file = createSongDto.file;
+            song.artwork = createSongDto.artwork;
+
+            return this.repository.save(song).then(async (result) => {
+                return { song: result, existed: false }
+            });
         });
     }
 
     /**
-     * Create song metadata entry in database extracted from an indexed file.
-     * @param index Indexed file to get metadata from
-     * @returns Index
+     * Set the artwork of a song.
+     * @param idOrObject Id or song object
+     * @param artwork Artwork to set
+     * @returns Song
      */
-    public async createFromIndex(index: Index): Promise<Song> {
-        const filepath = this.storageServie.buildFilepath(index);
-        this.indexReportService.appendInfo(index.report, `Extracting song metadata from file '${filepath}'`);
+    public async setArtwork(idOrObject: string | Song, artwork: Artwork): Promise<Song> {
+        const song = await this.resolveSong(idOrObject);
+        if(!song) throw new NotFoundException("Could not find song.");
 
-        if(!fs.existsSync(filepath)) {
-            this.indexReportService.appendError(index.report, `Could not find song file '${filepath}'`);
-            throw new NotFoundException("Could not find song file");
-        }
-
-        const id3tags = await this.readId3Tags(filepath, index);
-        let song = null;
-
-        if(index.song) {
-            song = index.song;
-            song.index = index;
-        } else {
-            // TODO: Check if there is a song connected to an indexId
-            // Maybe the server stopped or crashed during relation saving and did not finish the task
-            // correctly somehow. This seems to happen actually.
-
-            // As there is no song on the current index at this point in code, maybe there is a song with exactly that index
-
-            song = await this.create({
-                duration: id3tags.duration,
-                title: (id3tags.title || path.parse(filepath).name)?.replace(/^[ ]+|[ ]+$/g,'')
-            }).catch((error: Error) => {
-                this.logger.error(`Could not save index relations in database for song ${filepath}: `, error);
-                this.indexReportService.appendError(index.report, `Could not create song: ${error.message}`)
-                throw error;
-            });
-
-            song.index = index;
-            await this.songRepository.save(song).catch((reason) => {
-                this.logger.error(`Could not save index relations in database for song ${filepath}: `, reason);
-                this.indexReportService.appendError(index.report, `Could not save index relations in database: ${reason.message}`)
-                throw reason;
-            });
-        }
-
-        if(!song) {
-            this.indexReportService.appendError(index.report, `Cannot create song entity for file '${filepath}'`);
-            throw new NotFoundException("Cannot create song entity.");
-        }
-
-        try {           
-            // Create artwork
-            const artwork = await this.artworkService.createFromIndexAndBuffer(index, id3tags.artwork).catch((error: Error) => {
-                this.indexReportService.appendStackTrace(index.report, `Failed creating artwork from ID3Tags: '${error.message}'`, error.stack);
-            });
-            if(artwork) song.artwork = artwork;
-
-            // If there are artists on id3 tags -> Create them if they do not exist already
-            // Otherwise they will be retrieved and added to the song.
-            if(!song.artists) song.artists = [];
-            if(id3tags.artists && id3tags.artists.length > 0) {
-                // Create all artists found on id3tags, but
-                // only if they do not exist
-                await Promise.all(id3tags.artists.map(async (id3Artist) => {
-                    return await this.artistService.createIfNotExists({ name: id3Artist.name, mountForArtworkId: index.mount.id })
-                })).then((artists) => {
-                    // Filter out duplicates
-                    const existing = song.artists.map((artist) => artist.id)
-                    song.artists.push(...artists.filter((artist) => !!artist && !existing.includes(artist.id)))
-                    this.indexReportService.appendInfo(index.report, `Adding '${song.artists.map((a) => a.name).join(", ")}' as artists to song`);
-                }).catch((reason) => {
-                    this.indexReportService.appendError(index.report, `Failed adding artist(s) to song: ${reason.message}`);
-                });
-            }
-
-            // If there is an album title on id3tags, create it if it does not exist already.
-            // If it exists, just add it to song.
-            if(!song.albums) song.albums = [];
-            if(id3tags.album) {
-
-                const album = await this.albumService.createIfNotExists({ title: id3tags.album, artist: song.artists[0], geniusSearchArtists: song.artists, mountForArtworkId: index.mount.id }).then((state) => state.album).catch((reason) => {
-                    this.indexReportService.appendError(index.report, `Failed creating album '${id3tags.album}' for song: ${reason.message}`);
-                    return null;
-                });
-
-                if(album) {
-                    const existing = song.albums.map((album) => album.id);
-                    if(!existing.includes(album?.id)) {
-                        song.albums.push(album);
-
-                        if(!song.albumOrders) song.albumOrders = [];
-                        const existsOrder = song.albumOrders.map((order) => order.album.id);
-                        if(!existsOrder.includes(album.id)) {
-                            const order = new SongAlbumOrder();
-                            order.album = album;
-                            order.song = song;
-                            order.nr = id3tags.orderNr;
-
-                            song.albumOrders.push(order);
-                        }
-                        
-                        this.indexReportService.appendInfo(index.report, `Added song to album '${album.title}'`);
-                    }
-                }
-            }
-
-            // TODO: Make this sync
-            await this.geniusService.findAndApplySongInfo(song).then(() => {
-                song.hasGeniusLookupFailed = false;
-            }).catch((error: Error) => {
-                song.hasGeniusLookupFailed = true;
-                this.indexReportService.appendError(index.report, `Something went wrong on Genius.com lookup: ${error.message}`);
-            })
-
-            // Save relations to database
-            await this.songRepository.save(song).catch((reason) => {
-                this.logger.error(`Could not save relations in database for song ${filepath}: `, reason);
-                this.indexReportService.appendError(index.report, `Could not save relations in database: ${reason.message}`)
-            });
-        } catch (error) {
-            await this.songRepository.delete({ id: song.id });
-            throw error;
-        }
-
-        // Make sure the index is updated to the song for future internal processing.
-        song.index = index;
-        return song;
+        song.artwork = artwork;
+        return this.repository.save(song);
     }
 
     /**
-     * Extract ID3-Tags from audio file.
-     * @param filepath Path to the file.
+     * Set the flag of a song.
+     * @param idOrObject Id or song object
+     * @param flag Flag to set
+     * @returns Song
+     */
+    public async setFlag(idOrObject: string | Song, flag: ResourceFlag): Promise<Song> {
+        const song = await this.resolveSong(idOrObject);
+        if(!song) throw new NotFoundException("Could not find song.");
+
+        song.flag = flag;
+        return this.repository.save(song);
+    }
+
+    /**
+     * Set the genius flag of a song.
+     * @param idOrObject Id or song object
+     * @param flag Genius Flag to set
+     * @returns Song
+     */
+    public async setGeniusFlag(idOrObject: string | Song, flag: GeniusFlag): Promise<Song> {
+        const song = await this.resolveSong(idOrObject);
+        if(!song) throw new NotFoundException("Could not find song.");
+
+        song.geniusFlag = flag;
+        return this.repository.save(song);
+    }
+
+    /**
+     * Set the order in the song's album.
+     * @param idOrObject Id or song object
+     * @param order Updated album order number
+     * @returns Song
+     */
+    public async setAlbumOrder(idOrObject: string | Song, order: number): Promise<Song> {
+        const song = await this.resolveSong(idOrObject);
+        if(!song) throw new NotFoundException("Could not find song.");
+
+        song.order = order;
+        return this.repository.save(song);
+    }
+
+    /**
+     * Read ID3Tags from a mp3 file.
+     * @param filepath Path to mp3 file
      * @returns ID3TagsDTO
      */
-    private async readId3Tags(filepath: string, indexContext: Index): Promise<ID3TagsDTO> {
+    public async readID3TagsFromFile(filepath: string): Promise<ID3TagsDTO> {
         const id3Tags = NodeID3.read(fs.readFileSync(filepath));
 
         // Get duration in seconds
-        const probe = await ffprobe(filepath, { path: ffprobeStatic.path })
+        const probe = await ffprobe(filepath, {
+            path: ffprobeStatic.path
+        })
+
         const durationInSeconds = Math.round(probe.streams[0].duration || 0);
 
         // Get artists
         const artists: string[] = [];
-        if(id3Tags.artist) {
+        if (id3Tags.artist) {
             artists.push(...(id3Tags.artist.split("/") || []))
-            for(const index in artists) {
-                artists.push(...artists[index].split(","))
+            for (const index in artists) {
+                artists.push(...artists[index].split(",").map((name) => name.trim()))
                 artists.splice(parseInt(index), 1)
             }
         }
-        
+
         // Get artwork buffer
         let artworkBuffer: Buffer = undefined;
-        if(id3Tags?.image && id3Tags.image["imageBuffer"]) {
+        if (id3Tags?.image && id3Tags.image["imageBuffer"]) {
             artworkBuffer = id3Tags.image["imageBuffer"]
         }
 
+        // Build result DTO
         const result: ID3TagsDTO = {
-            title: id3Tags.title,
+            title: id3Tags.title.trim(),
             duration: durationInSeconds,
-            artists: artists.map((name) => ({ name })),
-            album: id3Tags.album,
-            artwork: artworkBuffer,
-            orderNr: parseInt(id3Tags.trackNumber?.split("/")?.[0]) || undefined
+            artists: artists.map((name) => ({
+                name
+            })),
+            album: id3Tags.album.trim(),
+            cover: artworkBuffer,
+            orderNr: parseInt(id3Tags.trackNumber?.split("/")?.[0]) || null
         }
-    
-        const context = {...result};
-        context.artwork = undefined
-        this.indexReportService.appendInfo(indexContext.report, `Read ID3Tags from file '${filepath}'`, context);
+
         return result
+    }
+
+    /**
+     * Resolve an id or object to song object.
+     * @param idOrObject ID of the song or song object.
+     * @returns Song
+     */
+    private async resolveSong(idOrObject: string | Song): Promise<Song> {
+        if(typeof idOrObject == "string") {
+            return this.findById(idOrObject);
+        }
+
+        return idOrObject as Song;
+    }
+
+    /**
+     * Find a unique song for certain criterias that are usually used to prove
+     * a songs uniqueness.
+     * @param uniqueSong Data to prove uniqueness
+     * @returns Song
+     */
+    private async findUniqueSong(uniqueSong: SongUniqueFindDTO): Promise<Song> {
+        let query = this.repository.createQueryBuilder("song")
+                .leftJoinAndSelect("song.primaryArtist", "primaryArtist")
+                .leftJoinAndSelect("song.featuredArtists", "featuredArtist")
+                .leftJoinAndSelect("song.album", "album")
+                .where("song.name = :name AND album.name = :album AND song.duration = :duration AND primaryArtist.name = :artist", { 
+                    name: uniqueSong.name,
+                    duration: uniqueSong.duration,
+                    album: uniqueSong.album?.name,
+                    artist: uniqueSong.primaryArtist?.name
+                });
+
+            // Build query to include all featuredArtists in where clause
+            const featuredArtists = uniqueSong.featuredArtists.map((artist) => artist.name);
+            query = query.andWhere(`featuredArtist.name = '${featuredArtists.join("' OR featuredArtist.name = '")}'`);
+
+            // Execute query.
+            return query.getOne();
     }
 
     /**
@@ -781,7 +778,7 @@ export class SongService {
         // TODO: Sort by "views"?
 
         // Find song by title or if the artist has similar name
-        let qb = this.songRepository.createQueryBuilder("song")
+        let qb = this.repository.createQueryBuilder("song")
             .leftJoin("song.artists", "artist")
             .leftJoinAndSelect("song.artwork", "artwork")
             .leftJoin("song.index", "index")

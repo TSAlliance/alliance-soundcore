@@ -2,27 +2,30 @@
 import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn, Index as IndexDec } from "typeorm";
 import { Album } from "../../album/entities/album.entity";
 import { Artist } from "../../artist/entities/artist.entity";
-import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Distributor } from "../../distributor/entities/distributor.entity";
 import { Genre } from "../../genre/entities/genre.entity";
-import { Index } from "../../index/entities/index.entity";
 import { Label } from "../../label/entities/label.entity";
 import { PlaylistItem } from "../../playlist/entities/playlist-item.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
 import { Stream } from "../../stream/entities/stream.entity";
-import { SongAlbumOrder } from "./song-order.entity";
 import { Slug } from "../../utils/slugGenerator";
-import { Resource, ResourceType } from "../../utils/entities/resource";
+import { GeniusFlag, Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
 import { LikedResource } from "../../collection/entities/like.entity";
+import { File } from "../../file/entities/file.entity";
+import { Artwork } from "../../artwork/entities/artwork.entity";
 
 @Entity()
 export class Song implements Resource {
+    public resourceType: ResourceType = "song";
 
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
-    @Column({ default: "song" as ResourceType, update: false })
-    public resourceType: ResourceType;
+    @Column({ type: "tinyint", default: 0 })
+    public flag: ResourceFlag;
+
+    @Column({ type: "tinyint", default: 0 })
+    public geniusFlag: GeniusFlag;
 
     @Column({ nullable: true, length: 120 })
     public slug: string;
@@ -44,7 +47,7 @@ export class Song implements Resource {
     public youtubeUrl: string;
 
     @Column({ nullable: true, type: "date" })
-    public released: Date;
+    public releasedAt: Date;
 
     @CreateDateColumn()
     public createdAt: Date;
@@ -58,46 +61,39 @@ export class Song implements Resource {
     @Column({ nullable: true, default: '0' })
     public youtubeUrlStart: string;
 
-    @Column({ nullable: true })
-    public geniusUrl: string;
-
-    @Column({ nullable: false, default: false})
-    public hasGeniusLookupFailed: boolean;
-
-    @OneToOne(() => Index, { onDelete: "CASCADE" })
+    @OneToOne(() => File, { onDelete: "CASCADE" })
     @JoinColumn()
-    public index: Index;
+    public file: File;
 
-    @OneToOne(() => Artwork, { onDelete: "SET NULL" })
-    @JoinColumn()
-    public banner: Artwork;
-
-    @OneToOne(() => Artwork, { onDelete: "SET NULL" })
+    @ManyToOne(() => Artwork, { onDelete: "SET NULL" })
     @JoinColumn()
     public artwork: Artwork;
 
+    @ManyToOne(() => Artist)
+    public primaryArtist: Artist;
+
     @ManyToMany(() => Artist)
-    @JoinTable({ name: "artist2song" })
-    public artists: Artist[];
+    @JoinTable({ name: "featuring2song" })
+    public featuredArtists: Artist[];
 
-    @ManyToOne(() => Publisher, { onDelete: "SET NULL" })
+    @ManyToMany(() => Publisher)
+    @JoinTable({ name: "song2publisher" })
+    public publishers: Publisher[];
+
+    @ManyToMany(() => Distributor)
+    @JoinTable({ name: "song2distributor" })
+    public distributors: Distributor[];
+
+    @ManyToMany(() => Label)
+    @JoinTable({ name: "song2label" })
+    public labels: Label[];
+
+    @ManyToOne(() => Album)
     @JoinColumn()
-    public publisher: Publisher;
+    public album: Album;
 
-    @ManyToOne(() => Distributor, { onDelete: "SET NULL" })
-    @JoinColumn()
-    public distributor: Distributor;
-
-    @ManyToOne(() => Label, { onDelete: "SET NULL" })
-    @JoinColumn()
-    public label: Label;
-
-    @ManyToMany(() => Album)
-    @JoinTable({ name: "song2album" })
-    public albums: Album[];
-
-    @OneToMany(() => SongAlbumOrder, (order) => order.song, { cascade: ["insert", "update", "remove"] })
-    public albumOrders: SongAlbumOrder[];
+    @Column({ nullable: true, default: null })
+    public order: number;
 
     @ManyToMany(() => Genre)
     @JoinTable({ name: "song2genre" })
@@ -118,7 +114,6 @@ export class Song implements Resource {
     public streamCount?: number;
     public liked?: boolean;
     public likedAt?: Date;
-    public order?: number;
 
     @BeforeInsert()
     public onBeforeInsert() {

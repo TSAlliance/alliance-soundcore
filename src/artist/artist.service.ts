@@ -1,23 +1,35 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Page, Pageable } from 'nestjs-pager';
-import { GeniusService } from '../genius/services/genius.service';
+import { EVENT_ARTIST_CREATED } from '../constants';
+import { RedlockError } from '../exceptions/redlock.exception';
+import { Mount } from '../mount/entities/mount.entity';
 import { User } from '../user/entities/user.entity';
+import { GeniusFlag, ResourceFlag } from '../utils/entities/resource';
+import { RedisLockableService } from '../utils/services/redis-lockable.service';
 import { CreateArtistDTO } from './dtos/create-artist.dto';
 import { Artist } from './entities/artist.entity';
 import { ArtistRepository } from './repositories/artist.repository';
 
 @Injectable()
-export class ArtistService {
-    
+export class ArtistService extends RedisLockableService {
     private logger: Logger = new Logger(ArtistService.name)
 
     constructor(
-        private geniusService: GeniusService,
-        private artistRepository: ArtistRepository
-    ){}
+        private readonly repository: ArtistRepository,
+        private readonly eventEmitter: EventEmitter2
+    ){
+        super();
+    }
+
+    public async findById(artistId: string, authentication?: User): Promise<Artist> {
+        return await this.repository.createQueryBuilder("artist")
+            .where("artist.id = :artistId", { artistId })
+            .getOne();
+    }
 
     public async findProfileById(artistId: string, user: User): Promise<Artist> {
-        const result = await this.artistRepository.createQueryBuilder("artist")
+        const result = await this.repository.createQueryBuilder("artist")
             .leftJoinAndSelect("artist.artwork", "artwork")
             .leftJoinAndSelect("artist.banner", "banner")
             .leftJoin("artist.songs", "song")
@@ -36,7 +48,7 @@ export class ArtistService {
 
         // TODO: Separate stats and artist info
         
-        const likedCount = await this.artistRepository.createQueryBuilder("artist")
+        const likedCount = await this.repository.createQueryBuilder("artist")
             .leftJoin("artist.songs", "song")
             .leftJoin("song.likedBy", "likedBy", "likedBy.userId = :userId", { userId: user?.id })
 
@@ -60,42 +72,93 @@ export class ArtistService {
     }
 
     public async findByName(name: string): Promise<Artist> {
-        return await this.artistRepository.findOne({ where: { name }});
+        return await this.repository.findOne({ where: { name }});
     }
 
     public async existsByName(name: string): Promise<boolean> {
-        return !!(await this.artistRepository.findOne({ where: { name }}));
+        return !!(await this.repository.findOne({ where: { name }}));
     }
 
-    public async createIfNotExists(createArtistDto: CreateArtistDTO): Promise<Artist> {
-        createArtistDto.name = createArtistDto.name?.replace(/^[ ]+|[ ]+$/g,'')
-        // Get artist from db if it does exists.
-        // The regex removes leading and trailing spaces
-        let artist = await this.findByName(createArtistDto.name)
-        
-        // Artist exists? If not, create and gather information
-        // Otherwise just return existing artist.
-        if(!artist) {
+    /**
+     * Save an artist entity.
+     * @param artist Entity data to be saved
+     * @returns Artist
+     */
+    public async save(artist: Artist): Promise<Artist> {
+        return this.repository.save(artist);
+    }
 
-            // Create new artist in database
-            artist = new Artist();
+    /**
+     * Create an artist if not exists.
+     * @param createArtistDto Data to create artist from
+     * @returns Artist
+     */
+    public async createIfNotExists(createArtistDto: CreateArtistDTO, useMount: Mount): Promise<{ artist: Artist, existed: boolean }> {
+        createArtistDto.name = createArtistDto.name?.replace(/^[ ]+|[ ]+$/g,'').trim();
+
+        // Acquire lock
+        return this.lock(createArtistDto.name, async (signal) => {
+            const existingArtist = await this.findByName(createArtistDto.name);
+            if(existingArtist) return { artist: existingArtist, existed: true }; 
+            if(signal.aborted) throw new RedlockError();
+
+            const artist = new Artist();
             artist.name = createArtistDto.name;
             artist.description = createArtistDto.description;
-            artist.geniusId = createArtistDto.geniusId;
-            artist.geniusUrl = createArtistDto.geniusUrl;
-            artist = await this.artistRepository.save(artist)
 
-            await this.geniusService.findAndApplyArtistInfo(artist, createArtistDto.mountForArtworkId).then(async () => {
-                artist.hasGeniusLookupFailed = false;
-                await this.artistRepository.save(artist);
-            }).catch((reason) => {
-                artist.hasGeniusLookupFailed = true;
-                this.logger.warn(`Something went wrong whilst gathering information on artist '${createArtistDto.name}': ${reason.message}`)
-                this.artistRepository.save(artist);
-            })
+            return this.repository.save(artist).then(async (result) => {
+                // If genius lookup is triggered on creation,
+                // emit event for the genius service to catch
+                // the artist and trigger the lookup.
+                if(createArtistDto.lookupGenius) {
+                    this.eventEmitter.emit(EVENT_ARTIST_CREATED, artist, useMount)
+                }
+                return { artist: result, existed: false };
+            }).catch(async (error) => {
+                throw error;
+            });
+        })
+    }
+
+    /**
+     * Set resource flag of an artist.
+     * @param idOrObject Artist id or object
+     * @param flag Resource flag
+     * @returns Artist
+     */
+    public async setFlag(idOrObject: string | Artist, flag: ResourceFlag): Promise<Artist> {
+        const artist = await this.resolveArtist(idOrObject);
+        if(!artist) throw new NotFoundException("Artist not found.");
+
+        artist.flag = flag;
+        return this.repository.save(artist);
+    }
+
+    /**
+     * Set resource flag of an artist.
+     * @param idOrObject Artist id or object
+     * @param flag Genius flag
+     * @returns Artist
+     */
+    public async setGeniusFlag(idOrObject: string | Artist, flag: GeniusFlag): Promise<Artist> {
+        const artist = await this.resolveArtist(idOrObject);
+        if(!artist) throw new NotFoundException("Artist not found.");
+
+        artist.geniusFlag = flag;
+        return this.repository.save(artist);
+    }
+
+    /**
+     * Resolve an id or object to an artist object.
+     * @param idOrObject Artist id or object
+     * @returns Artist
+     */
+    protected async resolveArtist(idOrObject: string | Artist): Promise<Artist> {
+        if(typeof idOrObject == "string") {
+            return this.findById(idOrObject);
         }
 
-        return artist;
+        return idOrObject;
     }
 
     public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Artist>> {
@@ -105,7 +168,7 @@ export class ArtistService {
             query = `%${query.replace(/\s/g, '%')}%`;
         }
 
-        let qb = this.artistRepository.createQueryBuilder("artist")
+        let qb = this.repository.createQueryBuilder("artist")
             .leftJoinAndSelect("artist.artwork", "artwork")
             .leftJoinAndSelect("artist.banner", "banner")
 

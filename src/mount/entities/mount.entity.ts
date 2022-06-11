@@ -3,11 +3,6 @@ import { Bucket } from "../../bucket/entities/bucket.entity";
 import { File } from "../../file/entities/file.entity";
 import { MountStatus } from "../enums/mount-status.enum";
 
-export enum MountType {
-    FILES = 1,
-    ARTWORKS = 2
-}
-
 @Entity()
 export class Mount {
 
@@ -16,9 +11,6 @@ export class Mount {
 
     @Column({ length: 32 })
     public name: string;
-
-    @Column({ type: "tinyint", default: 1 })
-    public type: MountType;
 
     @Column({ nullable: false, type: "text" })
     public directory: string;
@@ -47,7 +39,7 @@ export class Mount {
 
     // Below fields may only be populated
     // after custom database queries.
-    public indexCount?: number;
+    public fileCount?: number;
     public usedDiskSpace?: number;
 
 }

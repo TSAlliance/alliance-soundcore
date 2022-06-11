@@ -1,19 +1,19 @@
 import { Controller, Get, Param } from '@nestjs/common';
 import { Pageable } from 'nestjs-pager';
-import { GenreService } from './genre.service';
+import { GenreService } from '../services/genre.service';
 
 @Controller('genres')
 export class GenreController {
-  constructor(private readonly genreService: GenreService) {}
+  constructor(private readonly service: GenreService) {}
 
   @Get("/byArtist/:artistId")
   public async findGenreByArtist(@Param("artistId") artistId: string, @Pageable() pageable: Pageable) {
-    return this.genreService.findGenreByArtist(artistId, pageable);
+    return this.service.findByArtist(artistId, pageable);
   }
 
   @Get(":genreId")
   public async findGenreById(@Param("genreId") genreId: string) {
-    return this.genreService.findGenreById(genreId);
+    return this.service.findByIdOrSlug(genreId);
   }
 
   
