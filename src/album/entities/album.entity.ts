@@ -72,7 +72,6 @@ export class Album implements Resource {
 
     public songsCount?: number;
     public totalDuration?: number;
-    public featuredArtists?: Artist[];
 
     @BeforeInsert()
     public onBeforeInsert() {

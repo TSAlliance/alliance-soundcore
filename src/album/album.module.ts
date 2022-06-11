@@ -1,9 +1,9 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { AlbumService } from './album.service';
-import { AlbumController } from './album.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AlbumRepository } from './repositories/album.repository';
 import { GeniusModule } from '../genius/genius.module';
+import { AlbumController } from './controllers/album.controller';
 
 @Module({
   controllers: [AlbumController],

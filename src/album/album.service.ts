@@ -3,6 +3,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Page, Pageable } from 'nestjs-pager';
 import { Artist } from '../artist/entities/artist.entity';
 import { EVENT_ALBUM_CREATED } from '../constants';
+import { AlbumCreatedEvent } from '../events/albumCreated.event';
 import { RedlockError } from '../exceptions/redlock.exception';
 import { Mount } from '../mount/entities/mount.entity';
 import { User } from '../user/entities/user.entity';
@@ -232,7 +233,7 @@ export class AlbumService extends RedisLockableService {
                 // If genius lookup is triggered on creation,
                 // emit event for the genius service to catch
                 // the album and trigger the lookup.
-                if(createAlbumDto.lookupGenius) this.eventEmitter.emit(EVENT_ALBUM_CREATED, album, useMount);
+                if(createAlbumDto.lookupGenius) this.eventEmitter.emit(EVENT_ALBUM_CREATED, new AlbumCreatedEvent(result, useMount));
                 return { album: result, existed: false };
             }).catch(async (error) => {
                 throw error;
