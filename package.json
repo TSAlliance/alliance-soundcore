@@ -1,7 +1,7 @@
 {
-  "name": "alliance-soundcore",
+  "name": "@soundcore/api",
   "version": "0.0.1",
-  "description": "Soundcore API written using NestJS",
+  "description": "Soundcore API service written using NestJS",
   "author": "z3ttee",
   "private": true,
   "license": "MIT",
@@ -10,6 +10,8 @@
     "build": "nest build",
     "build:docker": "docker builder prune --all --force && docker build -t soundcore:latest .",
     "bundle": "npm run build && node bundle/bundle-packagejson.js && node bundle/bundle-env.js && node bundle/bundle-info.js",
+    "bundle:pm2": "npm run bundle && npm run bundle/bundle-pm2.js ",
+    "bundle:docker": "npm run bundle && docker builder prune --all --force && docker build -t z3ttee/soundcore:latest .",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main",

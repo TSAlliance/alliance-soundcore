@@ -1,31 +1,16 @@
-FROM node:16.14.2-alpine as production
-ARG DIR=/usr/soundcore
+FROM node:16.15-alpine
+LABEL maintainer="Cedric Zitzmann <cedric.zitzmann@gmail.com>"
+LABEL repository="https://github.com/TSAlliance/alliance-soundcore"
 
-WORKDIR ${DIR}
+ARG ROOT=/opt/soundcore/api
+WORKDIR ${ROOT}
 
 # Copy required files for build steps
-RUN mkdir src/
-
-COPY package*.json .
-COPY tsconfig.* .
-COPY .eslintrc* .
-COPY nest-cli*.json .
-COPY src ./src
-
-RUN npm install -g npm@latest @nestjs/cli rimraf glob
+COPY dist/* ${ROOT}
+RUN ls -la
 RUN npm install
-RUN npm run build
 
-# Install frontend
-RUN mkdir app-src/
-RUN mkdir app/
+ENV NODE_ENV=production
 
-COPY app/ ./app
-
-RUN npm install -g @angular/cli
-RUN npm install --prefix="./app"
-RUN npm run build --prefix="./app"
-RUN npm uninstall --prefix="./app"
-
-EXPOSE 3000/tcp
-ENTRYPOINT [ "node", "dist/main" ]
+EXPOSE 3001/tcp
+ENTRYPOINT [ "npm", "run", "start" ]
