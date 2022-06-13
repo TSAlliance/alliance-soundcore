@@ -48,10 +48,7 @@ import { IndexerModule } from './indexer/indexer.module';
       username: process.env.DB_USER,
       password: process.env.DB_PASS,
       database: process.env.DB_NAME,
-      entities: [
-        "src/**/*.entity{ .ts,.js}",
-        "dist/**/*.entity{ .ts,.js}"
-      ],
+      autoLoadEntities: true,
       synchronize: true,
       entityPrefix: process.env.DB_PREFIX,
       retryAttempts: Number.MAX_VALUE,

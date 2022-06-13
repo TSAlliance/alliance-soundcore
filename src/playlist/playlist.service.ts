@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
-import { DeleteResult, In, Not } from 'typeorm';
+import { DeleteResult, In, Not, Repository } from 'typeorm';
 import { SongService } from '../song/song.service';
 import { User } from '../user/entities/user.entity';
 import { CreatePlaylistDTO } from './dtos/create-playlist.dto';
@@ -8,16 +9,14 @@ import { UpdatePlaylistDTO } from './dtos/update-playlist.dto';
 import { PlaylistItem } from './entities/playlist-item.entity';
 import { Playlist } from './entities/playlist.entity';
 import { PlaylistPrivacy } from './enums/playlist-privacy.enum';
-import { PlaylistRepository } from './repositories/playlist.repository';
-import { Song2PlaylistRepository } from './repositories/song2playlist.repository';
 
 @Injectable()
 export class PlaylistService {
     
     constructor(
         private songService: SongService,
-        private playlistRepository: PlaylistRepository,
-        private song2playlistRepository: Song2PlaylistRepository
+        @InjectRepository(Playlist) private playlistRepository: Repository<Playlist>,
+        @InjectRepository(PlaylistItem)  private song2playlistRepository: Repository<PlaylistItem>
     ) {}
 
     public async findById(playlistId: string): Promise<Playlist> {

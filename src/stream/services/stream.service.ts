@@ -1,11 +1,13 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { SongService } from '../../song/song.service';
 import { StorageService } from '../../storage/storage.service';
 
 import fs from "fs"
-import { StreamRepository } from '../repositories/stream.repository';
 import { StreamTokenService } from './stream-token.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Stream } from '../entities/stream.entity';
+import { Repository } from 'typeorm';
 
 @Injectable()
 export class StreamService {
@@ -14,23 +16,23 @@ export class StreamService {
         private tokenService: StreamTokenService,
         private storageService: StorageService,
         private songService: SongService,
-        private streamRepository: StreamRepository,
+        @InjectRepository(Stream) private readonly repository: Repository<Stream>,
     ){}
 
     public async increaseStreamCount(songId: string, listenerId: string) {
-      const stream = await this.streamRepository.findOne({ where: { songId, listenerId }}).catch(() => {
+      const stream = await this.repository.findOne({ where: { songId, listenerId }}).catch(() => {
         return null;
       });
 
       if(!stream) {
-        this.streamRepository.save({ songId, listenerId }).catch(() => {
+        this.repository.save({ songId, listenerId }).catch(() => {
           return null;
         })
         return
       }
       
       stream.streamCount++;
-      this.streamRepository.save(stream).catch(() => {
+      this.repository.save(stream).catch(() => {
         return null;
       })
     }

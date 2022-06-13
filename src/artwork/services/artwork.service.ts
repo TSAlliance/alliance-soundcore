@@ -1,7 +1,6 @@
 import { Injectable, InternalServerErrorException, Logger, NotFoundException } from "@nestjs/common";
 import { CreateArtworkDTO } from "../dtos/create-artwork.dto";
 import { Artwork, ArtworkColors, ArtworkFlag, ArtworkType } from "../entities/artwork.entity";
-import { ArtworkRepository } from "../repositories/artwork.repository";
 import fs from "fs";
 import sharp from "sharp";
 import { ArtworkStorageHelper } from "../helper/artwork-storage.helper";
@@ -11,7 +10,7 @@ import { Slug } from "@tsalliance/utilities";
 import { RedisLockableService } from "../../utils/services/redis-lockable.service";
 import { RedlockError } from "../../exceptions/redlock.exception";
 import axios from "axios";
-import { DeleteResult } from "typeorm";
+import { DeleteResult, Repository } from "typeorm";
 import { Artist } from "../../artist/entities/artist.entity";
 import { Mount } from "../../mount/entities/mount.entity";
 import { Album } from "../../album/entities/album.entity";
@@ -20,13 +19,14 @@ import { Label } from "../../label/entities/label.entity";
 import { Distributor } from "../../distributor/entities/distributor.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
 import { Response } from "express";
+import { InjectRepository } from "@nestjs/typeorm";
 
 @Injectable()
 export class ArtworkService extends RedisLockableService {
     private logger: Logger = new Logger(ArtworkService.name);
 
     constructor(
-        private readonly repository: ArtworkRepository,
+        @InjectRepository(Artwork) private readonly repository: Repository<Artwork>,
         private readonly storageHelper: ArtworkStorageHelper
     ) {
         super()

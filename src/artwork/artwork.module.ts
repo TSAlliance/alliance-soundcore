@@ -3,9 +3,9 @@ import { ArtworkController } from './artwork.controller';
 import { SharedModule } from '../shared/shared.module';
 import { StorageModule } from '../storage/storage.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ArtworkRepository } from './repositories/artwork.repository';
 import { ArtworkService } from './services/artwork.service';
 import { ArtworkStorageHelper } from './helper/artwork-storage.helper';
+import { Artwork } from './entities/artwork.entity';
 
 @Module({
   controllers: [ArtworkController],
@@ -16,7 +16,7 @@ import { ArtworkStorageHelper } from './helper/artwork-storage.helper';
   imports: [
     SharedModule,
     StorageModule,
-    TypeOrmModule.forFeature([ ArtworkRepository ])
+    TypeOrmModule.forFeature([ Artwork ])
   ],
   exports: [
     ArtworkService

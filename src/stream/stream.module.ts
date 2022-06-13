@@ -4,10 +4,10 @@ import { StreamController } from './stream.controller';
 import { StorageModule } from '../storage/storage.module';
 import { SongModule } from '../song/song.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { StreamRepository } from './repositories/stream.repository';
 import { StreamTokenService } from './services/stream-token.service';
 import { JwtModule } from '@nestjs/jwt';
 import { v4 as uuidv4 } from "uuid"
+import { Stream } from './entities/stream.entity';
 
 @Module({
   controllers: [
@@ -21,7 +21,7 @@ import { v4 as uuidv4 } from "uuid"
     SongModule,
     StorageModule,
 
-    TypeOrmModule.forFeature([ StreamRepository ]),
+    TypeOrmModule.forFeature([ Stream ]),
     JwtModule.register({
       verifyOptions: {
         ignoreExpiration: true
