@@ -1,5 +1,5 @@
 import Client from "ioredis";
-import Redlock, { Lock, RedlockAbortSignal } from "redlock";
+import Redlock, { RedlockAbortSignal } from "redlock";
 
 export abstract class RedisLockableService {
 
@@ -12,7 +12,7 @@ export abstract class RedisLockableService {
      * @returns Lock
      */
     protected async lock<T>(name: string, routine?: (signal: RedlockAbortSignal) => Promise<T>, duration = 5000): Promise<T> {
-        const redis = new Client({ host: process.env.REDIS_HOST, port: parseInt(process.env.REDIS_PORT), password: process.env.REDIS_PASS });
+        const redis = new Client({ host: process.env.REDIS_HOST || "127.0.0.1", port: parseInt(process.env.REDIS_PORT) || 6379, password: process.env.REDIS_PASS || "" });
         const redlock = new Redlock([ redis ]);
 
         return redlock.using([name], duration, {
