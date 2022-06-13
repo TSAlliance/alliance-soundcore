@@ -4,7 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import path from 'path';
 import { QUEUE_FILE_NAME } from '../constants';
 import { IndexerModule } from '../indexer/indexer.module';
-import { FileRepository } from './repositories/file.repository';
+import { File } from './entities/file.entity';
 import { FileService } from './services/file.service';
 
 @Module({
@@ -13,7 +13,7 @@ import { FileService } from './services/file.service';
   ],
   imports: [
     IndexerModule,
-    TypeOrmModule.forFeature([ FileRepository ]),
+    TypeOrmModule.forFeature([ File ]),
     BullModule.registerQueue({
       name: QUEUE_FILE_NAME,
       processors: [

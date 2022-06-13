@@ -1,10 +1,10 @@
 
 import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, OneToMany, PrimaryColumn, UpdateDateColumn } from "typeorm";
-import { LikedResource } from "../../collection/entities/like.entity";
+import { Like } from "../../collection/entities/like.entity";
 import { Playlist } from "../../playlist/entities/playlist.entity";
 import { Stream } from "../../stream/entities/stream.entity";
 import { Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
-import { Slug } from "../../utils/slugGenerator";
+import { Slug } from "@tsalliance/utilities";
 
 @Entity()
 export class User implements Resource {
@@ -31,8 +31,8 @@ export class User implements Resource {
     @OneToMany(() => Playlist, (p) => p.author)
     public playlists: Playlist[];
     
-    @OneToMany(() => LikedResource, (l) => l.user, { onDelete: "CASCADE" })
-    public likedSongs: LikedResource;
+    @OneToMany(() => Like, (l) => l.user, { onDelete: "CASCADE" })
+    public likedSongs: Like;
 
     @CreateDateColumn()
     public createdAt: Date;

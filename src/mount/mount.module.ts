@@ -4,10 +4,10 @@ import { Module, OnModuleInit } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { QUEUE_MOUNTSCAN_NAME } from '../constants';
 import { StorageModule } from '../storage/storage.module';
-import { MountRepository } from './repositories/mount.repository';
 import { MountService } from './services/mount.service'
 import { MountController } from './controllers/mount.controller';
 import { MountGateway } from './gateway/mount.gateway';
+import { Mount } from './entities/mount.entity';
 
 @Module({
   controllers: [
@@ -19,7 +19,7 @@ import { MountGateway } from './gateway/mount.gateway';
   ],
   imports: [
     StorageModule,
-    TypeOrmModule.forFeature([ MountRepository ]),
+    TypeOrmModule.forFeature([ Mount ]),
     BullModule.registerQueue({
       name: QUEUE_MOUNTSCAN_NAME,
       processors: [

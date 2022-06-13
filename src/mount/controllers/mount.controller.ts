@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
-import { Page, Pageable } from 'nestjs-pager';
+import { Page, Pageable, Pagination } from 'nestjs-pager';
 import { DeleteResult } from 'typeorm';
 import { CreateMountDTO } from '../dtos/create-mount.dto';
 import { UpdateMountDTO } from '../dtos/update-mount.dto';
@@ -11,7 +11,7 @@ export class MountController {
   constructor(private readonly mountService: MountService) {}
 
   @Get("/byBucket/:bucketId")
-  public async findAllByBucket(@Param("bucketId") bucketId: string, @Pageable() pageable: Pageable): Promise<Page<Mount>> {
+  public async findAllByBucket(@Param("bucketId") bucketId: string, @Pagination() pageable: Pageable): Promise<Page<Mount>> {
     return this.mountService.findByBucketId(bucketId, pageable);
   }
 

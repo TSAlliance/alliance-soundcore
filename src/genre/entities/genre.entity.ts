@@ -3,7 +3,7 @@ import { BeforeInsert, BeforeUpdate, Column, Entity, JoinColumn, JoinTable, Many
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Song } from "../../song/entities/song.entity";
 import { Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
-import { Slug } from "../../utils/slugGenerator";
+import { Slug } from "@tsalliance/utilities";
 
 @Entity()
 export class Genre {

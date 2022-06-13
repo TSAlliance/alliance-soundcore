@@ -1,17 +1,17 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn, TableInheritance } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Album } from "../../album/entities/album.entity";
 import { Playlist } from "../../playlist/entities/playlist.entity";
 import { Song } from "../../song/entities/song.entity";
 import { User } from "../../user/entities/user.entity";
 
-export enum LikedResourceType {
-    SONG = 1,
-    ALBUM = 2,
-    PLAYLIST = 3
+export enum LikeType {
+    SONG = 0,
+    ALBUM,
+    PLAYLIST
 }
 
 @Entity()
-export class LikedResource {
+export class Like {
 
     @PrimaryGeneratedColumn("uuid")
     public id: string;
@@ -19,23 +19,23 @@ export class LikedResource {
     @CreateDateColumn()
     public likedAt: Date;
 
-    @ManyToOne(() => User, { onDelete: "CASCADE" })
+    @Column({ type: "tinyint", default: 0 })
+    public type: LikeType;
+
+    @ManyToOne(() => User, { onDelete: "CASCADE", nullable: false })
     @JoinColumn()
     public user: User;
 
-    @Column({ type: "tinyint", default: 0 })
-    public type: LikedResourceType;
-
-    @ManyToOne(() => Song, { onDelete: "CASCADE" })
+    @ManyToOne(() => Song, { onDelete: "CASCADE", nullable: true })
     @JoinColumn()
-    public song: Song;
+    public song?: Song;
 
-    @ManyToOne(() => Playlist, { onDelete: "CASCADE" })
+    @ManyToOne(() => Playlist, { onDelete: "CASCADE", nullable: true })
     @JoinColumn()
-    public playlist: Playlist;
+    public playlist?: Playlist;
 
-    @ManyToOne(() => Album, { onDelete: "CASCADE" })
+    @ManyToOne(() => Album, { onDelete: "CASCADE", nullable: true })
     @JoinColumn()
-    public album: Album;
+    public album?: Album;
 
 }

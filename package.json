@@ -12,7 +12,8 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main",
-    "docker-compose": "docker-compose up"
+    "docker-compose": "docker-compose up",
+    "depcheck": "npx depcheck"
   },
   "dependencies": {
     "@nestjs/bull": "^0.5.5",
@@ -25,9 +26,10 @@
     "@nestjs/platform-express": "^8.4.6",
     "@nestjs/platform-socket.io": "^8.4.6",
     "@nestjs/schedule": "^2.0.1",
-    "@nestjs/typeorm": "^8.0.4",
+    "@nestjs/typeorm": "^8.1.2",
     "@nestjs/websockets": "^8.4.6",
     "@tsalliance/rest": "^2.0.75",
+    "@tsalliance/utilities": "^1.18",
     "axios": "^0.24.0",
     "bull": "^4.6.2",
     "class-transformer": "^0.4.0",
@@ -37,7 +39,7 @@
     "ffprobe-static": "^3.0.0",
     "glob": "^7.2.0",
     "mysql2": "^2.3.3",
-    "nestjs-pager": "^1.0.23",
+    "nestjs-pager": "^1.0.25",
     "node-id3": "^0.2.3",
     "node-vibrant": "^3.2.1-alpha.1",
     "openid-client": "^5.1.5",
@@ -46,9 +48,9 @@
     "rimraf": "^3.0.2",
     "rxjs": "^7.2.0",
     "sanitize-filename": "^1.6.3",
-    "sharp": "^0.29.3",
+    "sharp": "^0.30.6",
     "socket.io": "^4.4.0",
-    "typeorm": "^0.2.24",
+    "typeorm": "^0.3.6",
     "ytdl-core": "^4.10.1",
     "ytpl": "^2.2.3"
   },

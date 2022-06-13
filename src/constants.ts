@@ -1,6 +1,7 @@
+import path from "node:path"
+
 // Base urls
 export const GENIUS_API_BASE_URL = "https://genius.com/api"
-
 
 // Queue names
 export const QUEUE_INDEX_NAME = "index-queue"
@@ -11,7 +12,6 @@ export const QUEUE_GENIUS_NAME = "genius-queue"
 
 // Database connection names
 export const TYPEORM_CONNECTION_SCANWORKER = "scan-worker-connection"
-export const TYPEORM_CONNECTION_FILEWORKER = "file-worker-connection"
 export const TYPEORM_CONNECTION_INDEXER = "indexer-connection"
 export const TYPEORM_CONNECTION_GENERAL = "default"
 
@@ -22,4 +22,5 @@ export const EVENT_METADATA_CREATED = "metadata-created-event"
 export const EVENT_ARTIST_CREATED = "artist-created-event"
 export const EVENT_ALBUM_CREATED = "album-created-event"
 
-
+// TypeORM
+export const TYPEORM_ENTITY_GLOB = path.join(process.cwd(), "**/*.entity{ .ts,.js}");

@@ -1,4 +1,4 @@
-import { RandomUtil } from "@tsalliance/rest";
+import { Random } from "@tsalliance/utilities";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -9,7 +9,7 @@ export function defaultMountIdProvider(): string {
 
     fs.mkdirSync(soundcoreDir, { recursive: true });
     if(!fs.existsSync(mountFile)) {
-        fs.writeFileSync(mountFile, RandomUtil.randomString(36));
+        fs.writeFileSync(mountFile, Random.randomString(36));
     }
 
     const mountId = fs.readFileSync(mountFile).toString("utf8");

@@ -1,27 +1,23 @@
 import { DoneCallback, Job } from "bull";
 import { ArtistService } from "../../artist/artist.service";
-import { ArtistRepository } from "../../artist/repositories/artist.repository";
-import { TYPEORM_CONNECTION_INDEXER } from "../../constants";
-import { SongRepository } from "../../song/repositories/song.repository";
 import { SongService } from "../../song/song.service";
 import { IndexerProcessDTO, IndexerProcessMode } from "../dtos/indexer-process.dto";
 
 import fs from "fs";
 import path from "path";
 import { Artist } from "../../artist/entities/artist.entity";
-import { AlbumRepository } from "../../album/repositories/album.repository";
 import { AlbumService } from "../../album/album.service";
-import { ArtworkRepository } from "../../artwork/repositories/artwork.repository";
 import { ArtworkService } from "../../artwork/services/artwork.service";
 import { ArtworkStorageHelper } from "../../artwork/helper/artwork-storage.helper";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Logger } from "@nestjs/common";
 import { DBWorker } from "../../utils/workers/worker.util";
-import { FileRepository } from "../../file/repositories/file.repository";
 import { FileService } from "../../file/services/file.service";
 import { EventEmitter2 } from "@nestjs/event-emitter";
-import { FileFlag } from "../../file/entities/file.entity";
+import { File, FileFlag } from "../../file/entities/file.entity";
 import { IndexerResultDTO } from "../dtos/indexer-result.dto";
+import { Song } from "../../song/entities/song.entity";
+import { Album } from "../../album/entities/album.entity";
 
 const logger = new Logger("IndexerWorker");
 
@@ -32,12 +28,12 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
     const filepath = path.join(mount.directory, file.directory, file.name);
 
     DBWorker.instance().then((worker) => {
-        worker.establishConnection(TYPEORM_CONNECTION_INDEXER).then((connection) => {
-            const songRepo = connection.getCustomRepository(SongRepository);
-            const artistRepo = connection.getCustomRepository(ArtistRepository);
-            const albumRepo = connection.getCustomRepository(AlbumRepository);
-            const artworkRepo = connection.getCustomRepository(ArtworkRepository);
-            const fileRepo = connection.getCustomRepository(FileRepository);
+        worker.establishConnection().then((dataSource) => {
+            const songRepo = dataSource.getRepository(Song);
+            const artistRepo = dataSource.getRepository(Artist);
+            const albumRepo = dataSource.getRepository(Album);
+            const artworkRepo = dataSource.getRepository(Artwork);
+            const fileRepo = dataSource.getRepository(File);
 
             const eventEmitter = new EventEmitter2();
     

@@ -2,13 +2,13 @@
 import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, Index, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { Artist } from "../../artist/entities/artist.entity";
 import { Artwork } from "../../artwork/entities/artwork.entity";
-import { LikedResource } from "../../collection/entities/like.entity";
+import { Like } from "../../collection/entities/like.entity";
 import { Distributor } from "../../distributor/entities/distributor.entity";
 import { Label } from "../../label/entities/label.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
 import { Song } from "../../song/entities/song.entity";
 import { GeniusFlag, Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
-import { Slug } from "../../utils/slugGenerator";
+import { Slug } from "@tsalliance/utilities";
 
 @Entity()
 @Index(["name", "primaryArtist"], { unique: true })
@@ -67,8 +67,8 @@ export class Album implements Resource {
     @JoinTable({ name: "album2publisher" })
     public publishers: Publisher[];
 
-    @OneToMany(() => LikedResource, (l) => l.album)
-    public likedBy: LikedResource[];
+    @OneToMany(() => Like, (l) => l.album)
+    public likedBy: Like[];
 
     public songsCount?: number;
     public totalDuration?: number;

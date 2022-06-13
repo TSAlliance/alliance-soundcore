@@ -1,7 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
 import { DeleteResult, In, Not } from 'typeorm';
-import { IndexStatus } from '../index/enum/index-status.enum';
 import { SongService } from '../song/song.service';
 import { User } from '../user/entities/user.entity';
 import { CreatePlaylistDTO } from './dtos/create-playlist.dto';
@@ -39,37 +38,31 @@ export class PlaylistService {
      */
     public async findPlaylistProfileById(playlistId: string, authentication: User): Promise<Playlist> {
         if(!await this.hasUserAccessToPlaylist(playlistId, authentication)) {
-            console.log("user has no access")
-            return null;
+            throw new ForbiddenException("Cannot access this playlist.");
         }
 
         const result = await this.playlistRepository.createQueryBuilder("playlist")
-
                 // This is for relations
                 .leftJoin("playlist.items", "item")
                 .leftJoin("item.song", "song")
-                .leftJoin("song.index", "index", "index.status = :status", { status: IndexStatus.OK })
 
                 .leftJoinAndSelect("playlist.artwork", "artwork")
                 .leftJoinAndSelect("playlist.author", "author")
 
                 // Count how many likes. This takes user's id in count
                 .loadRelationCountAndMap("playlist.liked", "playlist.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication?.id }))
-
-                // Counting the songs
-                .addSelect('COUNT(index.id)', 'songsCount')
+                .loadRelationCountAndMap("playlist.songsCount", "playlist.items", "items")
                 
                 // SUM up the duration of every song to get total duration of the playlist
                 .addSelect('SUM(song.duration)', 'totalDuration')
 
                 .groupBy("playlist.id")
-                .where("playlist.id = :playlistId OR playlist.slug = :playlistId", { status: IndexStatus.OK, playlistId })
+                .where("playlist.id = :playlistId OR playlist.slug = :playlistId", { playlistId })
                 .getRawAndEntities()
 
         const playlist = result.entities[0];
         if(!playlist) throw new NotFoundException("Playlist not found.")
         playlist.totalDuration = parseInt(result.raw[0].totalDuration);
-        playlist.songsCount = parseInt(result.raw[0].songsCount)
 
         return playlist
     }

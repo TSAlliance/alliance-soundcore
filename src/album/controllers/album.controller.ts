@@ -1,5 +1,5 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
-import { Pageable } from 'nestjs-pager';
+import { Pageable, Pagination } from 'nestjs-pager';
 import { Authentication } from '../../authentication/decorators/authentication.decorator';
 import { User } from '../../user/entities/user.entity';
 import { AlbumService } from '../album.service';
@@ -9,7 +9,7 @@ export class AlbumController {
   constructor(private readonly albumService: AlbumService) {}
 
   @Get("/byArtist/:artistId")
-  public async findProfilesByArtist(@Param("artistId") artistId: string, @Pageable() pageable: Pageable, @Authentication() authentication: User) {
+  public async findProfilesByArtist(@Param("artistId") artistId: string, @Pagination() pageable: Pageable, @Authentication() authentication: User) {
     return this.albumService.findProfilesByArtist(artistId, pageable, authentication);
   }
 
@@ -19,12 +19,12 @@ export class AlbumController {
   }
 
   @Get("/byFeaturedArtist/:artistId")
-  public async findByFeaturedArtist(@Param("artistId") artistId: string, @Pageable() pageable: Pageable, @Authentication() authentication: User) {
+  public async findByFeaturedArtist(@Param("artistId") artistId: string, @Pagination() pageable: Pageable, @Authentication() authentication: User) {
     return this.albumService.findFeaturedWithArtist(artistId, pageable, authentication);
   }
 
   @Get("/byGenre/:genreId")
-  public async findByGenre(@Param("genreId") genreId: string, @Pageable() pageable: Pageable, @Authentication() authentication: User) {
+  public async findByGenre(@Param("genreId") genreId: string, @Pagination() pageable: Pageable, @Authentication() authentication: User) {
     return this.albumService.findByGenre(genreId, pageable, authentication);
   }
 

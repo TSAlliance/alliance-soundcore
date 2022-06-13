@@ -1,20 +1,20 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
-import { ILike } from 'typeorm';
+import { ILike, Repository } from 'typeorm';
 import { RedlockError } from '../../exceptions/redlock.exception';
 import { CreateResult } from '../../utils/results/creation.result';
 import { RedisLockableService } from '../../utils/services/redis-lockable.service';
 import { CreateGenreDTO } from '../dtos/create-genre.dto';
 import { UpdateGenreDTO } from '../dtos/update-genre.dto';
 import { Genre } from '../entities/genre.entity';
-import { GenreRepository } from '../repositories/genre.repository';
 
 @Injectable()
 export class GenreService extends RedisLockableService {
     private readonly logger: Logger = new Logger(GenreService.name)
 
     constructor(
-        private readonly repository: GenreRepository
+        @InjectRepository(Genre) private readonly repository: Repository<Genre>
     ) {
         super();
     }
@@ -132,7 +132,8 @@ export class GenreService extends RedisLockableService {
             query = `%${query.replace(/\s/g, '%')}%`;
         }
 
-        return this.repository.findAll(pageable, { where: { name: ILike(query) }})
+        // return this.repository.findAll(pageable, { where: { name: ILike(query) }})
+        return null;
     }
 
 }

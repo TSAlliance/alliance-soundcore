@@ -3,15 +3,12 @@ import { DoneCallback, Job } from "bull";
 import { glob } from "glob";
 import fs from "fs";
 import { Mount } from "../entities/mount.entity";
-import { MountedFile } from "../../bucket/entities/mounted-file.entity";
 import path from "path";
 import { FileDTO } from "../dtos/file.dto";
 import { MountScanProcessDTO } from "../dtos/mount-scan.dto";
-import { TYPEORM_CONNECTION_SCANWORKER } from "../../constants";
 import { MountScanResultDTO } from "../dtos/scan-result.dto";
 import { File } from "../../file/entities/file.entity";
 import { MountScanReportDTO } from "../dtos/scan-report.dto";
-import { FileRepository } from "../../file/repositories/file.repository";
 import { ProgressInfoDTO } from "./progress-info.dto";
 import { DBWorker } from "../../utils/workers/worker.util";
 
@@ -35,8 +32,9 @@ export default function (job: Job<MountScanProcessDTO>, dc: DoneCallback) {
         } else {
             // Establish database connection
             DBWorker.instance().then((worker) => {
-                worker.establishConnection(TYPEORM_CONNECTION_SCANWORKER).then((connection) => {
-                    const repository = connection.getCustomRepository(FileRepository);
+                worker.establishConnection().then((dataSource) => {
+                    const repository = dataSource.getRepository(File);
+
                     repository.find({ where: { mount: { id: mount.id }, }, select: ["name", "directory"]}).then((existingFiles) => {
                         updateProgress(job, { currentStep: 1, totalSteps: MAX_STEPS, stepCode: MOUNT_STEP_MKDIR });
     
@@ -109,7 +107,12 @@ function scanMount(pid: number, job: Job<MountScanProcessDTO>, exclude: File[]):
         // for future processing
         globs.on("match", (match: any) => {
             // On every match, create object.
-            files.push(new MountedFile(path.dirname(match), path.basename(match), mount));
+            const file = new FileDTO();
+            file.directory = path.dirname(match);
+            file.filename = path.basename(match);
+            file.mount = mount;
+
+            files.push(file);
         })
 
         // Listen for END event.

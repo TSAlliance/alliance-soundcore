@@ -1,9 +1,9 @@
-import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, Index, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, Index, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { Artwork } from "../../artwork/entities/artwork.entity";
-import { LikedResource } from "../../collection/entities/like.entity";
+import { Like } from "../../collection/entities/like.entity";
 import { User } from "../../user/entities/user.entity";
 import { Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
-import { Slug } from "../../utils/slugGenerator";
+import { Slug } from "@tsalliance/utilities";
 import { PlaylistPrivacy } from "../enums/playlist-privacy.enum";
 import { PlaylistItem } from "./playlist-item.entity";
 
@@ -52,14 +52,14 @@ export class Playlist implements Resource {
     // @JoinColumn()
     // public artwork: Artwork;
 
-    @OneToMany(() => LikedResource, (l) => l.playlist)
-    public likedBy: LikedResource[];
+    @OneToMany(() => Like, (l) => l.playlist)
+    public likedBy: Like[];
 
 
-    public songsCount?: number = undefined;
-    public collaboratorsCount?: number = undefined;
-    public totalDuration?: number = undefined;
-    public likesCount?: number = undefined;
+    public songsCount?: number = 0;
+    public collaboratorsCount?: number = 0;
+    public totalDuration?: number = 0;
+    public likesCount?: number = 0;
     public liked?: boolean = false;
 
     @BeforeInsert()

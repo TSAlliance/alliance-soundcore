@@ -1,25 +1,23 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
-import { ILike } from 'typeorm';
-import { ArtworkService } from '../artwork/artwork.service';
+import { ILike, Repository } from 'typeorm';
 import { OIDCUser } from '../authentication/entities/oidc-user.entity';
 import { User } from './entities/user.entity';
-import { UserRepository } from './repositories/user.repository';
 
 @Injectable()
 export class UserService {
     private logger: Logger = new Logger(UserService.name);
 
     constructor(
-        private artworkService: ArtworkService,
-        public userRepository: UserRepository
+        @InjectRepository(User) public readonly repository: Repository<User>
     ) {}
 
     public async findOrCreateByKeycloakUserInstance(userInstance: OIDCUser): Promise<User> {
         if(!userInstance) return null;
 
         // Find in database and return if found
-        const user = await this.userRepository.findOne({ where: { id: userInstance?.sub }});
+        const user = await this.repository.findOne({ where: { id: userInstance?.sub }});
         if(user) return user;
 
         // Build new database entry
@@ -28,12 +26,12 @@ export class UserService {
         result.name = userInstance.preferred_username;
 
         // Save entry and return it
-        return this.userRepository.save(result).then((entry) => {
+        return this.repository.save(result).then((entry) => {
             this.logger.debug(`Registered user ${entry.name}-${entry.id} in database.`);
             return entry;
         }).catch((error) => {
             if(error?.message.startsWith("Duplicate entry")) {
-                return this.userRepository.findOne({ where: { id: userInstance?.sub }})
+                return this.repository.findOne({ where: { id: userInstance?.sub }})
             }
         });
     }
@@ -45,7 +43,8 @@ export class UserService {
             query = `%${query.replace(/\s/g, '%')}%`;
         }
 
-        return this.userRepository.findAll(pageable, { where: { username: ILike(query) }})
+        const result = await this.repository.findAndCount({ where: { name: ILike(query) }, skip: pageable.page * pageable.size, take: pageable.size});
+        return Page.of(result[0], result[1], pageable.page);
     }
 
 }

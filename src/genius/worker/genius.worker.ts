@@ -2,24 +2,20 @@ import { EventEmitter2 } from "@nestjs/event-emitter";
 import { DoneCallback, Job } from "bull";
 import { AlbumService } from "../../album/album.service";
 import { Album } from "../../album/entities/album.entity";
-import { AlbumRepository } from "../../album/repositories/album.repository";
 import { ArtistService } from "../../artist/artist.service";
 import { Artist } from "../../artist/entities/artist.entity";
-import { ArtistRepository } from "../../artist/repositories/artist.repository";
+import { Artwork } from "../../artwork/entities/artwork.entity";
 import { ArtworkStorageHelper } from "../../artwork/helper/artwork-storage.helper";
-import { ArtworkRepository } from "../../artwork/repositories/artwork.repository";
 import { ArtworkService } from "../../artwork/services/artwork.service";
-import { TYPEORM_CONNECTION_GENERAL } from "../../constants";
-import { DistributorRepository } from "../../distributor/repositories/distributor.repository";
+import { Distributor } from "../../distributor/entities/distributor.entity";
 import { DistributorService } from "../../distributor/services/distributor.service";
-import { GenreRepository } from "../../genre/repositories/genre.repository";
+import { Genre } from "../../genre/entities/genre.entity";
 import { GenreService } from "../../genre/services/genre.service";
-import { LabelRepository } from "../../label/repositories/label.repository";
+import { Label } from "../../label/entities/label.entity";
 import { LabelService } from "../../label/services/label.service";
-import { PublisherRepository } from "../../publisher/repositories/publisher.repository";
+import { Publisher } from "../../publisher/entities/publisher.entity";
 import { PublisherService } from "../../publisher/services/publisher.service";
 import { Song } from "../../song/entities/song.entity";
-import { SongRepository } from "../../song/repositories/song.repository";
 import { SongService } from "../../song/song.service";
 import { GeniusFlag, Resource } from "../../utils/entities/resource";
 import { DBWorker } from "../../utils/workers/worker.util";
@@ -29,20 +25,20 @@ import { GeniusClientService } from "../services/genius-client.service";
 export default function (job: Job<GeniusProcessDTO>, dc: DoneCallback) {
 
     DBWorker.instance().then((worker) => {
-        worker.establishConnection(TYPEORM_CONNECTION_GENERAL).then(async (connection) => {
+        worker.establishConnection().then(async (dataSource) => {
             const eventEmitter = new EventEmitter2();
 
             // Build services
-            const artistService = new ArtistService(connection.getCustomRepository(ArtistRepository), eventEmitter);
-            const albumService = new AlbumService(connection.getCustomRepository(AlbumRepository), eventEmitter);
-            const songService = new SongService(connection.getCustomRepository(SongRepository));
+            const artistService = new ArtistService(dataSource.getRepository(Artist), eventEmitter);
+            const albumService = new AlbumService(dataSource.getRepository(Album), eventEmitter);
+            const songService = new SongService(dataSource.getRepository(Song));
 
             // Build GeniusClientService and dependencies
-            const artworkService = new ArtworkService(connection.getCustomRepository(ArtworkRepository), new ArtworkStorageHelper());
-            const labelService = new LabelService(connection.getCustomRepository(LabelRepository));
-            const distributorService = new DistributorService(connection.getCustomRepository(DistributorRepository));
-            const publisherService = new PublisherService(connection.getCustomRepository(PublisherRepository));
-            const genreService = new GenreService(connection.getCustomRepository(GenreRepository));
+            const artworkService = new ArtworkService(dataSource.getRepository(Artwork), new ArtworkStorageHelper());
+            const labelService = new LabelService(dataSource.getRepository(Label));
+            const distributorService = new DistributorService(dataSource.getRepository(Distributor));
+            const publisherService = new PublisherService(dataSource.getRepository(Publisher));
+            const genreService = new GenreService(dataSource.getRepository(Genre));
             const clientService = new GeniusClientService(artworkService, labelService, distributorService, publisherService, genreService);
 
             // Handle different types of

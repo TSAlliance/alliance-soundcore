@@ -1,8 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
 import { Bucket } from '../entities/bucket.entity';
-import { BucketRepository } from '../repositories/bucket.repository';
 import { CreateBucketDTO } from '../dto/create-bucket.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 
 @Injectable()
 export class BucketService {
@@ -10,7 +11,7 @@ export class BucketService {
     public bucketId: string;
 
     constructor(
-        private bucketRepository: BucketRepository,
+        @InjectRepository(Bucket) private repository: Repository<Bucket>,
     ){}
 
     /**
@@ -19,7 +20,7 @@ export class BucketService {
      * @returns Page<Bucket>
      */
     public async findAll(pageable: Pageable): Promise<Page<Bucket>> {
-        const result = await this.bucketRepository.createQueryBuilder("bucket")
+        const result = await this.repository.createQueryBuilder("bucket")
             .loadRelationCountAndMap("bucket.mountsCount", "bucket.mounts", "mountsCount")
 
             .offset((pageable?.page || 0) * (pageable?.size || 30))
@@ -36,7 +37,7 @@ export class BucketService {
      * @returns Bucket
      */
     public async findById(bucketId: string): Promise<Bucket> {
-        const result = await this.bucketRepository.createQueryBuilder("bucket")
+        const result = await this.repository.createQueryBuilder("bucket")
             .loadRelationCountAndMap("bucket.mountsCount", "bucket.mounts", "mountsCount")
             .where("bucket.id = :bucketId", { bucketId })
             .getOne()
@@ -50,7 +51,7 @@ export class BucketService {
      * @returns True or False
      */
     public async existsByName(name: string): Promise<boolean> {
-        return !!(await this.bucketRepository.findOne({ where: { name }}));
+        return !!(await this.repository.findOne({ where: { name }}));
     }
 
     /**
@@ -67,7 +68,7 @@ export class BucketService {
             throw new BadRequestException("Bucket with that name already exists.");
         }
         
-        return this.bucketRepository.save({
+        return this.repository.save({
             ...createBucketDto,
             id: bucketId
         });    

@@ -1,5 +1,5 @@
 import { Controller, Get, Param } from '@nestjs/common';
-import { Page, Pageable } from 'nestjs-pager';
+import { Page, Pageable, Pagination } from 'nestjs-pager';
 import { Bucket } from '../entities/bucket.entity';
 import { BucketService } from '../services/bucket.service';
 
@@ -13,7 +13,7 @@ export class BucketController {
   }
 
   @Get()
-  public async findAll(@Pageable() pageable: Pageable): Promise<Page<Bucket>> {
+  public async findAll(@Pagination() pageable: Pageable): Promise<Page<Bucket>> {
     return this.bucketService.findAll(pageable);
   }
 

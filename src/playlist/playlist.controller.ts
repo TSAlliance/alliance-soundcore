@@ -1,5 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
-import { Pageable } from 'nestjs-pager';
+import { Pageable, Pagination } from 'nestjs-pager';
 import { Authentication } from '../authentication/decorators/authentication.decorator';
 import { User } from '../user/entities/user.entity';
 import { CreatePlaylistDTO } from './dtos/create-playlist.dto';
@@ -46,17 +46,17 @@ export class PlaylistController {
   }
 
   @Get("/byAuthor/:authorId") 
-  public async findPlaylistsOfUser(@Param("authorId") authorId: string, @Pageable() pageable: Pageable, @Authentication() authentication: User) {
+  public async findPlaylistsOfUser(@Param("authorId") authorId: string, @Pagination() pageable: Pageable, @Authentication() authentication: User) {
     return this.playlistService.findByAuthor(authorId, pageable, authentication);
   }
 
   @Get("/byArtist/:artistId") 
-  public async findByArtist(@Param("artistId") artistId: string, @Pageable() pageable: Pageable, @Authentication() authentication: User) {
+  public async findByArtist(@Param("artistId") artistId: string, @Pagination() pageable: Pageable, @Authentication() authentication: User) {
     return this.playlistService.findByArtist(artistId, pageable, authentication);
   }
 
   @Get("/byGenre/:genreId") 
-  public async findByGenre(@Param("genreId") genreId: string, @Pageable() pageable: Pageable, @Authentication() authentication: User) {
+  public async findByGenre(@Param("genreId") genreId: string, @Pagination() pageable: Pageable, @Authentication() authentication: User) {
     return this.playlistService.findByGenre(genreId, pageable, authentication);
   }
 

@@ -1,25 +1,31 @@
 import { InjectQueue } from '@nestjs/bull';
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { EventEmitter2, OnEvent } from '@nestjs/event-emitter';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Queue } from 'bull';
 import { Page, Pageable } from 'nestjs-pager';
 import path from 'path';
+import { Repository } from 'typeorm';
 import { EVENT_FILE_FOUND, EVENT_FILE_PROCESSED, QUEUE_FILE_NAME } from '../../constants';
+import { RedlockError } from '../../exceptions/redlock.exception';
 import { FileDTO } from '../../mount/dtos/file.dto';
+import { Mount } from '../../mount/entities/mount.entity';
 import { Song } from '../../song/entities/song.entity';
+import { CreateResult } from '../../utils/results/creation.result';
+import { RedisLockableService } from '../../utils/services/redis-lockable.service';
 import { FileProcessDTO, FileProcessMode } from '../dto/file-process.dto';
 import { File, FileFlag } from '../entities/file.entity';
-import { FileRepository } from '../repositories/file.repository';
 
 @Injectable()
-export class FileService {
+export class FileService extends RedisLockableService {
     private readonly logger: Logger = new Logger(FileService.name);
 
     constructor(
-        private readonly repository: FileRepository,
+        @InjectRepository(File) private readonly repository: Repository<File>,
         private readonly eventEmitter: EventEmitter2,
-        @InjectQueue(QUEUE_FILE_NAME) private readonly queue: Queue<FileProcessDTO>
+        @InjectQueue(QUEUE_FILE_NAME) private readonly queue?: Queue<FileProcessDTO>
     ) {
+        super();
         this.queue?.on("failed", (job, err) => {
             const filepath = path.join(job.data.file.mount.directory, job.data.file.directory, job.data.file.filename);
             this.logger.error(`Could not process file '${filepath}': ${err.message}`, err.stack);
@@ -55,10 +61,10 @@ export class FileService {
      * @param directory Sub-Directory in mount
      * @returns File
      */
-    public async findByNameAndDirectory(name: string, directory?: string): Promise<File> {
+    public async findByNameAndDirectory(name: string, mount: Mount, directory?: string): Promise<File> {
         return this.repository.createQueryBuilder("file")
             .leftJoinAndSelect("file.mount", "mount")
-            .where("file.name = :name AND file.directory = :directory", { name, directory })
+            .where("file.name = :name AND file.directory = :directory AND mount.id = :mountId", { name, directory, mountId: mount.id })
             .getOne()
     }
 
@@ -105,6 +111,32 @@ export class FileService {
 
         file.flag = flag;
         return this.repository.save(file);
+    }
+
+    /**
+     * Find or create a file entry by the given data.
+     * This will return the file and a boolean, indicating if the
+     * file already existed.
+     * @param fileDto Info about the file
+     * @returns [File, boolean]
+     */
+    public async findOrCreateFile(fileDto: FileDTO): Promise<CreateResult<File>> {
+        const absolutePath = path.join(fileDto.mount.directory, fileDto.directory, fileDto.filename);
+
+        return this.lock(absolutePath, async (signal) => {
+            const existingFile = await this.findByNameAndDirectory(fileDto.filename, fileDto.mount, fileDto.directory);
+            if(existingFile) return new CreateResult(existingFile, true);
+            if(signal.aborted) throw new RedlockError();
+
+            const file = new File();
+            file.flag = FileFlag.OK;
+            file.mount = fileDto.mount;
+            file.directory = fileDto.directory;
+            file.name = fileDto.filename;
+            file.size = fileDto.size || 0;
+
+            return this.repository.save(file).then((result) => new CreateResult(result, false));
+        });
     }
 
     /**

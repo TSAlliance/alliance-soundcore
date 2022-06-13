@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
-import { DeleteResult, ILike } from 'typeorm';
+import { DeleteResult, ILike, Repository } from 'typeorm';
 import { Artwork } from '../../artwork/entities/artwork.entity';
 import { RedlockError } from '../../exceptions/redlock.exception';
 import { CreateResult } from '../../utils/results/creation.result';
@@ -8,14 +9,13 @@ import { RedisLockableService } from '../../utils/services/redis-lockable.servic
 import { CreateDistributorDTO } from '../dtos/create-distributor.dto';
 import { UpdateDistributorDTO } from '../dtos/update-distributor.dto';
 import { Distributor } from '../entities/distributor.entity';
-import { DistributorRepository } from "../repositories/distributor.repository";
 
 @Injectable()
 export class DistributorService extends RedisLockableService {
     private logger: Logger = new Logger(DistributorService.name)
 
     constructor(
-        private readonly repository: DistributorRepository,
+        @InjectRepository(Distributor) private readonly repository: Repository<Distributor>,
     ){
         super()
     }
@@ -136,7 +136,8 @@ export class DistributorService extends RedisLockableService {
             query = `%${query.replace(/\s/g, '%')}%`;
         }
 
-        return this.repository.findAll(pageable, { where: { name: ILike(query) }, relations: ["artwork"]})
+        // return this.repository.findAll(pageable, { where: { name: ILike(query) }, relations: ["artwork"]})
+        return null;
     }
 
 }

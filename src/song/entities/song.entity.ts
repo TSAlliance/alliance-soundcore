@@ -8,9 +8,9 @@ import { Label } from "../../label/entities/label.entity";
 import { PlaylistItem } from "../../playlist/entities/playlist-item.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
 import { Stream } from "../../stream/entities/stream.entity";
-import { Slug } from "../../utils/slugGenerator";
+import { Slug } from "@tsalliance/utilities";
 import { GeniusFlag, Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
-import { LikedResource } from "../../collection/entities/like.entity";
+import { Like } from "../../collection/entities/like.entity";
 import { File } from "../../file/entities/file.entity";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 
@@ -105,15 +105,15 @@ export class Song implements Resource {
     @OneToMany(() => Stream, stream => stream.song)
     public streams: Stream[];
 
-    @OneToMany(() => LikedResource, (l) => l.song)
-    public likedBy: LikedResource[];
+    @OneToMany(() => Like, (l) => l.song)
+    public likes: Like[];
 
     // Value that will be set if the songs of a playlist
     // are fetched
-    public playlistAdded: Date;
-    public streamCount?: number;
-    public liked?: boolean;
-    public likedAt?: Date;
+    public playlistAdded?: Date;
+    public streamCount = 0;
+    public liked = false;
+    public available = true;
 
     @BeforeInsert()
     public onBeforeInsert() {

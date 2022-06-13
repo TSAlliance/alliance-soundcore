@@ -2,8 +2,8 @@ import { Module } from '@nestjs/common';
 import { DistributorController } from './controllers/distributor.controller';
 import { ArtworkModule } from '../artwork/artwork.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { DistributorRepository } from './repositories/distributor.repository';
 import { DistributorService } from './services/distributor.service';
+import { Distributor } from './entities/distributor.entity';
 
 @Module({
   controllers: [DistributorController],
@@ -13,7 +13,7 @@ import { DistributorService } from './services/distributor.service';
   ],
   imports: [
     ArtworkModule,
-    TypeOrmModule.forFeature([ DistributorRepository ])
+    TypeOrmModule.forFeature([ Distributor ])
   ]
 })
 export class DistributorModule {}

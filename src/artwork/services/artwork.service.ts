@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { Injectable, InternalServerErrorException, Logger, NotFoundException } from "@nestjs/common";
 import { CreateArtworkDTO } from "../dtos/create-artwork.dto";
 import { Artwork, ArtworkColors, ArtworkFlag, ArtworkType } from "../entities/artwork.entity";
 import { ArtworkRepository } from "../repositories/artwork.repository";
@@ -7,7 +7,7 @@ import sharp from "sharp";
 import { ArtworkStorageHelper } from "../helper/artwork-storage.helper";
 import path from "path";
 import Vibrant from "node-vibrant";
-import { Slug } from "../../utils/slugGenerator";
+import { Slug } from "@tsalliance/utilities";
 import { RedisLockableService } from "../../utils/services/redis-lockable.service";
 import { RedlockError } from "../../exceptions/redlock.exception";
 import axios from "axios";
@@ -19,6 +19,7 @@ import { Song } from "../../song/entities/song.entity";
 import { Label } from "../../label/entities/label.entity";
 import { Distributor } from "../../distributor/entities/distributor.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
+import { Response } from "express";
 
 @Injectable()
 export class ArtworkService extends RedisLockableService {
@@ -39,8 +40,7 @@ export class ArtworkService extends RedisLockableService {
      */
     public async findById(artworkId: string): Promise<Artwork> {
         return this.repository.createQueryBuilder("artwork")
-            .leftJoin("artwork.mount", "mount")
-            .addSelect(["mount.id", "mount.name", "mount.directory"])
+            .leftJoinAndSelect("artwork.mount", "mount")
             .where("artwork.id = :artworkId", { artworkId })
             .getOne();
     }
@@ -279,6 +279,32 @@ export class ArtworkService extends RedisLockableService {
      */
     public async deleteById(artworkId: string): Promise<DeleteResult> {
         return this.repository.delete({ id: artworkId });
+    }
+
+    /**
+     * Create a readstream for an artwork and pipe it directly to the response.
+     * @param artworkId Requested artwork's id.
+     * @param response Response to pipe stream to.
+     */
+     public async streamArtwork(artworkId: string, response: Response): Promise<void> {
+        const artwork = await this.findById(artworkId);
+        if(!artwork) throw new NotFoundException("Could not find artwork.");
+
+        return new Promise((resolve, reject) => {
+            const filepath = this.storageHelper.findArtworkFilepath(artwork);
+
+            fs.access(filepath, (err) => {
+                if(err) {
+                    reject(new NotFoundException("Could not find artwork file."));
+                    return;
+                }
+
+                const stream = fs.createReadStream(filepath).pipe(response);
+                stream.on("finish", () => resolve());
+                stream.on("error", () => reject(new InternalServerErrorException("Failed reading artwork file.")));
+            })
+             
+        }) 
     }
 
     /**

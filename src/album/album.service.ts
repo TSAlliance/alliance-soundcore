@@ -1,6 +1,8 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
+import { Repository } from 'typeorm';
 import { Artist } from '../artist/entities/artist.entity';
 import { EVENT_ALBUM_CREATED } from '../constants';
 import { AlbumCreatedEvent } from '../events/albumCreated.event';
@@ -11,14 +13,13 @@ import { GeniusFlag, ResourceFlag } from '../utils/entities/resource';
 import { RedisLockableService } from '../utils/services/redis-lockable.service';
 import { CreateAlbumDTO } from './dto/create-album.dto';
 import { Album } from './entities/album.entity';
-import { AlbumRepository } from './repositories/album.repository';
 
 @Injectable()
 export class AlbumService extends RedisLockableService {
     private readonly logger: Logger = new Logger(AlbumService.name);
 
     constructor(
-        private readonly repository: AlbumRepository,
+        @InjectRepository(Album) private readonly repository: Repository<Album>,
         private readonly eventEmitter: EventEmitter2
     ) {
         super()

@@ -1,14 +1,14 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, Index, JoinColumn, ManyToOne, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Mount } from "../../mount/entities/mount.entity";
 import { Song } from "../../song/entities/song.entity";
 
 export enum FileFlag {
     OK = 0,
-    CORRUPT,
-    DUPLICATE,
-    DELETED,
-    PROCESSING,
-    FAILED_SONG_CREATION,
+    CORRUPT = 1,
+    DELETED = 2,
+    PROCESSING = 3,
+    FAILED_SONG_CREATION = 4,
+    DUPLICATE = 5
 }
 
 @Entity()

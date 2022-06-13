@@ -1,77 +1,32 @@
-/* eslint-disable @typescript-eslint/ban-types */
-import { Logger } from "@nestjs/common";
-import { Connection, ConnectionManager, getConnectionManager } from "typeorm";
-
-export interface DBWorkerOptions {
-    port: number
-    host: string
-    database: string
-    username: string
-    password: string
-    prefix?: string
-}
+import { DataSource } from "typeorm";
+import { TYPEORM_ENTITY_GLOB } from "../../constants";
 
 export class DBWorker {
     private static _instance: DBWorker;
-    private logger: Logger = new Logger("DBWorker");
 
-    private readonly workerOptions: DBWorkerOptions = {
+    private readonly _datasource: DataSource = new DataSource({
+        type: "mysql",
         port: parseInt(process.env.DB_PORT),
         host: process.env.DB_HOST,
         database: process.env.DB_NAME,
         password: process.env.DB_PASS,
         username: process.env.DB_USER,
-        prefix: process.env.DB_PREFIX
-    }
-
-    private readonly _connectionManager: ConnectionManager = getConnectionManager();
-
-    /**
-     * Check if an active database connection exists. If so, return it and otherwise
-     * create a new connection.
-     * @param name Connection name
-     * @param options Database Connection Options
-     * @returns Connection
-     */
-    public createOrGetConnection(name: string): Connection {
-        const manager = this._connectionManager;
-
-        if(manager.has(name)) {
-            return manager.get(name);
-        }
-    
-        this.logger.verbose(`No active database connection found for name '${name}'. Creating it...`);
-        return manager.create({
-            name: name,
-            type: "mysql",
-            port: this.workerOptions.port,
-            host: this.workerOptions.host,
-            database: this.workerOptions.database,
-            username: this.workerOptions.username,
-            password: this.workerOptions.password,
-            entityPrefix: this.workerOptions.prefix,
-            connectTimeout: 2000,
-            entities: [ "dist/**/*.entity.js" ]
-        });
-    }
+        entityPrefix: process.env.DB_PREFIX || "sc_",
+        entities: [
+            TYPEORM_ENTITY_GLOB
+        ]
+    });
 
     /**
-     * Extends the functionality of createOrGetConnection() by actually triggering the
-     * connect() function.
-     * @param name Connection name
-     * @param options Database Connection Options
-     * @returns Connection
+     * Get a connection to the database via typeorm.
+     * If the datasource was initialized previously, then
+     * this datasource is returned, otherwise it will be
+     * initialized and returned afterwards
+     * @returns DataSource
      */
-    public establishConnection(name: string): Promise<Connection> {
-        return new Promise((resolve) => {
-            const connection = this.createOrGetConnection(name);
-            if(connection.isConnected) {
-                resolve(connection);
-                return
-            }
-    
-            resolve(connection.connect())
-        })
+    public async establishConnection(): Promise<DataSource> {
+        if(this._datasource.isInitialized) return this._datasource;
+        return this._datasource.initialize();
     }
 
     public static instance(): Promise<DBWorker> {

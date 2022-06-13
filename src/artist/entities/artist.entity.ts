@@ -2,7 +2,7 @@ import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, Index, Jo
 import { Album } from "../../album/entities/album.entity";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { GeniusFlag, Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
-import { Slug } from "../../utils/slugGenerator";
+import { Slug } from "@tsalliance/utilities";
 
 @Entity()
 export class Artist implements Resource {

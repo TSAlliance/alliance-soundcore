@@ -1,4 +1,4 @@
-import { RandomUtil } from "@tsalliance/rest";
+import { Random } from "@tsalliance/utilities";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -9,7 +9,7 @@ export function bucketIdProvider(): string {
 
     fs.mkdirSync(soundcoreDir, { recursive: true });
     if(!fs.existsSync(soundCoreFile)) {
-        fs.writeFileSync(soundCoreFile, RandomUtil.randomString(36));
+        fs.writeFileSync(soundCoreFile, Random.randomString(36));
     }
 
     const bucketId = fs.readFileSync(soundCoreFile).toString("utf8");

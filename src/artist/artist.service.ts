@@ -1,6 +1,8 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
+import { Repository } from 'typeorm';
 import { EVENT_ARTIST_CREATED } from '../constants';
 import { RedlockError } from '../exceptions/redlock.exception';
 import { Mount } from '../mount/entities/mount.entity';
@@ -9,20 +11,19 @@ import { GeniusFlag, ResourceFlag } from '../utils/entities/resource';
 import { RedisLockableService } from '../utils/services/redis-lockable.service';
 import { CreateArtistDTO } from './dtos/create-artist.dto';
 import { Artist } from './entities/artist.entity';
-import { ArtistRepository } from './repositories/artist.repository';
 
 @Injectable()
 export class ArtistService extends RedisLockableService {
     private logger: Logger = new Logger(ArtistService.name)
 
     constructor(
-        private readonly repository: ArtistRepository,
+        @InjectRepository(Artist) private readonly repository: Repository<Artist>,
         private readonly eventEmitter: EventEmitter2
     ){
         super();
     }
 
-    public async findById(artistId: string, authentication?: User): Promise<Artist> {
+    public async findById(artistId: string): Promise<Artist> {
         return await this.repository.createQueryBuilder("artist")
             .where("artist.id = :artistId", { artistId })
             .getOne();

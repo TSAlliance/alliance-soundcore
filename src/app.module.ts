@@ -6,7 +6,6 @@ import { MulterModule } from '@nestjs/platform-express';
 import { ArtistModule } from './artist/artist.module';
 import { AllianceRestModule } from '@tsalliance/rest';
 import { BucketModule } from './bucket/bucket.module';
-import { IndexModule } from './index/index.module';
 import { AlbumModule } from './album/album.module';
 import { StorageModule } from './storage/storage.module';
 import { SharedModule } from './shared/shared.module';
@@ -24,7 +23,6 @@ import { UserModule } from './user/user.module';
 import { ImportModule } from './import/import.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { CollectionModule } from './collection/collection.module';
-import { IndexReportModule } from './index-report/index-report.module';
 import { BullModule } from '@nestjs/bull';
 import { NotificationModule } from './notification/notification.module';
 import { OIDCModule } from './authentication/oidc.module';
@@ -80,7 +78,6 @@ import { IndexerModule } from './indexer/indexer.module';
     SharedModule,
     ArtistModule,
     BucketModule,
-    IndexModule,
     AlbumModule,
     StorageModule,
     SongModule,
@@ -96,7 +93,6 @@ import { IndexerModule } from './indexer/indexer.module';
     UserModule,
     ImportModule,
     CollectionModule,
-    IndexReportModule,
     NotificationModule,
     OIDCModule.forRoot({
       server_base_url: "https://sso.tsalliance.eu",

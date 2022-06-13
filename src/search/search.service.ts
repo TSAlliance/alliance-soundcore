@@ -1,11 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { Page, Pageable } from 'nestjs-pager';
+import { Pageable } from 'nestjs-pager';
 import { AlbumService } from '../album/album.service';
 import { ArtistService } from '../artist/artist.service';
 import { DistributorService } from '../distributor/services/distributor.service';
 import { GenreService } from '../genre/services/genre.service';
-import { Index } from '../index/entities/index.entity';
-import { IndexService } from '../index/services/index.service';
 import { LabelService } from '../label/services/label.service';
 import { PlaylistService } from '../playlist/playlist.service';
 import { PublisherService } from '../publisher/services/publisher.service';
@@ -30,12 +28,11 @@ export class SearchService {
         private labelService: LabelService,
         private albumService: AlbumService,
         private userService: UserService,
-        private indexService: IndexService,
         private playlistService: PlaylistService
     ) {}
 
     public async complexSearch(query: string, authentication?: User): Promise<ComplexSearchResult> {
-        const settings: Pageable = { page: 0, size: 12 }
+        const settings: Pageable = new Pageable(0, 12);
         
         const songs = await this.songService.findBySearchQuery(query, settings, authentication);
         const artists = await this.artistService.findBySearchQuery(query, settings);
@@ -48,15 +45,15 @@ export class SearchService {
         const playlists = await this.playlistService.findBySearchQuery(query, settings, authentication);
 
         const searchResult: ComplexSearchResult = {
-            songs: songs.amount > 0 ? songs : undefined,
-            artists: artists.amount > 0 ? artists : undefined,
-            genres: genres.amount > 0 ? genres : undefined,
-            publisher: publisher.amount > 0 ? publisher : undefined,
-            distributors: distributors.amount > 0 ? distributors : undefined,
-            labels: labels.amount > 0 ? labels : undefined,
-            albums: albums.amount > 0 ? albums : undefined,
-            users: users.amount > 0 ? users : undefined,
-            playlists: playlists.amount > 0 ? playlists : undefined
+            songs: songs.size > 0 ? songs : undefined,
+            artists: artists.size > 0 ? artists : undefined,
+            genres: genres.size > 0 ? genres : undefined,
+            publisher: publisher.size > 0 ? publisher : undefined,
+            distributors: distributors.size > 0 ? distributors : undefined,
+            labels: labels.size > 0 ? labels : undefined,
+            albums: albums.size > 0 ? albums : undefined,
+            users: users.size > 0 ? users : undefined,
+            playlists: playlists.size > 0 ? playlists : undefined
         }
 
         if(query && query.length > 0 && query != " ") {
@@ -66,10 +63,6 @@ export class SearchService {
         
         if(!searchResult.bestMatch) return null;
         return searchResult
-    }
-
-    public async searchIndexInMount(query: string, mountId: string, pageable: Pageable): Promise<Page<Index>> {       
-        return this.indexService.findBySearchQueryInMount(query, mountId, pageable)
     }
 
     public async findBestMatch(needle: string, haystack: ComplexSearchResult): Promise<SearchBestMatch> {

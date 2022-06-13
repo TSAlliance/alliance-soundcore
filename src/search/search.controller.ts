@@ -1,5 +1,4 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
-import { Pageable } from 'nestjs-pager';
+import { Controller, Get, Query } from '@nestjs/common';
 import { Authentication } from '../authentication/decorators/authentication.decorator';
 import { User } from '../user/entities/user.entity';
 import { SearchService } from './search.service';
@@ -13,8 +12,4 @@ export class SearchController {
     return this.searchService.complexSearch(query, searcher);
   } 
 
-  @Get("/index/byMount/:mountId")
-  public async performIndexSearch(@Param("mountId") mountId: string, @Query("q") query: string, @Pageable() pageable: Pageable) {
-    return this.searchService.searchIndexInMount(query, mountId, pageable);
-  } 
 }

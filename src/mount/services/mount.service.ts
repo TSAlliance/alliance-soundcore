@@ -1,11 +1,10 @@
 import { InjectQueue } from '@nestjs/bull';
 import { BadRequestException, Inject, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
-import { RandomUtil } from '@tsalliance/rest';
 import Bull, { Queue } from 'bull';
 import { Page, Pageable } from 'nestjs-pager';
 import path from 'path';
 import fs from "fs";
-import { DeleteResult } from 'typeorm';
+import { DeleteResult, Repository } from 'typeorm';
 import { Bucket } from '../../bucket/entities/bucket.entity';
 import { EVENT_FILE_FOUND, QUEUE_MOUNTSCAN_NAME } from '../../constants';
 import { BUCKET_ID } from '../../shared/shared.module';
@@ -13,19 +12,20 @@ import { StorageService } from '../../storage/storage.service';
 import { CreateMountDTO } from '../dtos/create-mount.dto';
 import { UpdateMountDTO } from '../dtos/update-mount.dto';
 import { Mount } from '../entities/mount.entity';
-import { MountRepository } from '../repositories/mount.repository';
 import { MountScanProcessDTO } from '../dtos/mount-scan.dto';
 import { MountScanResultDTO } from '../dtos/scan-result.dto';
 import { ProgressInfoDTO } from '../worker/progress-info.dto';
 import { MountGateway } from '../gateway/mount.gateway';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { Random } from '@tsalliance/utilities';
+import { InjectRepository } from '@nestjs/typeorm';
 
 @Injectable()
 export class MountService {
     private logger: Logger = new Logger(MountService.name);
 
     constructor(
-        private readonly repository: MountRepository,
+        @InjectRepository(Mount) private readonly repository: Repository<Mount>,
         private readonly storage: StorageService,
         private readonly gateway: MountGateway,
         private readonly eventEmitter: EventEmitter2,
@@ -202,8 +202,8 @@ export class MountService {
         if(!defaultMount) {
             return this.create({
                 bucketId: this.bucketId,
-                directory: path.join(this.storage.getSoundcoreDir(), RandomUtil.randomString(32)),
-                name: `Default Mount #${RandomUtil.randomString(4)}`,
+                directory: path.join(this.storage.getSoundcoreDir(), Random.randomString(32)),
+                name: `Default Mount #${Random.randomString(4)}`,
                 setAsDefault: true,
             });
         }
@@ -235,7 +235,7 @@ export class MountService {
      * to the scanner queue for directory scanning.
      */
     public async checkMounts() {
-        const options: Pageable = { page: 0, size: 30 }
+        const options: Pageable = new Pageable(0, 30);
 
         let page: Page<Mount>;
         let fetchedElements = 0;
@@ -243,7 +243,7 @@ export class MountService {
         while(fetchedElements < page?.totalElements || page == null) {
             page = await this.findByBucketId(this.bucketId, options);
             options.page++;
-            fetchedElements += page.amount;
+            fetchedElements += page.size;
 
             for(const mount of page.elements) {
                 this.rescanMount(mount);
