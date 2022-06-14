@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
 import { Bucket } from '../entities/bucket.entity';
 import { CreateBucketDTO } from '../dto/create-bucket.dto';
@@ -47,11 +47,23 @@ export class BucketService {
      */
     public async findById(bucketId: string): Promise<Bucket> {
         const result = await this.repository.createQueryBuilder("bucket")
+            // Select the amount of mounts
             .loadRelationCountAndMap("bucket.mountsCount", "bucket.mounts", "mountsCount")
+            // Get used space for every bucket by
+            // summing up the used space of every
+            // file on mounts inside the bucket.
+            .leftJoin("bucket.mounts", "mount")
+            .leftJoin("mount.files", "file")
+            .addSelect("SUM(file.size) AS usedSpace")
+            .groupBy("bucket.id")
             .where("bucket.id = :bucketId", { bucketId })
-            .getOne()
+            .getRawAndEntities()
 
-        return result;
+        const bucket = result.entities[0];
+        if(!bucket) throw new NotFoundException("Bucket not found");
+        
+        bucket.usedSpace = result.raw[0].usedSpace;
+        return bucket;
     }
 
     /**

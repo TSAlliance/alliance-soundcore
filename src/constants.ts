@@ -1,5 +1,9 @@
 import path from "node:path"
 
+// Roles
+export const ROLE_ADMIN = "admin";
+export const ROLE_MOD = "mod";
+
 // Base urls
 export const GENIUS_API_BASE_URL = "https://genius.com/api"
 

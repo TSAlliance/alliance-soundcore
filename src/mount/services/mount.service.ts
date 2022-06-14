@@ -57,13 +57,21 @@ export class MountService {
     public async findByBucketId(bucketId: string, pageable: Pageable): Promise<Page<Mount>> {
         if(!pageable) throw new BadRequestException("Missing page settings");
 
-        const result = await this.repository.createQueryBuilder("mount")
-            .leftJoinAndSelect("mount.bucket", "bucket")
-            .loadRelationCountAndMap("mount.fileCount", "mount.files")
+        const query = await this.repository.createQueryBuilder("mount")
+            .leftJoin("mount.bucket", "bucket")
+            .leftJoin("mount.files", "file")
+            .loadRelationCountAndMap("mount.filesCount", "mount.files")
+
+            .addSelect("SUM(file.size) AS usedSpace")
+            .groupBy("mount.id")
             .where("bucket.id = :bucketId", { bucketId })
-            .getManyAndCount();
         
-        return Page.of(result[0], result[1]);
+        const result = await query.getRawAndEntities();
+        const totalElements = await query.getCount();
+        return Page.of(result.entities.map((mount, index) => {
+            mount.usedSpace = result.raw[index]?.usedSpace || 0
+            return mount;
+        }), totalElements, pageable.page);
     }
 
     /**
@@ -120,7 +128,7 @@ export class MountService {
      */
     public async rescanMount(idOrObject: string | Mount): Promise<Bull.Job<MountScanProcessDTO>> {
         const mount = await this.resolveMount(idOrObject);
-        const priority = mount.fileCount;
+        const priority = mount.filesCount;
 
         return this.queue.add(new MountScanProcessDTO(mount), { priority }).then((job) => {
             this.logger.debug(`Added mount '${mount.name} #${job.id}' to scanner queue.`);
@@ -183,11 +191,7 @@ export class MountService {
         }
 
         fs.mkdirSync(mount.directory, { recursive: true })
-        return this.repository.save(mount).then((mount) => {
-            if(updateMountDto.setAsDefault) this.setDefaultMount(mount);
-            if(updateMountDto.doScan) this.rescanMount(mount);
-            return mount;
-        });
+        return this.repository.save(mount);
     }
 
     /**
@@ -213,6 +217,7 @@ export class MountService {
 
     /**
      * Set a mount to the default mount inside its bucket.
+     * @param bucketId Bucket's id to set default mount in
      * @param idOrObject Mount Object or ID
      * @returns Mount
      */
