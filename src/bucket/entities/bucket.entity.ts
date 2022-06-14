@@ -5,14 +5,13 @@ import { Slug } from "@tsalliance/utilities";
 
 @Entity()
 export class Bucket implements Resource {
+    public resourceType: ResourceType = "bucket";
 
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
     @Column({ type: "tinyint", default: 0 })
     public flag: ResourceFlag;
-
-    public resourceType: ResourceType = "bucket";
 
     @Column({ nullable: true, unique: true, length: 120 })
     public slug: string;
@@ -24,6 +23,7 @@ export class Bucket implements Resource {
     public mounts: Mount[];
 
     public mountsCount?: number;
+    public usedSpace?: number;
 
     @BeforeInsert()
     public onBeforeInsert() {

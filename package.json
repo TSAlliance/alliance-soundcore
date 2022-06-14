@@ -42,7 +42,7 @@
     "ffprobe-static": "^3.0.0",
     "glob": "^7.2.0",
     "mysql2": "^2.3.3",
-    "nestjs-pager": "^1.0.25",
+    "nestjs-pager": "^1.0.29",
     "node-id3": "^0.2.3",
     "node-vibrant": "^3.2.1-alpha.1",
     "openid-client": "^5.1.5",

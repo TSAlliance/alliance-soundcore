@@ -8,8 +8,6 @@ import { Repository } from 'typeorm';
 @Injectable()
 export class BucketService {
 
-    public bucketId: string;
-
     constructor(
         @InjectRepository(Bucket) private repository: Repository<Bucket>,
     ){}
@@ -19,16 +17,27 @@ export class BucketService {
      * @param pageable Page settings
      * @returns Page<Bucket>
      */
-    public async findAll(pageable: Pageable): Promise<Page<Bucket>> {
-        const result = await this.repository.createQueryBuilder("bucket")
+    public async findPage(pageable: Pageable): Promise<Page<Bucket>> {
+        const query = await this.repository.createQueryBuilder("bucket")
+            // Select the amount of mounts
             .loadRelationCountAndMap("bucket.mountsCount", "bucket.mounts", "mountsCount")
+            // Get used space for every bucket by
+            // summing up the used space of every
+            // file on mounts inside the bucket.
+            .leftJoin("bucket.mounts", "mount")
+            .leftJoin("mount.files", "file")
+            .addSelect("SUM(file.size) AS usedSpace")
+            // Pagination
+            .offset(pageable.page * pageable.size)
+            .limit(pageable.size)
+            .groupBy("bucket.id");
 
-            .offset((pageable?.page || 0) * (pageable?.size || 30))
-            .limit(pageable?.size || 30)
-
-            .getManyAndCount()
-
-        return Page.of(result[0], result[1], pageable.page);
+        const result = await query.getRawAndEntities();
+        const totalElements = await query.getCount();
+        return Page.of(result.entities.map((bucket, index) => {
+            bucket.usedSpace = result.raw[index]?.usedSpace || 0;
+            return bucket;
+        }), totalElements, pageable.page);
     }
 
     /**
