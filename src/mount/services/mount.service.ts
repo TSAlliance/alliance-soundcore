@@ -193,17 +193,9 @@ export class MountService extends RedisLockableService {
         }
 
         if(updateMountDto.name) mount.name = updateMountDto.name;
-        if(updateMountDto.directory) mount.directory = path.resolve(sanitizeFilename(updateMountDto.directory, { replacement: "" }));
-
         if(updateMountDto.name && updateMountDto.name != mount.name && await this.existsByNameInBucket(mount.bucket.id, updateMountDto.name)) {
             throw new BadRequestException("Mount with that name already exists in bucket.");
         }
-
-        if(updateMountDto.directory && updateMountDto.directory != mount.directory && await this.existsByPathInBucket(mount.bucket.id, updateMountDto.directory)) {
-            throw new BadRequestException("Mount with that path already exists in bucket.");
-        }
-
-        fs.mkdirSync(mount.directory, { recursive: true })
         return this.repository.save(mount);
     }
 
