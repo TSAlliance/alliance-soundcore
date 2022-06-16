@@ -20,9 +20,12 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Random } from '@tsalliance/utilities';
 import { InjectRepository } from '@nestjs/typeorm';
 import sanitizeFilename from "sanitize-filename";
+import { CreateResult } from '../../utils/results/creation.result';
+import { RedisLockableService } from '../../utils/services/redis-lockable.service';
+import { RedlockError } from '../../exceptions/redlock.exception';
 
 @Injectable()
-export class MountService {
+export class MountService extends RedisLockableService {
     private logger: Logger = new Logger(MountService.name);
 
     constructor(
@@ -33,6 +36,8 @@ export class MountService {
         @Inject(BUCKET_ID) private readonly bucketId: string,
         @InjectQueue(QUEUE_MOUNTSCAN_NAME) private readonly queue: Queue<MountScanProcessDTO>
     ) {
+        super();
+
         this.queue.on("failed", (job, err) => this.logger.error(`Failed scanning mount '${job?.data?.mount?.name}': ${err.message}`, err.stack));
         this.queue.on("error", (err) => this.logger.error(`Error occured on mount-scan-worker: ${err.message}`, err.stack));
         this.queue.on("progress", (job, progress: ProgressInfoDTO) => {
@@ -82,6 +87,16 @@ export class MountService {
      */
     public async findById(mountId: string): Promise<Mount> {
         return this.repository.findOne({ where: { id: mountId }, relations: ["bucket"]});
+    }
+
+    /**
+     * Find a mount by its name in a specific bucket.
+     * @param bucketId Bucket's id
+     * @param name Name of the mount
+     * @returns Mount
+     */
+    public async findByNameInBucket(bucketId: string, name: string): Promise<Mount> {
+        return await this.repository.findOne({ where: { name, bucket: { id: bucketId } }, relations: ["bucket"]});
     }
 
     /**
@@ -142,29 +157,24 @@ export class MountService {
      * @param createMountDto Mount data
      * @returns Mount
      */
-    public async create(createMountDto: CreateMountDTO): Promise<Mount> {
-        createMountDto.directory = path.resolve(sanitizeFilename(createMountDto.directory, { replacement: "" }));
+    public async createIfNotExists(createMountDto: CreateMountDTO): Promise<CreateResult<Mount>> {
+        const directory = path.resolve(sanitizeFilename(createMountDto.directory, { replacement: "" }));
 
-        const mount = this.repository.create();
-        mount.name = createMountDto.name;
-        mount.directory = createMountDto.directory;
-        mount.bucket = { id: createMountDto.bucketId } as Bucket;
+        return this.lock(createMountDto.name, async(signal) => {
+            const existingMount = await this.findByNameInBucket(createMountDto.bucketId, createMountDto.name);
+            if(existingMount) return new CreateResult(existingMount, true);
+            if(signal.aborted) throw new RedlockError();
 
-        return new Promise<Mount>((resolve, reject) => {
-            fs.mkdir(createMountDto.directory, { recursive: true }, (err: Error) => {
-                if(err) {
-                    reject(new InternalServerErrorException("Could not create mount directory."));
-                } else {
-                    this.repository.save(mount).then((mount) => {
-                        if(createMountDto.setAsDefault) this.setDefaultMount(mount);
-                        if(createMountDto.doScan) this.rescanMount(mount);
-                        resolve(mount);
-                    }).catch((error) => {
-                        fs.rmdir(createMountDto.directory, () => {
-                            reject(error);
-                        })
-                    });
-                }
+            const mount = new Mount()
+            mount.name = createMountDto.name;
+            mount.directory = directory;
+            mount.bucket = { id: createMountDto.bucketId } as Bucket;
+
+            return this.repository.save(mount).then((result) => {
+                if(createMountDto.setAsDefault) this.setDefaultMount(mount);
+                if(createMountDto.doScan) this.rescanMount(mount);
+
+                return new CreateResult(result, false);
             });
         });
     }
@@ -207,7 +217,7 @@ export class MountService {
         const defaultMount = await this.findDefaultOfBucket(this.bucketId);
 
         if(!defaultMount) {
-            return this.create({
+            return this.createIfNotExists({
                 bucketId: this.bucketId,
                 directory: path.join(this.storage.getSoundcoreDir(), Random.randomString(32)),
                 name: `Default Mount #${Random.randomString(4)}`,

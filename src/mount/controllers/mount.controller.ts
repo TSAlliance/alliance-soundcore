@@ -3,6 +3,7 @@ import { Page, Pageable, Pagination } from 'nestjs-pager';
 import { DeleteResult } from 'typeorm';
 import { Roles } from '../../authentication/decorators/role.decorator';
 import { ROLE_ADMIN } from '../../constants';
+import { CreateResult } from '../../utils/results/creation.result';
 import { CreateMountDTO } from '../dtos/create-mount.dto';
 import { UpdateMountDTO } from '../dtos/update-mount.dto';
 import { Mount } from '../entities/mount.entity';
@@ -32,8 +33,8 @@ export class MountController {
 
   @Roles(ROLE_ADMIN)
   @Post()
-  public async createMount(@Body() createMountDto: CreateMountDTO): Promise<Mount> {
-    return this.mountService.create(createMountDto)
+  public async createMount(@Body() createMountDto: CreateMountDTO): Promise<CreateResult<Mount>> {
+    return this.mountService.createIfNotExists(createMountDto)
   }
 
   @Roles(ROLE_ADMIN)
