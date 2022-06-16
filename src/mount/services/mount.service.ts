@@ -19,6 +19,7 @@ import { MountGateway } from '../gateway/mount.gateway';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Random } from '@tsalliance/utilities';
 import { InjectRepository } from '@nestjs/typeorm';
+import sanitizeFilename from "sanitize-filename";
 
 @Injectable()
 export class MountService {
@@ -142,6 +143,8 @@ export class MountService {
      * @returns Mount
      */
     public async create(createMountDto: CreateMountDTO): Promise<Mount> {
+        createMountDto.directory = path.resolve(sanitizeFilename(createMountDto.directory, { replacement: "" }));
+
         const mount = this.repository.create();
         mount.name = createMountDto.name;
         mount.directory = createMountDto.directory;
@@ -180,7 +183,7 @@ export class MountService {
         }
 
         if(updateMountDto.name) mount.name = updateMountDto.name;
-        if(updateMountDto.directory) mount.directory = path.resolve(updateMountDto.directory);
+        if(updateMountDto.directory) mount.directory = path.resolve(sanitizeFilename(updateMountDto.directory, { replacement: "" }));
 
         if(updateMountDto.name && updateMountDto.name != mount.name && await this.existsByNameInBucket(mount.bucket.id, updateMountDto.name)) {
             throw new BadRequestException("Mount with that name already exists in bucket.");
