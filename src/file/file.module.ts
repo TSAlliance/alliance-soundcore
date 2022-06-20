@@ -4,10 +4,14 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import path from 'path';
 import { QUEUE_FILE_NAME } from '../constants';
 import { IndexerModule } from '../indexer/indexer.module';
+import { FileController } from './controllers/file.controller';
 import { File } from './entities/file.entity';
 import { FileService } from './services/file.service';
 
 @Module({
+  controllers: [
+    FileController
+  ],
   providers: [
     FileService
   ],
