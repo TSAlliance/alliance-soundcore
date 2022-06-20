@@ -24,7 +24,7 @@ export class Mount {
     @Column({ type: "datetime", nullable: true })
     public lastScannedAt: Date;
 
-    @Column({ nullable: false, default: "ok" })
+    @Column({ type: "tinyint", nullable: false, default: 0 })
     public status: MountStatus;
 
     @Column({ default: true })
