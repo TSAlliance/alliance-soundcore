@@ -1,5 +1,6 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable, Logger, UnauthorizedException } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
+import { JwtService } from "@nestjs/jwt";
 import { Request } from "express";
 import { OIDC_AUTH_OPTIONAL, OIDC_AUTH_ROLES, OIDC_AUTH_SKIP, OIDC_REQUEST_MAPPING } from "../oidc.constants";
 import { OIDCService } from "../services/oidc.service";
@@ -9,6 +10,7 @@ export class OIDCGuard implements CanActivate {
     private readonly logger: Logger = new Logger(OIDCGuard.name);
 
     constructor(
+        private readonly jwtService: JwtService,
         private readonly service: OIDCService,
         private readonly reflector: Reflector,
     ) {}
@@ -24,18 +26,19 @@ export class OIDCGuard implements CanActivate {
         const request: Request = context.getRequest();
         const authHeader: string = request.headers.authorization;
 
-        const token = authHeader?.slice("Bearer ".length);
-        return this.service.client().introspect(token).then((introspect) => {
+        const tokenValue = authHeader?.slice("Bearer ".length);
+
+        return this.service.verifyAccessToken(tokenValue).then((token) => {
             const allowedRoles = this.reflector.get<string[]>(OIDC_AUTH_ROLES, ctx.getHandler()) || [];
-            const roles = introspect?.["realm_access"]?.["roles"] || [];
+            const roles = token?.["realm_access"]?.["roles"] || [];
 
             if(!this.hasRequiredRole(allowedRoles, roles) && allowedRoles.length > 0 ) {
                 throw new ForbiddenException("You do not have the required role to perform this action.")
             }
 
-            request[OIDC_REQUEST_MAPPING] = introspect;
-            return isAuthOptional || introspect.active
-        }).catch((error: Error) => {
+            request[OIDC_REQUEST_MAPPING] = token;
+            return isAuthOptional || true
+        }).catch((error) => {
             if(isAuthOptional) return true;
 
             if(error instanceof ForbiddenException || error instanceof UnauthorizedException) {
