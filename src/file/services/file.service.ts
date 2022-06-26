@@ -77,6 +77,7 @@ export class FileService extends RedisLockableService {
     public async findByMount(mountId: string, pageable: Pageable): Promise<Page<File>> {
         const result = await this.repository.createQueryBuilder("file")
             .leftJoin("file.mount", "mount")
+            .leftJoinAndSelect("file.song", "song")
             .where("mount.id = :mountId", { mountId })
             .getManyAndCount()
 

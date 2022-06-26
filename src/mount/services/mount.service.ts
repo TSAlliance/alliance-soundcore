@@ -1,9 +1,8 @@
 import { InjectQueue } from '@nestjs/bull';
-import { BadRequestException, Inject, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import Bull, { Queue } from 'bull';
 import { Page, Pageable } from 'nestjs-pager';
 import path from 'path';
-import fs from "fs";
 import { DeleteResult, Repository } from 'typeorm';
 import { Bucket } from '../../bucket/entities/bucket.entity';
 import { EVENT_FILE_FOUND, QUEUE_MOUNTSCAN_NAME } from '../../constants';
@@ -86,7 +85,19 @@ export class MountService extends RedisLockableService {
      * @returns Mount
      */
     public async findById(mountId: string): Promise<Mount> {
-        return this.repository.findOne({ where: { id: mountId }, relations: ["bucket"]});
+        return await this.repository.createQueryBuilder("mount")
+            .leftJoinAndSelect("mount.bucket", "bucket")
+            .leftJoin("mount.files", "file")
+            .loadRelationCountAndMap("mount.filesCount", "mount.files")
+            .addSelect("SUM(file.size) AS usedSpace")
+            .where("mount.id = :mountId", { mountId })
+            .getRawAndEntities().then((result) => {
+                const mount = result.entities[0];
+                if(!mount) throw new NotFoundException("Mount not found.");
+
+                mount.usedSpace = result.raw[0]?.usedSpace || 0;
+                return mount;
+            });
     }
 
     /**
