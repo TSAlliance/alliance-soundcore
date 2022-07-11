@@ -35,16 +35,6 @@ export class PlaylistController {
     return this.playlistService.removeSongs(playlistId, songIds, authentication)
   }
 
-  @Put(":playlistId/collaborators/add") 
-  public async addCollaborators(@Param("playlistId") playlistId: string, @Body() collaboratorIds: string[], @Authentication() authentication: User) {
-    return this.playlistService.addCollaborators(playlistId, collaboratorIds, authentication)
-  }
-
-  @Put(":playlistId/collaborators/remove") 
-  public async removeCollaborators(@Param("playlistId") playlistId: string, @Body() collaboratorIds: string[], @Authentication() authentication: User) {
-    return this.playlistService.removeCollaborators(playlistId, collaboratorIds, authentication)
-  }
-
   @Get("/byAuthor/:authorId") 
   public async findPlaylistsOfUser(@Param("authorId") authorId: string, @Pagination() pageable: Pageable, @Authentication() authentication: User) {
     return this.playlistService.findByAuthor(authorId, pageable, authentication);

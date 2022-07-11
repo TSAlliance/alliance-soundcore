@@ -1,10 +1,11 @@
 
-import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, OneToMany, PrimaryColumn, UpdateDateColumn } from "typeorm";
+import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryColumn, UpdateDateColumn } from "typeorm";
 import { Like } from "../../collection/entities/like.entity";
 import { Playlist } from "../../playlist/entities/playlist.entity";
 import { Stream } from "../../stream/entities/stream.entity";
 import { Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
 import { Slug } from "@tsalliance/utilities";
+import { Artwork } from "../../artwork/entities/artwork.entity";
 
 @Entity()
 export class User implements Resource {
@@ -27,6 +28,10 @@ export class User implements Resource {
     
     @OneToMany(() => Stream, stream => stream.listener)
     public streams: Stream[];
+
+    @ManyToOne(() => Artwork, { onDelete: "SET NULL", nullable: true })
+    @JoinColumn()
+    public artwork: Artwork;
     
     @OneToMany(() => Playlist, (p) => p.author)
     public playlists: Playlist[];
@@ -39,6 +44,8 @@ export class User implements Resource {
 
     @UpdateDateColumn()
     public updatedAt: Date;
+
+
 
     public friendsCount = 0;
     public playlistCount = 0;

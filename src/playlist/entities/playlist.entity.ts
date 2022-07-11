@@ -1,4 +1,4 @@
-import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, Index, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Like } from "../../collection/entities/like.entity";
 import { User } from "../../user/entities/user.entity";
@@ -9,14 +9,13 @@ import { PlaylistItem } from "./playlist-item.entity";
 
 @Entity()
 export class Playlist implements Resource {
+    public resourceType: ResourceType = "playlist";
 
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
     @Column({ type: "tinyint", default: 0 })
     public flag: ResourceFlag;
-
-    public resourceType: ResourceType = "playlist";
 
     @Column({ nullable: true, unique: true, length: 120 })
     public slug: string;
@@ -31,15 +30,8 @@ export class Playlist implements Resource {
     @Column({ nullable: false, default: "public" })
     public privacy: PlaylistPrivacy;
 
-    @Column({ nullable: false, default: false })
-    public collaborative: boolean;
-
     @CreateDateColumn()
     public createdAt: Date;
-
-    @ManyToMany(() => User)
-    @JoinTable({ name: "collaborators2playlist" })
-    public collaborators: User[];
 
     @ManyToOne(() => User)
     @JoinColumn()
@@ -48,18 +40,26 @@ export class Playlist implements Resource {
     @OneToMany(() => PlaylistItem, pi => pi.playlist)
     public items: PlaylistItem[];
 
-    // @OneToOne(() => Artwork, { onDelete: "SET NULL", nullable: true })
-    // @JoinColumn()
-    // public artwork: Artwork;
+    @ManyToOne(() => Artwork, { onDelete: "SET NULL", nullable: true })
+    @JoinColumn()
+    public artwork: Artwork;
 
     @OneToMany(() => Like, (l) => l.playlist)
     public likedBy: Like[];
 
-
     public songsCount?: number = 0;
-    public collaboratorsCount?: number = 0;
+
+    /**
+     * Total Duration of the Playlist
+     */
+    @Column({ select: false } )
     public totalDuration?: number = 0;
     public likesCount?: number = 0;
+
+    /**
+     * Indicates whether the user 
+     * has liked the playlist or not
+     */
     public liked?: boolean = false;
 
     @BeforeInsert()
