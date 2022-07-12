@@ -201,6 +201,7 @@ export class PlaylistService {
         const playlist = new Playlist();
         playlist.author = authentication;
         playlist.name = createPlaylistDto.title;
+        playlist.description = createPlaylistDto.description;
         playlist.privacy = createPlaylistDto.privacy;
 
         return this.playlistRepository.save(playlist)
@@ -215,6 +216,7 @@ export class PlaylistService {
         
         playlist.name = updatePlaylistDto.title || playlist.name;
         playlist.privacy = updatePlaylistDto.privacy || playlist.privacy;
+        playlist.description = updatePlaylistDto.description || playlist.description;
 
         return this.playlistRepository.save(playlist)
     }

@@ -24,7 +24,7 @@ export class Playlist implements Resource {
     @Column({ nullable: false, name: "title" })
     public name: string;
 
-    @Column({ nullable: true })
+    @Column({ nullable: true, length: 254 })
     public description: string;
 
     @Column({ nullable: false, default: "public" })
