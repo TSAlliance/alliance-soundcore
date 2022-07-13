@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
 import { DeleteResult, In, Not, Repository, SelectQueryBuilder } from 'typeorm';
@@ -203,9 +203,24 @@ export class PlaylistService {
         playlist.description = createPlaylistDto.description;
         playlist.privacy = createPlaylistDto.privacy;
 
-        return this.playlistRepository.save(playlist).then((result) => {
-            return this.meiliClient.setPlaylist(result).then(() => result);
-        })
+        // Create queryrunner and start transaction
+        const queryrunner = this.playlistRepository.manager.connection.createQueryRunner();
+        await queryrunner.startTransaction();
+
+        try {
+            // Save playlist to database
+            const result = await queryrunner.manager.save(playlist);
+            // Sync database entry with meilisearch
+            await this.meiliClient.setPlaylist(result).then(() => result);
+            // Commit transaction
+            await queryrunner.commitTransaction();
+            return result;
+        } catch (error) {
+            // Failed synching with meilisearch or db entry
+            // creation failed. Rollback to previous state
+            await queryrunner.rollbackTransaction();
+            throw new InternalServerErrorException("Failed creating playlist.");
+        }
     }
 
     public async update(playlistId: string, updatePlaylistDto: UpdatePlaylistDTO, authentication: User): Promise<Playlist> {
@@ -219,9 +234,24 @@ export class PlaylistService {
         playlist.privacy = updatePlaylistDto.privacy || playlist.privacy;
         playlist.description = updatePlaylistDto.description || playlist.description;
 
-        return this.playlistRepository.save(playlist).then((result) => {
-            return this.meiliClient.setPlaylist(result).then(() => result);
-        })
+        // Create queryrunner and start transaction
+        const queryrunner = this.playlistRepository.manager.connection.createQueryRunner();
+        await queryrunner.startTransaction();
+
+        try {
+            // Save playlist to database
+            const result = await queryrunner.manager.save(playlist);
+            // Sync database entry with meilisearch
+            await this.meiliClient.setPlaylist(result).then(() => result);
+            // Commit transaction
+            await queryrunner.commitTransaction();
+            return result;
+        } catch (error) {
+            // Failed synching with meilisearch or db entry
+            // creation failed. Rollback to previous state
+            await queryrunner.rollbackTransaction();
+            throw new InternalServerErrorException("Failed creating playlist.");
+        }
     }
 
     /**
