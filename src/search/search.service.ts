@@ -5,6 +5,7 @@ import { ArtistService } from '../artist/artist.service';
 import { DistributorService } from '../distributor/services/distributor.service';
 import { GenreService } from '../genre/services/genre.service';
 import { LabelService } from '../label/services/label.service';
+import { MeiliPlaylistService } from '../meilisearch/services/meili-playlist.service';
 import { PlaylistService } from '../playlist/playlist.service';
 import { PublisherService } from '../publisher/services/publisher.service';
 import { SongService } from '../song/song.service';
@@ -28,7 +29,9 @@ export class SearchService {
         private labelService: LabelService,
         private albumService: AlbumService,
         private userService: UserService,
-        private playlistService: PlaylistService
+        private playlistService: PlaylistService,
+
+        private readonly meiliPlaylist: MeiliPlaylistService
     ) {}
 
     public async complexSearch(query: string, authentication?: User): Promise<ComplexSearchResult> {
@@ -97,5 +100,8 @@ export class SearchService {
     }
 
 
+    public async searchPlaylists(query: string, pageable: Pageable, authentication: User) {
+        return this.meiliPlaylist.searchPlaylists(query, pageable);
+    }
 
 }

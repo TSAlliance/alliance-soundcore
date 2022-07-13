@@ -30,6 +30,7 @@ import { ProfileModule } from './profile/profile.module';
 import { MountModule } from './mount/mount.module';
 import { FileModule } from './file/file.module';
 import { IndexerModule } from './indexer/indexer.module';
+import { MeilisearchModule } from './meilisearch/meilisearch.module';
 
 @Module({
   imports: [
@@ -100,7 +101,13 @@ import { IndexerModule } from './indexer/indexer.module';
     ProfileModule,
     MountModule,
     FileModule,
-    IndexerModule
+    IndexerModule,
+    MeilisearchModule.forRoot({
+      host: `${process.env.MEILISEARCH_HOST}:${process.env.MEILISEARCH_PORT}`,
+      headers: {
+        "Authorization": `Bearer ${process.env.MEILISEARCH_KEY}`
+      }
+    })
   ],
   controllers: [],
   providers: []

@@ -42,7 +42,7 @@ export class Playlist implements Resource {
 
     @ManyToOne(() => Artwork, { onDelete: "SET NULL", nullable: true })
     @JoinColumn()
-    public artwork: Artwork;
+    public artwork?: Artwork;
 
     @OneToMany(() => Like, (l) => l.playlist)
     public likedBy: Like[];

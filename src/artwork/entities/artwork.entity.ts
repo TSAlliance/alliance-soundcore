@@ -40,19 +40,19 @@ export class Artwork {
     public id: string;
     
     @Column({ type: "tinyint", default: 0 })
-    public type: ArtworkType;
+    public type?: ArtworkType;
 
     @Column({ type: "json", nullable: true })
-    public colors: ArtworkColors;
+    public colors?: ArtworkColors;
 
     @Column()
-    public name: string;
+    public name?: string;
 
     @CreateDateColumn()
-    public createdAt: Date;
+    public createdAt?: Date;
 
     @Column({ type: "tinyint", default: 0 })
-    public flag: ArtworkFlag;
+    public flag?: ArtworkFlag;
 
     // Prevent duplicate files by specifying filename
     // This also applies to externalImages even if they haven't been downloaded
@@ -60,6 +60,6 @@ export class Artwork {
     
     @ManyToOne(() => Mount, { onDelete: "CASCADE" })
     @JoinColumn()
-    public mount: Mount;
+    public mount?: Mount;
 
 }
