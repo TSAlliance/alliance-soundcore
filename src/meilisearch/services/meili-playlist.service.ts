@@ -2,6 +2,8 @@ import { Injectable } from "@nestjs/common";
 import MeiliSearch, { SearchResponse, Task } from "meilisearch";
 import { Pageable } from "nestjs-pager";
 import { Playlist } from "../../playlist/entities/playlist.entity";
+import { PlaylistPrivacy } from "../../playlist/enums/playlist-privacy.enum";
+import { User } from "../../user/entities/user.entity";
 import { MeiliArtwork } from "../entities/meili-artwork.entity";
 import { MeiliPlaylist } from "../entities/meili-playlist.entity";
 import { MEILI_INDEX_PLAYLIST } from "../meilisearch.constants";
@@ -12,7 +14,8 @@ export class MeiliPlaylistService {
     constructor(
         private readonly meili: MeiliSearch
     ) {
-        this.index().updateSearchableAttributes(["name", "slug", "author.name"])
+        this.index().updateSearchableAttributes(["name", "slug"])
+        this.index().updateFilterableAttributes(["privacy", "author.id"])
     }
 
     /**
@@ -63,14 +66,16 @@ export class MeiliPlaylistService {
      * Search for playlist ids.
      * @param {string} query Search query
      * @param {Pageable} pageable Page settings
+     * @param {User} authentication 
      * @returns {SearchResponse} SearchResponse<MeiliPlaylist>
      */
-    public async searchPlaylists(query: string, pageable: Pageable): Promise<SearchResponse<MeiliPlaylist>> {
+    public async searchPlaylists(query: string, pageable: Pageable, authentication: User): Promise<SearchResponse<MeiliPlaylist>> {
         return this.index().search(query, {
             attributesToRetrieve: ["*"],
             limit: pageable.size,
             offset: pageable.size * pageable.page,
-            showMatchesPosition: true
+            showMatchesPosition: true,
+            filter: `privacy = '${PlaylistPrivacy.PUBLIC}' OR author.id = '${authentication.id}'`
         })
     }
 

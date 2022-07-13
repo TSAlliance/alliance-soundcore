@@ -101,7 +101,7 @@ export class SearchService {
 
 
     public async searchPlaylists(query: string, pageable: Pageable, authentication: User) {
-        return this.meiliPlaylist.searchPlaylists(query, pageable);
+        return this.meiliPlaylist.searchPlaylists(query, pageable, authentication);
     }
 
 }
