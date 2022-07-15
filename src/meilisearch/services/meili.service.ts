@@ -1,5 +1,5 @@
-import { InternalServerErrorException } from "@nestjs/common";
-import MeiliSearch, { Index, SearchParams, Task } from "meilisearch";
+import { InternalServerErrorException, Logger } from "@nestjs/common";
+import MeiliSearch, { Index, MeiliSearchError, SearchParams, Task } from "meilisearch";
 import { Syncable, SyncFlag } from "../interfaces/syncable.interface";
 
 export enum MeiliServiceSyncInterval {
@@ -19,6 +19,7 @@ export interface MeiliServiceOptions {
 }
 
 export abstract class MeiliService<T = any> {
+    private readonly _logger: Logger = new Logger(MeiliService.name + "-" + this._indexUid)
 
     constructor(
         private readonly _meili: MeiliSearch,
@@ -40,8 +41,9 @@ export abstract class MeiliService<T = any> {
 
         return this.index().addDocuments(docs).then((enqueuedTask) => {
             return this.client().waitForTask(enqueuedTask.taskUid, { timeOutMs });
-        }).catch(() => {
-            throw new InternalServerErrorException("Could not sync element with search engine.");
+        }).catch((error: MeiliSearchError) => {
+            this._logger.error(`Failed creating document: ${error.message}`, error.stack);
+            throw new InternalServerErrorException(`Synchronisation failed: ${error.message}`);
         })
     }
 
@@ -51,9 +53,12 @@ export abstract class MeiliService<T = any> {
      * @param {number} timeOutMs (Optional) Timeout when waiting for task to finish
      * @returns {Task} Task
      */
-    public async delete(documentId: string, timeOutMs?: number) {
+    protected async delete(documentId: string, timeOutMs?: number) {
         return this.index().deleteDocument(documentId).then((task) => {
             return this.client().waitForTask(task.taskUid, { timeOutMs });
+        }).catch((error: MeiliSearchError) => {
+            this._logger.error(`Failed deleting document with id '${documentId}': ${error.message}`, error.stack);
+            throw new InternalServerErrorException(`Synchronisation failed: ${error.message}`);
         })
     }
 
@@ -82,7 +87,10 @@ export abstract class MeiliService<T = any> {
      * @returns {SearchResponse<T>} SearchResponse<T>
      */
     protected async search(query: string, params?: SearchParams, config?: Partial<Request>) {
-        return this.index().search<T>(query, params, config)
+        return this.index().search<T>(query, params, config).catch((error) => {
+            this._logger.error(`Search failed for query '${query}': ${error.message}`, error.stack)
+            throw new InternalServerErrorException(`Internal error occured whilst requesting search engine.`);
+        })
     }
 
     /**

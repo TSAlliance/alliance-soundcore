@@ -8,9 +8,6 @@ export class CreateAlbumDTO {
     public name: string;
 
     @IsOptional()
-    public lookupGenius?: boolean;
-
-    @IsOptional()
     public primaryArtist?: Artist;
 
     @IsOptional()

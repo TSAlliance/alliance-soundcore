@@ -21,9 +21,9 @@ export class MeiliPlaylistService extends MeiliService<MeiliPlaylist> {
 
     /**
      * Add or update playlist document in meilisearch instance.
-     * @param playlist Playlist data
-     * @param timeOutMs Timeout for checking task completion
-     * @returns Task
+     * @param {Playlist} playlist Playlist data
+     * @param {number} timeOutMs (Optional) Timeout for checking task completion
+     * @returns {Task} Task
      */
     public async setPlaylist(playlist: Playlist, timeOutMs?: number): Promise<Task> {
         return this.sync({
@@ -49,9 +49,9 @@ export class MeiliPlaylistService extends MeiliService<MeiliPlaylist> {
 
     /**
      * Delete a playlist document from meilisearch.
-     * @param playlistId Playlist's id
-     * @param timeOutMs Timeout for checking task completion
-     * @returns Task
+     * @param {string} playlistId Playlist's id
+     * @param {number} timeOutMs (Optional) Timeout for checking task completion
+     * @returns {Task} Task
      */
     public async deletePlaylist(playlistId: string, timeOutMs?: number): Promise<Task> {
         return this.delete(playlistId, timeOutMs);

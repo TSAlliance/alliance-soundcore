@@ -3,7 +3,7 @@ import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, JoinColum
 import { Like } from "../../collection/entities/like.entity";
 import { Playlist } from "../../playlist/entities/playlist.entity";
 import { Stream } from "../../stream/entities/stream.entity";
-import { ResourceType } from "../../utils/entities/resource";
+import { Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
 import { Slug } from "@tsalliance/utilities";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Syncable, SyncFlag } from "../../meilisearch/interfaces/syncable.interface";
@@ -12,8 +12,9 @@ import { Syncable, SyncFlag } from "../../meilisearch/interfaces/syncable.interf
 // TODO: Split profile and users logic
 
 @Entity()
-export class User implements Syncable {
-    public resourceType?: ResourceType = "user";
+export class User implements Resource, Syncable {
+    public flag: ResourceFlag = ResourceFlag.OK;
+    public resourceType: ResourceType = "user";
 
     @Column({ nullable: true, default: null})
     public lastSyncedAt: Date;

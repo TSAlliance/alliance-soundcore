@@ -18,6 +18,7 @@ import { File, FileFlag } from "../../file/entities/file.entity";
 import { IndexerResultDTO } from "../dtos/indexer-result.dto";
 import { Song } from "../../song/entities/song.entity";
 import { Album } from "../../album/entities/album.entity";
+import { MeiliArtistService } from "../../meilisearch/services/meili-artist.service";
 
 const logger = new Logger("IndexerWorker");
 
@@ -29,16 +30,17 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
 
     DBWorker.instance().then((worker) => {
         worker.establishConnection().then((dataSource) => {
+            const meiliClient = worker.createMeiliInstance();
+            const eventEmitter = new EventEmitter2();
+
             const songRepo = dataSource.getRepository(Song);
             const artistRepo = dataSource.getRepository(Artist);
             const albumRepo = dataSource.getRepository(Album);
             const artworkRepo = dataSource.getRepository(Artwork);
             const fileRepo = dataSource.getRepository(File);
-
-            const eventEmitter = new EventEmitter2();
     
             const songService = new SongService(songRepo);
-            const artistService = new ArtistService(artistRepo, eventEmitter);
+            const artistService = new ArtistService(new MeiliArtistService(meiliClient), artistRepo, eventEmitter);
             const albumService = new AlbumService(albumRepo, eventEmitter);
             const artworkService = new ArtworkService(artworkRepo, new ArtworkStorageHelper());
             const fileService = new FileService(fileRepo, eventEmitter, null);
@@ -57,24 +59,22 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
     
                     // Create all artists found in id3tags if they do not already exist in database.
                     const featuredArtistsResults = await Promise.all(id3Artists.map(async (artist) => (await artistService.createIfNotExists({
-                        name: artist.name,
-                        lookupGenius: true
-                    }, mount))));
+                        name: artist.name
+                    }))));
 
                     // First artist in artists array becomes primary artist
                     // as they are listed first most of the times (can be changed later
                     // by admins)
                     const primaryArtistResult = featuredArtistsResults.splice(0, 1)[0];
-                    const primaryArtist = primaryArtistResult?.artist;
+                    const primaryArtist = primaryArtistResult?.data;
 
                     let albumResult = null;
                     if(id3Tags.album) {
                         // Create album found in id3tags if not exists.
                         albumResult = await albumService.createIfNotExists({
                             name: id3Tags.album,
-                            primaryArtist: primaryArtist,
-                            lookupGenius: true
-                        }, mount);
+                            primaryArtist: primaryArtist
+                        });
                     }
 
                     // Create song if not exists.
@@ -85,7 +85,7 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
                         album: albumResult?.album,
                         order: id3Tags.orderNr,
                         primaryArtist: primaryArtist,
-                        featuredArtists: featuredArtistsResults.map((result) => result.artist)
+                        featuredArtists: featuredArtistsResults.map((result) => result.data)
                     });
                     const song = songResult.song;
                     const existed = songResult.existed;
@@ -133,7 +133,7 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
 
                     // Add artists to array, that were newly created.
                     for(const featuredResult of featuredArtistsResults) {
-                        if(!featuredResult?.existed) createdArtists.push(featuredResult?.artist);
+                        if(!featuredResult?.existed) createdArtists.push(featuredResult?.data);
                     }
 
                     // End worker by reporting success
@@ -174,5 +174,11 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
             reportError(error);
         });
     });
+
+    function reportError(error: Error) {
+        dc(error, null);
+    }
 }
+
+
 

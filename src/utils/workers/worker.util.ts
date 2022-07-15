@@ -1,8 +1,10 @@
+import MeiliSearch from "meilisearch";
 import { DataSource } from "typeorm";
 import { TYPEORM_ENTITY_GLOB } from "../../constants";
 
 export class DBWorker {
     private static _instance: DBWorker;
+    private _meili: MeiliSearch;
 
     private readonly _datasource: DataSource = new DataSource({
         type: "mysql",
@@ -27,6 +29,23 @@ export class DBWorker {
     public async establishConnection(): Promise<DataSource> {
         if(this._datasource.isInitialized) return this._datasource;
         return this._datasource.initialize();
+    }
+
+    /**
+     * Create a new meili instance.
+     * @returns MeiliSearch
+     */
+    public createMeiliInstance() {
+        if(!this._meili) {
+            this._meili = new MeiliSearch({
+                host: `${process.env.MEILISEARCH_HOST}:${process.env.MEILISEARCH_PORT}`,
+                headers: {
+                    "Authorization": `Bearer ${process.env.MEILISEARCH_KEY}`
+                }
+            })
+        }
+
+        return this._meili;
     }
 
     public static instance(): Promise<DBWorker> {

@@ -1,6 +1,6 @@
 import { IsNotEmpty, IsOptional, Length } from "class-validator";
 
-export class CreateArtistDTO {
+export class UpdateArtistDTO {
 
     @IsNotEmpty()
     @Length(3, 254)

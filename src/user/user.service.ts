@@ -59,6 +59,12 @@ export class UserService {
         });
     }
 
+    /**
+     * Update the sync flag of an user.
+     * @param idOrObject Id or object of the user
+     * @param flag Updated sync flag
+     * @returns User
+     */
     public async setSyncFlag(idOrObject: string | User, flag: SyncFlag): Promise<User> {
         const user = await this.resolveUser(idOrObject);
         if(!user) return null;
@@ -81,6 +87,11 @@ export class UserService {
         return idOrObject;
     }
 
+    /**
+     * Synchronize the corresponding document on meilisearch.
+     * @param user User data
+     * @returns User
+     */
     private async syncWithMeili(user: User) {
         return this.meiliClient.setUser(user).then(() => {
             return this.setSyncFlag(user, SyncFlag.OK);

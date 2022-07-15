@@ -4,8 +4,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { Job, Queue } from 'bull';
 import { Album } from '../../album/entities/album.entity';
 import { Artist } from '../../artist/entities/artist.entity';
-import { EVENT_ALBUM_CREATED, EVENT_METADATA_CREATED, QUEUE_GENIUS_NAME } from '../../constants';
-import { AlbumCreatedEvent } from '../../events/albumCreated.event';
+import { EVENT_METADATA_CREATED, QUEUE_GENIUS_NAME } from '../../constants';
 import { IndexerResultDTO } from '../../indexer/dtos/indexer-result.dto';
 import { Mount } from '../../mount/entities/mount.entity';
 import { Song } from '../../song/entities/song.entity';
@@ -37,17 +36,6 @@ export class GeniusService {
                 this.createArtistLookupJob(artist, payload.mount);
             }
         }
-    }
-
-    /*@OnEvent(EVENT_ARTIST_CREATED)
-    public handleArtistCreatedEvent(payload: Artist, useMount: Mount) {
-        console.log("trigger genius lookup for artist: ", payload.name);
-        this.createArtistLookupJob(payload, useMount);
-    }*/
-
-    @OnEvent(EVENT_ALBUM_CREATED)
-    public handleAlbumCreatedEvent(payload: AlbumCreatedEvent) {
-        this.createAlbumLookupJob(payload.target, payload.mount);
     }
 
     public async createSongLookupJob(song: Song, useMount: Mount) {
