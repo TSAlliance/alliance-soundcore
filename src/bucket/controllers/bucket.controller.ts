@@ -8,6 +8,7 @@ import { BucketService } from '../services/bucket.service';
 export class BucketController {
   constructor(private readonly service: BucketService) {}
 
+  @Roles("admin")
   @Get(":bucketId")
   public async findById(@Param("bucketId") bucketId: string): Promise<Bucket> {
     return this.service.findById(bucketId);
