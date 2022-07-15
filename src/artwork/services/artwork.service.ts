@@ -6,7 +6,7 @@ import sharp from "sharp";
 import { ArtworkStorageHelper } from "../helper/artwork-storage.helper";
 import path from "path";
 import Vibrant from "node-vibrant";
-import { Slug } from "@tsalliance/utilities";
+import { Random, Slug } from "@tsalliance/utilities";
 import { RedisLockableService } from "../../utils/services/redis-lockable.service";
 import { RedlockError } from "../../exceptions/redlock.exception";
 import axios from "axios";
@@ -114,8 +114,8 @@ export class ArtworkService extends RedisLockableService {
      * @returns Artwork
      */
     public async createForAlbumIfNotExists(album: Album, mount: Mount, fromSource?: string | Buffer): Promise<Artwork> {
-        if(!album.primaryArtist) throw new NotFoundException("No primary artist present on album data but is required.");
-        return this.createIfNotExists({ mount, name: `${album.name} ${album.primaryArtist.name}`, type: ArtworkType.ALBUM, fromSource })
+        // if(!album.primaryArtist) throw new NotFoundException("No primary artist present on album data but is required.");
+        return this.createIfNotExists({ mount, name: `${album.name} ${album.primaryArtist?.name || Random.randomString(8)}`, type: ArtworkType.ALBUM, fromSource })
     }
 
     /**
@@ -167,10 +167,12 @@ export class ArtworkService extends RedisLockableService {
      * @returns Artwork
      */
      public async createForSongIfNotExists(song: Song, mount: Mount, fromSource?: string | Buffer): Promise<Artwork> {
-        if(!song.primaryArtist) throw new NotFoundException("No primary artist present on album data but is required.");
-        if(!song.featuredArtists) throw new NotFoundException("No primary artist present on album data but is required.");
+        // if(!song.primaryArtist) throw new NotFoundException("No primary artist present on album data but is required.");
+        // if(!song.featuredArtists) throw new NotFoundException("No primary artist present on album data but is required.");
 
-        return this.createIfNotExists({ mount, name: `${song.name} ${song.primaryArtist.name} ${song.featuredArtists.map((artist) => artist.name).join(" ")}`, type: ArtworkType.SONG, fromSource })
+        const primaryArtistName = song.primaryArtist?.name || Random.randomString(8);      
+        const featuredArtistNames = song.featuredArtists.map((artist) => artist.name).join(" ") || "";
+        return this.createIfNotExists({ mount, name: `${song.name} ${primaryArtistName} ${featuredArtistNames}`, type: ArtworkType.SONG, fromSource })
     }
 
     /**

@@ -53,9 +53,10 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
                 // Read ID3 Tags from mp3 files.
                 songService.readID3TagsFromFile(filepath).then(async (id3Tags) => {
                     const songTitle = id3Tags.title.trim();
+                    const id3Artists = id3Tags.artists || [];
     
                     // Create all artists found in id3tags if they do not already exist in database.
-                    const featuredArtistsResults = await Promise.all(id3Tags.artists.map(async (artist) => (await artistService.createIfNotExists({
+                    const featuredArtistsResults = await Promise.all(id3Artists.map(async (artist) => (await artistService.createIfNotExists({
                         name: artist.name,
                         lookupGenius: true
                     }, mount))));
@@ -64,21 +65,24 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
                     // as they are listed first most of the times (can be changed later
                     // by admins)
                     const primaryArtistResult = featuredArtistsResults.splice(0, 1)[0];
-                    const primaryArtist = primaryArtistResult.artist;
+                    const primaryArtist = primaryArtistResult?.artist;
 
-                    // Create album found in id3tags if not exists.
-                    const albumResult = await albumService.createIfNotExists({
-                        name: id3Tags.album,
-                        primaryArtist: primaryArtist,
-                        lookupGenius: true
-                    }, mount);
+                    let albumResult = null;
+                    if(id3Tags.album) {
+                        // Create album found in id3tags if not exists.
+                        albumResult = await albumService.createIfNotExists({
+                            name: id3Tags.album,
+                            primaryArtist: primaryArtist,
+                            lookupGenius: true
+                        }, mount);
+                    }
 
                     // Create song if not exists.
                     const songResult = await songService.createIfNotExists({
                         duration: id3Tags.duration,
                         name: songTitle,
                         file: file,
-                        album: albumResult.album,
+                        album: albumResult?.album,
                         order: id3Tags.orderNr,
                         primaryArtist: primaryArtist,
                         featuredArtists: featuredArtistsResults.map((result) => result.artist)
@@ -123,13 +127,13 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
 
                     const createdArtists: Artist[] = [];
                     // Check if primaryArtist was newly created.
-                    if(!primaryArtistResult.existed) {
+                    if(!primaryArtistResult?.existed) {
                         createdArtists.push(primaryArtist);
                     }
 
                     // Add artists to array, that were newly created.
                     for(const featuredResult of featuredArtistsResults) {
-                        if(!featuredResult.existed) createdArtists.push(featuredResult.artist);
+                        if(!featuredResult?.existed) createdArtists.push(featuredResult?.artist);
                     }
 
                     // End worker by reporting success
@@ -137,7 +141,7 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
                         mount,
                         song,
                         createdSong: existed ? null : song,
-                        createdAlbum: albumResult.existed ? null : albumResult.album,
+                        createdAlbum: albumResult?.existed ? null : albumResult?.album,
                         createdArtists: createdArtists
                     });
                 }).catch((error) => {

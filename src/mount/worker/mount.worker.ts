@@ -11,6 +11,7 @@ import { File } from "../../file/entities/file.entity";
 import { MountScanReportDTO } from "../dtos/scan-report.dto";
 import { ProgressInfoDTO } from "./progress-info.dto";
 import { DBWorker } from "../../utils/workers/worker.util";
+import { FileSystemService } from "../../filesystem/services/filesystem.service";
 
 const logger = new Logger("MountWorker");
 
@@ -34,15 +35,17 @@ export default function (job: Job<MountScanProcessDTO>, dc: DoneCallback) {
             DBWorker.instance().then((worker) => {
                 worker.establishConnection().then((dataSource) => {
                     const repository = dataSource.getRepository(File);
+                    const fileSystem = new FileSystemService();
 
                     repository.find({ where: { mount: { id: mount.id }, }, select: ["name", "directory"]}).then((existingFiles) => {
                         updateProgress(job, { currentStep: 1, totalSteps: MAX_STEPS, stepCode: MOUNT_STEP_MKDIR });
-    
+                        const mountDirectory = fileSystem.resolveMountPath(mount);
+
                         // Create directory if it does not exist.
-                        if(!fs.existsSync(mount.directory)) {
-                            logger.warn(`Could not find directory '${mount.directory}'. Creating it...`);
-                            fs.mkdirSync(mount.directory, { recursive: true });
-                            logger.verbose(`Created directory '${mount.directory}'.`);
+                        if(!fs.existsSync(mountDirectory)) {
+                            logger.warn(`Could not find directory '${mountDirectory}'. Creating it...`);
+                            fs.mkdirSync(mountDirectory, { recursive: true });
+                            logger.verbose(`Created directory '${mountDirectory}'.`);
                         }
     
                         // Execute scan

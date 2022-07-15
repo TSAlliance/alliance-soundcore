@@ -129,7 +129,7 @@ export class ArtistService extends RedisLockableService {
      */
     public async setFlag(idOrObject: string | Artist, flag: ResourceFlag): Promise<Artist> {
         const artist = await this.resolveArtist(idOrObject);
-        if(!artist) throw new NotFoundException("Artist not found.");
+        if(!artist) return null;
 
         artist.flag = flag;
         return this.repository.save(artist);
@@ -143,7 +143,7 @@ export class ArtistService extends RedisLockableService {
      */
     public async setGeniusFlag(idOrObject: string | Artist, flag: GeniusFlag): Promise<Artist> {
         const artist = await this.resolveArtist(idOrObject);
-        if(!artist) throw new NotFoundException("Artist not found.");
+        if(!artist) return null;
 
         artist.geniusFlag = flag;
         return this.repository.save(artist);
@@ -155,6 +155,7 @@ export class ArtistService extends RedisLockableService {
      * @returns Artist
      */
     protected async resolveArtist(idOrObject: string | Artist): Promise<Artist> {
+        console.log("resolving artist", idOrObject)
         if(typeof idOrObject == "string") {
             return this.findById(idOrObject);
         }

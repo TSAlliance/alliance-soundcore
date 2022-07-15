@@ -66,7 +66,7 @@ export class FileSystemService {
      * @returns {string} Absolute filepath of artwork directory in mount
      */
     public resolveArtworkDir(mount: Mount): string {
-        return path.join(this.resolveMountPath(mount), SC_ARTWORKDIR_NAME);
+        return path.resolve(this.resolveMountPath(mount), SC_ARTWORKDIR_NAME);
     }
 
     /**
@@ -84,7 +84,7 @@ export class FileSystemService {
         }
 
         const file = filepathOrFile as File;
-        return path.join(this.resolveMountPath(file.mount), file.directory, file.name);
+        return path.resolve(this.resolveMountPath(file.mount), file.directory, file.name);
     }
 
     /**

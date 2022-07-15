@@ -167,7 +167,7 @@ export class MountService extends RedisLockableService {
      * @returns Mount
      */
     public async createIfNotExists(createMountDto: CreateMountDTO): Promise<CreateResult<Mount>> {
-        const directory = path.resolve(sanitizeFilename(createMountDto.directory, { replacement: "" }));
+        const directory = path.resolve(createMountDto.directory);
 
         return this.lock(createMountDto.name, async(signal) => {
             const existingMount = await this.findByNameInBucket(createMountDto.bucketId, createMountDto.name);

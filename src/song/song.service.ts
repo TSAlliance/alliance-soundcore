@@ -18,7 +18,7 @@ import path from "path";
 
 import { FileFlag } from "../file/entities/file.entity";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Repository, TypeORMError } from "typeorm";
 
 @Injectable()
 export class SongService extends RedisLockableService {
@@ -361,7 +361,7 @@ export class SongService extends RedisLockableService {
 
         // Build result DTO
         const result: ID3TagsDTO = {
-            title: id3Tags.title?.trim() || path.basename(filepath),
+            title: id3Tags.title?.trim() || path.basename(filepath).replace(/\.[^/.]+$/, "").trim(),
             duration: durationInSeconds,
             artists: artists.map((name) => ({
                 name
@@ -406,7 +406,7 @@ export class SongService extends RedisLockableService {
                 });
 
             // Build query to include all featuredArtists in where clause
-            const featuredArtists = uniqueSong.featuredArtists.map((artist) => artist.name);
+            const featuredArtists = uniqueSong.featuredArtists?.map((artist) => artist.name) || [];
             query = query.andWhere(`featuredArtist.name = '${featuredArtists.join("' OR featuredArtist.name = '")}'`);
 
             // Execute query.

@@ -159,9 +159,12 @@ export class GeniusClientService {
      */
      public async lookupSong(song: Song, mount: Mount): Promise<Song> {
         const result: Song = Object.assign(new Song(), song);
-        const title = song?.name?.replace(/^(?:\[[^\]]*\]|\([^()]*\))\s*|\s*(?:\[[^\]]*\]|\([^()]*\))/gm, "").split("-")[0].trim();
-        const artist = song.primaryArtist.name;
+        const title = song?.name?.replace(/^(?:\[[^\]]*\]|\([^()]*\))\s*|\s*(?:\[[^\]]*\]|\([^()]*\))/gm, "")?.split("-")?.[0]?.trim();
+        const artist = song.primaryArtist?.name;
         const searchQuery = `${title} ${artist}`
+
+        if(typeof title === "undefined" || title == null) return song;
+        if(typeof artist === "undefined" || artist == null) return song;
 
         // Get the resource id from given artist object.
         // If the object has no geniusId, try and search a matching id
