@@ -7,8 +7,6 @@ import { ArtistModule } from './artist/artist.module';
 import { AllianceRestModule } from '@tsalliance/rest';
 import { BucketModule } from './bucket/bucket.module';
 import { AlbumModule } from './album/album.module';
-import { StorageModule } from './storage/storage.module';
-import { SharedModule } from './shared/shared.module';
 import { SongModule } from './song/song.module';
 import { GeniusModule } from './genius/genius.module';
 import { LabelModule } from './label/label.module';
@@ -31,6 +29,7 @@ import { MountModule } from './mount/mount.module';
 import { FileModule } from './file/file.module';
 import { IndexerModule } from './indexer/indexer.module';
 import { MeilisearchModule } from './meilisearch/meilisearch.module';
+import { FileSystemModule } from './filesystem/filesystem.module';
 
 @Module({
   imports: [
@@ -42,6 +41,7 @@ import { MeilisearchModule } from './meilisearch/meilisearch.module';
         ".env"
       ]
     }),
+    FileSystemModule.forRoot(),
     TypeOrmModule.forRoot({
       type: "mysql",
       host: process.env.DB_HOST,
@@ -73,11 +73,9 @@ import { MeilisearchModule } from './meilisearch/meilisearch.module';
       }
     }),
     EventEmitterModule.forRoot({ global: true, ignoreErrors: true }),
-    SharedModule,
     ArtistModule,
     BucketModule,
     AlbumModule,
-    StorageModule,
     SongModule,
     GeniusModule,
     LabelModule,

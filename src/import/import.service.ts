@@ -1,7 +1,5 @@
 import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
-import { MOUNT_ID } from '../shared/shared.module';
 import { CreateImportDTO } from './dtos/create-import.dto';
-import { StorageService } from '../storage/storage.service';
 
 import fs, { mkdirSync } from "fs";
 import sanitize from 'sanitize-filename';
@@ -30,10 +28,8 @@ export class ImportService {
 
     constructor(
         private mountService: MountService,
-        private storageService: StorageService,
         private importGateway: ImportGateway,
         private spotifyService: SpotifyService,
-        @Inject(MOUNT_ID) private mountId: string
     ) {}
 
     public async createImport(createImportDto: CreateImportDTO, importer?: User): Promise<ImportEntity> {
@@ -141,7 +137,7 @@ export class ImportService {
     }
 
     private async download(importEntity: ImportEntity): Promise<void> {
-        return new Promise((resolve, reject) => {
+        /*return new Promise((resolve, reject) => {
             const tmpFilepath = this.storageService.buildTmpFilepath();
 
             importEntity.status = "downloading"
@@ -176,7 +172,7 @@ export class ImportService {
                     else resolve()
                 })
             })
-        })
+        })*/
     }
 
     /**

@@ -8,7 +8,6 @@ import { PublisherModule } from '../publisher/publisher.module';
 import { LabelModule } from '../label/label.module';
 import { AlbumModule } from '../album/album.module';
 import { ArtworkModule } from '../artwork/artwork.module';
-import { StorageModule } from '../storage/storage.module';
 import { TracklistController } from './controllers/tracklist.controller';
 import { TracklistService } from './services/tracklist.service';
 import { Song } from './entities/song.entity';
@@ -23,7 +22,6 @@ import { Song } from './entities/song.entity';
     LabelModule,
     AlbumModule,
     ArtworkModule,
-    StorageModule,
     TypeOrmModule.forFeature([ Song ])
   ],
   exports: [

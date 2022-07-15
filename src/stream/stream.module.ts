@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { StreamService } from './services/stream.service';
 import { StreamController } from './stream.controller';
-import { StorageModule } from '../storage/storage.module';
 import { SongModule } from '../song/song.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { StreamTokenService } from './services/stream-token.service';
@@ -19,8 +18,6 @@ import { Stream } from './entities/stream.entity';
   ],
   imports: [
     SongModule,
-    StorageModule,
-
     TypeOrmModule.forFeature([ Stream ]),
     JwtModule.register({
       verifyOptions: {

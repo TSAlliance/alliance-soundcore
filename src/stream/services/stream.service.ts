@@ -1,9 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { SongService } from '../../song/song.service';
-import { StorageService } from '../../storage/storage.service';
 
-import fs from "fs"
 import { StreamTokenService } from './stream-token.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Stream } from '../entities/stream.entity';
@@ -14,7 +12,6 @@ export class StreamService {
 
     constructor(
         private tokenService: StreamTokenService,
-        private storageService: StorageService,
         private songService: SongService,
         @InjectRepository(Stream) private readonly repository: Repository<Stream>,
     ){}

@@ -1,13 +1,11 @@
 import { InjectQueue } from '@nestjs/bull';
-import { BadRequestException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import Bull, { Queue } from 'bull';
 import { Page, Pageable } from 'nestjs-pager';
 import path from 'path';
 import { DeleteResult, Repository } from 'typeorm';
 import { Bucket } from '../../bucket/entities/bucket.entity';
 import { EVENT_FILE_FOUND, QUEUE_MOUNTSCAN_NAME } from '../../constants';
-import { BUCKET_ID } from '../../shared/shared.module';
-import { StorageService } from '../../storage/storage.service';
 import { CreateMountDTO } from '../dtos/create-mount.dto';
 import { UpdateMountDTO } from '../dtos/update-mount.dto';
 import { Mount } from '../entities/mount.entity';
@@ -22,6 +20,7 @@ import sanitizeFilename from "sanitize-filename";
 import { CreateResult } from '../../utils/results/creation.result';
 import { RedisLockableService } from '../../utils/services/redis-lockable.service';
 import { RedlockError } from '../../exceptions/redlock.exception';
+import { FileSystemService } from '../../filesystem/services/filesystem.service';
 
 @Injectable()
 export class MountService extends RedisLockableService {
@@ -29,10 +28,9 @@ export class MountService extends RedisLockableService {
 
     constructor(
         @InjectRepository(Mount) private readonly repository: Repository<Mount>,
-        private readonly storage: StorageService,
         private readonly gateway: MountGateway,
         private readonly eventEmitter: EventEmitter2,
-        @Inject(BUCKET_ID) private readonly bucketId: string,
+        private readonly fileSystem: FileSystemService,
         @InjectQueue(QUEUE_MOUNTSCAN_NAME) private readonly queue: Queue<MountScanProcessDTO>
     ) {
         super();
@@ -124,7 +122,7 @@ export class MountService extends RedisLockableService {
      * @returns Mount
      */
     public async findDefault(): Promise<Mount> {
-        return this.findDefaultOfBucket(this.bucketId);
+        return this.findDefaultOfBucket(this.fileSystem.getInstanceId());
     }
 
     /**
@@ -217,12 +215,12 @@ export class MountService extends RedisLockableService {
      * default.
      */
     public async checkForDefaultMount() {
-        const defaultMount = await this.findDefaultOfBucket(this.bucketId);
+        const defaultMount = await this.findDefaultOfBucket(this.fileSystem.getInstanceId());
 
         if(!defaultMount) {
             return this.createIfNotExists({
-                bucketId: this.bucketId,
-                directory: path.join(this.storage.getSoundcoreDir(), Random.randomString(32)),
+                bucketId: this.fileSystem.getInstanceId(),
+                directory: path.join(this.fileSystem.getInstanceDir(), Random.randomString(32)),
                 name: `Default Mount #${Random.randomString(4)}`,
                 setAsDefault: true,
             });
@@ -262,7 +260,7 @@ export class MountService extends RedisLockableService {
         let fetchedElements = 0;
     
         while(fetchedElements < page?.totalElements || page == null) {
-            page = await this.findByBucketId(this.bucketId, options);
+            page = await this.findByBucketId(this.fileSystem.getInstanceId(), options);
             options.page++;
             fetchedElements += page.size;
 

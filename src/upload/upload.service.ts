@@ -1,13 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { MountService } from '../mount/services/mount.service';
-import { StorageService } from '../storage/storage.service';
 import { User } from '../user/entities/user.entity';
 import { Formats } from './dto/formats.dto';
 
 @Injectable()
 export class UploadService {
 
-    constructor(private storageService: StorageService, private mountService: MountService){}
+    constructor(private mountService: MountService){}
 
     /**
      * Get a list of supported formats for image or audio files

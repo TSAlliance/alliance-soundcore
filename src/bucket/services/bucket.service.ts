@@ -1,15 +1,19 @@
+import os from "os"
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Page, Pageable } from 'nestjs-pager';
 import { Bucket } from '../entities/bucket.entity';
 import { CreateBucketDTO } from '../dto/create-bucket.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { FileSystemService } from '../../filesystem/services/filesystem.service';
+import { Random } from "@tsalliance/utilities";
 
 @Injectable()
 export class BucketService {
 
     constructor(
-        @InjectRepository(Bucket) private repository: Repository<Bucket>,
+        private readonly fileSystem: FileSystemService,
+        @InjectRepository(Bucket) private readonly repository: Repository<Bucket>,
     ){}
 
     /**
@@ -82,17 +86,31 @@ export class BucketService {
      * @returns Bucket
      */
     public async createWithId(bucketId: string, createBucketDto: CreateBucketDTO): Promise<Bucket> {
-        const bucket = await this.findById(bucketId);
-        if(bucket) return bucket;
-
-        if(await this.existsByName(createBucketDto.name)) {
-            throw new BadRequestException("Bucket with that name already exists.");
-        }
-        
-        return this.repository.save({
-            ...createBucketDto,
-            id: bucketId
-        });    
+        return this.findById(bucketId).catch(async () => {
+            // Finding bucket failed.
+            // Proceed by checking if the name already exists
+            if(await this.existsByName(createBucketDto.name)) {
+                throw new BadRequestException("Bucket with that name already exists.");
+            }
+            
+            return this.repository.save({
+                ...createBucketDto,
+                id: bucketId
+            });   
+        });
     }
+
+    /**
+     * Initialize local bucket. If the local instance has not yet
+     * registered a bucket in the database, then a new one is created.
+     * @returns {Bucket} Initialized bucket instance
+     */
+    public async initLocalBucket(): Promise<Bucket> {
+        return this.createWithId(this.fileSystem.getInstanceId(), {
+            name: `${os.hostname()}#${Random.randomString(4)}`
+        })
+    }
+
+
 
 }
