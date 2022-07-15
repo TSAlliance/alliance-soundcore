@@ -8,6 +8,9 @@ import { Slug } from "@tsalliance/utilities";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Syncable, SyncFlag } from "../../meilisearch/interfaces/syncable.interface";
 
+// TODO: Remove attributes from Syncable object when they get sent as response
+// TODO: Split profile and users logic
+
 @Entity()
 export class User implements Syncable {
     public resourceType?: ResourceType = "user";
