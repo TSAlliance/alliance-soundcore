@@ -26,16 +26,15 @@ export class AlbumService extends RedisLockableService {
     public async findProfilesByArtist(artistId: string, pageable: Pageable, authentication?: User): Promise<Page<Album>> {
         const result = await this.repository.createQueryBuilder("album")
             .leftJoinAndSelect("album.artwork", "artwork")
-            .leftJoinAndSelect("album.banner", "banner")
-            .leftJoin("album.artist", "artist")
+            .leftJoin("album.primaryArtist", "primaryArtist")
 
             .loadRelationCountAndMap("album.liked", "album.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication?.id }))
 
-            .addSelect(["artwork.id", "artwork.accentColor", "banner.id", "banner.accentColor", "artist.id", "artist.name"])
-            .where("artist.id = :artistId", { artistId })
-            .orWhere("artist.slug = :artistId", { artistId })
+            .addSelect(["artwork.id", "primaryArtist.id", "primaryArtist.name"])
+            .where("primaryArtist.id = :artistId", { artistId })
+            .orWhere("primaryArtist.slug = :artistId", { artistId })
 
-            .orderBy("album.released", "DESC")
+            .orderBy("album.releasedAt", "DESC")
             .addOrderBy("album.createdAt", "DESC")
 
             // Pagination
@@ -48,28 +47,28 @@ export class AlbumService extends RedisLockableService {
     }
 
     public async findFeaturedWithArtist(artistId: string, pageable: Pageable, authentication?: User): Promise<Page<Album>> {
-        const result = await this.repository.createQueryBuilder("album")
+        /*const result = await this.repository.createQueryBuilder("album")
             .leftJoin("album.artwork", "artwork")
-            .leftJoin("album.banner", "banner")
-            .leftJoin("album.artist", "artist")
+            .leftJoin("album.primaryArtist", "primaryArtist")
             .leftJoin("album.songs", "song")
-            .leftJoin("song.artists", "featuredArtist", "featuredArtist.id != artist.id AND (featuredArtist.id = :featArtistId OR featuredArtist.slug = :featArtistId)", { featArtistId: artistId })
+            .leftJoin("song.artists", "featuredArtist", "featuredArtist.id != primaryArtist.id AND (featuredArtist.id = :featArtistId OR featuredArtist.slug = :featArtistId)", { featArtistId: artistId })
 
             .loadRelationCountAndMap("album.liked", "album.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication?.id }))
 
-            .addSelect(["artwork.id", "artwork.accentColor", "banner.id", "banner.accentColor", "artist.id", "artist.name", "featuredArtist.id", "featuredArtist.name"])
+            .addSelect(["artwork.id", "artwork.accentColor", "primaryArtist.id", "primaryArtist.name", "featuredArtist.id", "featuredArtist.name"])
 
             .where("featuredArtist.id = :featArtistId OR featuredArtist.slug = :slug", { featArtistId: artistId, slug: artistId })
-            .orderBy("album.released", "DESC")
+            .orderBy("album.releasedAt", "DESC")
             .addOrderBy("album.createdAt", "DESC")
 
             // Pagination
             .offset((pageable?.page || 0) * (pageable?.size || 30))
             .limit(pageable.size || 30)
 
-            .getManyAndCount();        
+            .getManyAndCount();     */   
 
-        return Page.of(result[0], result[1], pageable.page);
+            // TODO
+        return Page.of([], 0, pageable.page);
     }
 
     public async findRecommendedProfilesByArtist(artistId: string, exceptAlbumIds: string | string[] = [], authentication?: User): Promise<Page<Album>> {
@@ -80,18 +79,17 @@ export class AlbumService extends RedisLockableService {
 
         let qb = await this.repository.createQueryBuilder("album")
             .leftJoinAndSelect("album.artwork", "artwork")
-            .leftJoinAndSelect("album.banner", "banner")
-            .leftJoinAndSelect("album.artist", "artist")
+            .leftJoinAndSelect("album.primaryArtist", "primaryArtist")
 
             .loadRelationCountAndMap("album.liked", "album.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication?.id }))
 
-            .addSelect(["artist.id", "artist.name"])
+            .addSelect(["primaryArtist.id", "primaryArtist.name"])
             .limit(10);
 
         if(exceptAlbumIds && exceptAlbumIds.length > 0) {
             qb = qb.where("album.id NOT IN(:except)", { except: exceptAlbumIds || [] })
         }
-        qb = qb.andWhere("(artist.id = :artistId OR artist.slug = :artistId)", { artistId })
+        qb = qb.andWhere("(primaryArtist.id = :artistId OR primaryArtist.slug = :artistId)", { artistId })
 
         const result = await qb.getMany();
         return Page.of(result, 10, 0);
@@ -99,14 +97,14 @@ export class AlbumService extends RedisLockableService {
 
     public async findByGenre(genreId: string, pageable: Pageable, authentication?: User): Promise<Page<Album>> {
         const result = await this.repository.createQueryBuilder("album")
-            .leftJoin("album.artist", "artist")
+            .leftJoin("album.primaryArtist", "primaryArtist")
             .leftJoin("album.artwork", "artwork")
             .leftJoin("album.songs", "song")
             .leftJoin("song.genres", "genre")
 
             .loadRelationCountAndMap("album.liked", "album.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication?.id }))
 
-            .addSelect(["artwork.id", "artwork.accentColor", "artist.id", "artist.name"])
+            .addSelect(["artwork.id", "primaryArtist.id", "primaryArtist.name"])
 
             // Pagination
             .offset((pageable?.page || 0) * (pageable?.size || 30))
@@ -134,15 +132,14 @@ export class AlbumService extends RedisLockableService {
                 
                 // This is for relations
                 .leftJoinAndSelect("album.artwork", "artwork")
-                .leftJoinAndSelect("album.banner", "banner")
                 .leftJoinAndSelect("album.distributor", "distributor")
                 .leftJoinAndSelect("distributor.artwork", "distrArtwork")
                 .leftJoinAndSelect("album.label", "label")
                 .leftJoinAndSelect("label.artwork", "labelArtwork")
                 .leftJoinAndSelect("album.publisher", "publisher")
                 .leftJoinAndSelect("publisher.artwork", "publisherArtwork")
-                .leftJoinAndSelect("album.artist", "artist")
-                .leftJoinAndSelect("artist.artwork", "albumArtwork")
+                .leftJoinAndSelect("album.primaryArtist", "primaryArtist")
+                .leftJoinAndSelect("primaryArtist.artwork", "albumArtwork")
 
                 .loadRelationCountAndMap("album.liked", "album.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication?.id }))
 
@@ -157,28 +154,6 @@ export class AlbumService extends RedisLockableService {
 
         const album = result.entities[0];
         if(!album) throw new NotFoundException("Album not found.")
-
-        const featuredArtists = await this.repository.createQueryBuilder("album")
-            .where("album.id = :albumId", { albumId })
-            .orWhere("album.slug = :albumId", { albumId })
-            .andWhere("artist.id != :artistId", { artistId: album.primaryArtist?.id })
-
-            .leftJoin("album.songs", "song")
-            .leftJoinAndSelect("song.artists", "artist")
-            .leftJoinAndSelect("artist.artwork", "artwork")
-            
-            .select(["artist.id", "artist.name", "artwork.id", "artwork.accentColor"])
-            .distinct()
-            .getRawAndEntities()
-
-        /*album.featuredArtists = featuredArtists.raw.map((a) => ({
-            id: a.artist_id,
-            name: a.artist_name,
-            artwork: {
-                id: a.artwork_id,
-                accentColor: a.artwork_accentColor
-            }
-        } as Artist))*/
 
         album.totalDuration = parseInt(result.raw[0].totalDuration);
         album.songsCount = parseInt(result.raw[0].songsCount)
@@ -298,12 +273,12 @@ export class AlbumService extends RedisLockableService {
 
         let qb = this.repository.createQueryBuilder("album")
             .leftJoinAndSelect("album.artwork", "artwork")
-            .leftJoin("album.artist", "artist")
+            .leftJoin("album.primaryArtist", "primaryArtist")
 
             .limit(pageable.size)
             .offset(pageable.page * pageable.size)
 
-            .addSelect(["artist.id", "artist.name", "artist.slug"])
+            .addSelect(["primaryArtist.id", "primaryArtist.name", "primaryArtist.slug"])
             .where("album.title LIKE :query", { query });
 
         if(query == "%") {
