@@ -1,12 +1,10 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Page, Pageable } from 'nestjs-pager';
-import { Repository } from 'typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
 import { RedlockError } from '../exceptions/redlock.exception';
 import { SyncFlag } from '../meilisearch/interfaces/syncable.interface';
 import { MeiliArtistService } from '../meilisearch/services/meili-artist.service';
-import { User } from '../user/entities/user.entity';
 import { GeniusFlag, ResourceFlag } from '../utils/entities/resource';
 import { CreateResult } from '../utils/results/creation.result';
 import { RedisLockableService } from '../utils/services/redis-lockable.service';
@@ -26,59 +24,49 @@ export class ArtistService extends RedisLockableService {
         super();
     }
 
+    /**
+     * Find an artist by its id.
+     * @param artistId Artist's id
+     * @returns Artist
+     */
     public async findById(artistId: string): Promise<Artist> {
-        return await this.repository.createQueryBuilder("artist")
-            .where("artist.id = :artistId", { artistId })
+        return this.buildGeneralQuery("artist")
+            .where("artist.id = :artistId OR artist.slug = :artistId", { artistId })
             .getOne();
     }
 
-    public async findProfileById(artistId: string, user: User): Promise<Artist> {
+    /**
+     * Find profile of an artist by its id.
+     * This includes stats like streamCount
+     * @param artistId Artist's id.
+     * @returns Artist
+     */
+    public async findProfileById(artistId: string): Promise<Artist> {
         const result = await this.repository.createQueryBuilder("artist")
-            .leftJoinAndSelect("artist.artwork", "artwork")
-            .leftJoinAndSelect("artist.banner", "banner")
             .leftJoin("artist.songs", "song")
             .leftJoin("song.streams", "stream")
-
-            .addSelect("SUM(stream.streamCount) as streamCount")
-
-            .loadRelationCountAndMap("artist.songCount", "artist.songs")
-            .loadRelationCountAndMap("artist.albumCount", "artist.albums")
-
+            .addSelect("SUM(stream.streamCount) as artist_streamCount")
             .groupBy("artist.id")
-            .where("artist.id = :artistId", { artistId })
-            .orWhere("artist.slug = :artistId", { artistId })
-
-            .getRawAndEntities();
-
-        // TODO: Separate stats and artist info
-        
-        const likedCount = await this.repository.createQueryBuilder("artist")
-            .leftJoin("artist.songs", "song")
-            .leftJoin("song.likedBy", "likedBy", "likedBy.userId = :userId", { userId: user?.id })
-
-            .groupBy("likedBy.userId")
-            .addGroupBy("artist.id")
-
-
-            .select(["artist.id", "COUNT(likedBy.id) AS likedCount"])
-
-            .where("artist.id = :artistId", { artistId })
-            .orWhere("artist.slug = :artistId", { artistId })
-
-            .getRawMany()
-        
-        if(!result.entities[0]) return null;
-
-        const artist = result.entities[0];
-        artist.streamCount = result.raw[0].streamCount;
-        artist.likedCount = likedCount.map((entry) => parseInt(entry["likedCount"] || 0)).reduce((prev: number, current: number) => prev + current, 0)
-        return artist;
+            .where("artist.id = :artistId OR artist.slug = :artistId" , { artistId })
+            .getOne();      
+                    
+        return result;
     }
 
+    /**
+     * Find an artist by its name.
+     * @param name Name of the artist.
+     * @returns Artist
+     */
     public async findByName(name: string): Promise<Artist> {
         return await this.repository.findOne({ where: { name }});
     }
 
+    /**
+     * Check if an artist exists by a name.
+     * @param name Name of the artist.
+     * @returns True or false
+     */
     public async existsByName(name: string): Promise<boolean> {
         return !!(await this.repository.findOne({ where: { name }}));
     }
@@ -231,28 +219,18 @@ export class ArtistService extends RedisLockableService {
         });
     }
 
-    public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Artist>> {
-        if(!query || query == "") {
-            query = "%"
-        } else {
-            query = `%${query.replace(/\s/g, '%')}%`;
-        }
+    /**
+     * Build general query. This includes relations for
+     * artwork ...
+     * @param alias Query alias for the artist.
+     * @returns SelectQueryBuilder
+     */
+    private buildGeneralQuery(alias: string): SelectQueryBuilder<Artist> {
+        return this.repository.createQueryBuilder(alias)
+            .leftJoinAndSelect(`${alias}.artwork`, "artwork")
 
-        let qb = this.repository.createQueryBuilder("artist")
-            .leftJoinAndSelect("artist.artwork", "artwork")
-            .leftJoinAndSelect("artist.banner", "banner")
-
-            .limit(pageable.size)
-            .offset(pageable.page * pageable.size)
-
-            .where("artist.name LIKE :query", { query });
-
-        if(query == "%") {
-            qb = qb.orderBy("rand()");
-        }
-
-        const result = await qb.getManyAndCount();
-        return Page.of(result[0], result[1], pageable.page);
+            .loadRelationCountAndMap(`${alias}.songsCount`, `${alias}.songs`)
+            .loadRelationCountAndMap(`${alias}.albumsCount`, `${alias}.albums`)
     }
 
 }

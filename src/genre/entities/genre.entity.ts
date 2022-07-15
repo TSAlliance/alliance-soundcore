@@ -39,7 +39,7 @@ export class Genre {
 
     @BeforeUpdate() 
     public onBeforeUpdate() {
-        this.slug = Slug.create(this.name);
+        if(!this.slug) Slug.create(this.name);
     }
 
 }

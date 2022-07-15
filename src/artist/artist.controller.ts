@@ -14,8 +14,8 @@ export class ArtistController {
   // TODO: Functionality to trigger artist search on genius
 
   @Get(":artistId")
-  public async findProfileById(@Param("artistId") artistId: string, @Authentication() authentication: User) {
-    return this.artistService.findProfileById(artistId, authentication)
+  public async findProfileById(@Param("artistId") artistId: string) {
+    return this.artistService.findProfileById(artistId)
   }
 
   @Roles(ROLE_MOD, ROLE_ADMIN)

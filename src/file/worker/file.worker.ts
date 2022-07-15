@@ -10,6 +10,9 @@ import { EventEmitter2 } from "@nestjs/event-emitter";
 
 const logger = new Logger("FileWorker")
 
+// TODO: Add a version checker. So if there are enqueued tasks, but the version
+// changes, it can cause unexpected behaviour
+
 export default function (job: Job<FileProcessDTO>, cb: DoneCallback) {    
     const startTime = Date.now();
 

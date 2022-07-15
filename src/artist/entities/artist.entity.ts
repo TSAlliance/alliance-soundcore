@@ -4,10 +4,10 @@ import { Artwork } from "../../artwork/entities/artwork.entity";
 import { GeniusFlag, Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
 import { Slug } from "@tsalliance/utilities";
 import { Syncable, SyncFlag } from "../../meilisearch/interfaces/syncable.interface";
+import { Song } from "../../song/entities/song.entity";
 
 @Entity()
 export class Artist implements Resource, Syncable {
-    
     public resourceType: ResourceType = "artist";
 
     @Column({ nullable: true, default: null})
@@ -48,11 +48,14 @@ export class Artist implements Resource, Syncable {
     @JoinColumn()
     public artwork: Artwork;
 
-    songCount?: number;
-    albumCount?: number;
-    streamCount?: number;
-    // Refers to the user that performs the request
-    likedCount?: number;
+    @OneToMany(() => Song, (song) => song.primaryArtist)
+    public songs: Song[];
+
+    public songsCount?: number = 0;
+    public albumsCount?: number = 0;
+
+    @Column({ select: false })
+    public streamCount?: number = 0;
 
     @BeforeInsert()
     public onBeforeInsert() {
@@ -61,7 +64,7 @@ export class Artist implements Resource, Syncable {
 
     @BeforeUpdate() 
     public onBeforeUpdate() {
-        this.slug = Slug.create(this.name);
+        if(!this.slug) Slug.create(this.name);
     }
 
 }

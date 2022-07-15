@@ -76,7 +76,7 @@ export class Playlist implements Resource, Syncable {
 
     @BeforeUpdate() 
     public onBeforeUpdate() {
-        this.slug = Slug.create(this.name);
+        if(!this.slug) Slug.create(this.name);
     }
 
 }

@@ -42,7 +42,7 @@ export class Label implements Resource {
 
     @BeforeUpdate() 
     public onBeforeUpdate() {
-        this.slug = Slug.create(this.name);
+        if(!this.slug) Slug.create(this.name);
     }
 
 }

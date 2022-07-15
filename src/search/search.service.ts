@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Pageable } from 'nestjs-pager';
 import { AlbumService } from '../album/album.service';
-import { ArtistService } from '../artist/artist.service';
 import { DistributorService } from '../distributor/services/distributor.service';
 import { GenreService } from '../genre/services/genre.service';
 import { LabelService } from '../label/services/label.service';
@@ -24,7 +23,6 @@ export class SearchService {
 
     constructor(
         private songService: SongService,
-        private artistService: ArtistService,
         private genreService: GenreService,
         private publisherService: PublisherService,
         private distributorService: DistributorService,
@@ -42,7 +40,6 @@ export class SearchService {
         const settings: Pageable = new Pageable(0, 12);
         
         const songs = await this.songService.findBySearchQuery(query, settings, authentication);
-        const artists = await this.artistService.findBySearchQuery(query, settings);
         const genres = await this.genreService.findBySearchQuery(query, settings);
         const publisher = await this.publisherService.findBySearchQuery(query, settings);
         const distributors = await this.distributorService.findBySearchQuery(query, settings);
@@ -53,7 +50,7 @@ export class SearchService {
 
         const searchResult: ComplexSearchResult = {
             songs: songs.size > 0 ? songs : undefined,
-            artists: artists.size > 0 ? artists : undefined,
+            artists: undefined,
             genres: genres.size > 0 ? genres : undefined,
             publisher: publisher.size > 0 ? publisher : undefined,
             distributors: distributors.size > 0 ? distributors : undefined,

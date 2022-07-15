@@ -80,6 +80,6 @@ export class Album implements Resource {
 
     @BeforeUpdate() 
     public onBeforeUpdate() {
-        this.slug = Slug.create(this.name);
+        if(!this.slug) Slug.create(this.name);
     }
 }
