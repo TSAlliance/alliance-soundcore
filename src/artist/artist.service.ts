@@ -155,7 +155,6 @@ export class ArtistService extends RedisLockableService {
      * @returns Artist
      */
     protected async resolveArtist(idOrObject: string | Artist): Promise<Artist> {
-        console.log("resolving artist", idOrObject)
         if(typeof idOrObject == "string") {
             return this.findById(idOrObject);
         }
