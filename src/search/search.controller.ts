@@ -6,16 +6,21 @@ import { SearchService } from './search.service';
 
 @Controller('search')
 export class SearchController {
-  constructor(private readonly searchService: SearchService) {}
+  constructor(private readonly service: SearchService) {}
 
   @Get()
   public async performSearch(@Query("q") query: string, @Authentication() searcher: User) {
-    return this.searchService.complexSearch(query, searcher);
+    return this.service.complexSearch(query, searcher);
   } 
 
   @Get("playlists")
   public async searchPlaylists(@Query("q") query: string, @Pagination() pageable: Pageable, @Authentication() authentication: User) {
-    return this.searchService.searchPlaylists(query, pageable, authentication);
+    return this.service.searchPlaylists(query, pageable, authentication);
+  }
+
+  @Get("users")
+  public async searchUsers(@Query("q") query: string, @Pagination() pageable: Pageable) {
+    return this.service.searchUsers(query, pageable);
   }
 
 }

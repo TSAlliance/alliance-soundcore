@@ -49,7 +49,7 @@ export class MeiliUserService extends MeiliService<MeiliUser> {
      * @param {Pageable} pageable Page settings
      * @returns {SearchResponse<MeiliUser>} SearchResponse<MeiliUser>
      */
-    public async searchPlaylists(query: string, pageable: Pageable): Promise<SearchResponse<MeiliUser>> {
+    public async searchUser(query: string, pageable: Pageable): Promise<SearchResponse<MeiliUser>> {
         return this.search(query, {
             attributesToRetrieve: ["*"],
             limit: pageable.size,

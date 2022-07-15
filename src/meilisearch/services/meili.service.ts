@@ -81,7 +81,7 @@ export abstract class MeiliService<T = any> {
      * @param {Partial<Request>} config Search config
      * @returns {SearchResponse<T>} SearchResponse<T>
      */
-    public async search(query: string, params?: SearchParams, config?: Partial<Request>) {
+    protected async search(query: string, params?: SearchParams, config?: Partial<Request>) {
         return this.index().search<T>(query, params, config)
     }
 
@@ -101,6 +101,11 @@ export abstract class MeiliService<T = any> {
         return this.client().index<T>(this._indexUid);
     }
 
+    /**
+     * Execute initialization of the index in meilisearch instance.
+     * This will configure the index with the provided options (e.g. searchableAttributes
+     * or filterableAttributes).
+     */
     private _init() {
         this.index().updateSearchableAttributes(this._options.searchableAttributes || ["*"]);
         this.index().updateFilterableAttributes(this._options.filterableAttributes || []);

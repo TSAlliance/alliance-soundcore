@@ -6,6 +6,7 @@ import { DistributorService } from '../distributor/services/distributor.service'
 import { GenreService } from '../genre/services/genre.service';
 import { LabelService } from '../label/services/label.service';
 import { MeiliPlaylistService } from '../meilisearch/services/meili-playlist.service';
+import { MeiliUserService } from '../meilisearch/services/meili-user.service';
 import { PlaylistService } from '../playlist/playlist.service';
 import { PublisherService } from '../publisher/services/publisher.service';
 import { SongService } from '../song/song.service';
@@ -31,7 +32,8 @@ export class SearchService {
         private userService: UserService,
         private playlistService: PlaylistService,
 
-        private readonly meiliPlaylist: MeiliPlaylistService
+        private readonly meiliPlaylist: MeiliPlaylistService,
+        private readonly meiliUser: MeiliUserService
     ) {}
 
     public async complexSearch(query: string, authentication?: User): Promise<ComplexSearchResult> {
@@ -99,9 +101,25 @@ export class SearchService {
         };
     }
 
-
+    /**
+     * Search users by a given query
+     * @param {string} query Search query
+     * @param {Pageable} pageable Page settings
+     * @param {User} authentication Authentication object of the request
+     * @returns {SearchResponse<MeiliPlaylist>} SearchResponse<MeiliPlaylist>
+     */
     public async searchPlaylists(query: string, pageable: Pageable, authentication: User) {
         return this.meiliPlaylist.searchPlaylists(query, pageable, authentication);
+    }
+
+    /**
+     * Search users by a given query
+     * @param {string} query Search query
+     * @param {Pageable} pageable Page settings
+     * @returns {SearchResponse<MeiliUser>} SearchResponse<MeiliUser>
+     */
+    public async searchUsers(query: string, pageable: Pageable) {
+        return this.meiliUser.searchUser(query, pageable);
     }
 
 }
