@@ -1,10 +1,20 @@
 import { InternalServerErrorException } from "@nestjs/common";
-import MeiliSearch, { Index, Task } from "meilisearch";
+import MeiliSearch, { Index, SearchParams, Task } from "meilisearch";
+import { Syncable, SyncFlag } from "../interfaces/syncable.interface";
+
+export enum MeiliServiceSyncInterval {
+    HOURLY = 1,
+    DAILY = HOURLY * 24,
+    WEEKLY = DAILY * 7,
+    MONTHLY = DAILY * 30,
+    YEARLY = DAILY * 365
+}
 
 export interface MeiliServiceOptions {
 
     searchableAttributes?: string[];
     filterableAttributes?: string[];
+    syncRecommendedInterval?: MeiliServiceSyncInterval;
 
 }
 
@@ -47,8 +57,32 @@ export abstract class MeiliService<T = any> {
         })
     }
 
-    public async search() {
-        // TODO
+    /**
+     * Check if the system settings would recommend 
+     * a new sync attempt with meilisearch.
+     * This checks the last syncFlag and lastSyncedAt values of the object.
+     * @param syncable Object to sync.
+     * @returns True or False if the recommended next date is overdue or if the last sync flag evaluates to error
+     */
+    public isSyncRecommended(syncable: Syncable): boolean {
+        if(typeof syncable === "undefined" || syncable == null) return false;
+
+        const current = new Date().getTime();
+        const lastSyncedAt = new Date(syncable.lastSyncedAt).getTime();
+        const recommendedDate = lastSyncedAt + 1000*60*60 * (this._options.syncRecommendedInterval || MeiliServiceSyncInterval.DAILY);
+
+        return syncable.lastSyncFlag == SyncFlag.ERROR || current >= recommendedDate;
+    }
+
+    /**
+     * Execute search query.
+     * @param {string} query Search query
+     * @param {SearchParams} params Search parameters
+     * @param {Partial<Request>} config Search config
+     * @returns {SearchResponse<T>} SearchResponse<T>
+     */
+    public async search(query: string, params?: SearchParams, config?: Partial<Request>) {
+        return this.index().search<T>(query, params, config)
     }
 
     /**

@@ -1,6 +1,7 @@
 import { DynamicModule, Logger, Module } from '@nestjs/common';
 import MeiliSearch, { Config } from 'meilisearch';
 import { MeiliPlaylistService } from './services/meili-playlist.service';
+import { MeiliUserService } from './services/meili-user.service';
 
 @Module({
     
@@ -24,11 +25,13 @@ export class MeilisearchModule {
                     provide: MeiliSearch,
                     useValue: meiliclient
                 },
-                MeiliPlaylistService
+                MeiliPlaylistService,
+                MeiliUserService
             ],
             exports: [
                 MeiliSearch,
-                MeiliPlaylistService
+                MeiliPlaylistService,
+                MeiliUserService
             ]
         }
     }

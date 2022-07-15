@@ -2,6 +2,7 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
 import { DeleteResult, In, Not, Repository, SelectQueryBuilder } from 'typeorm';
+import { SyncFlag } from '../meilisearch/interfaces/syncable.interface';
 import { MEILI_INDEX_PLAYLIST } from '../meilisearch/meilisearch.constants';
 import { MeiliPlaylistService } from '../meilisearch/services/meili-playlist.service';
 import { SongService } from '../song/song.service';
@@ -211,7 +212,8 @@ export class PlaylistService {
             // Save playlist to database
             const result = await queryrunner.manager.save(playlist);
             // Sync database entry with meilisearch
-            await this.meiliClient.setPlaylist(result).then(() => result);
+            const syncResult = await this.meiliClient.setPlaylist(result);
+
             // Commit transaction
             await queryrunner.commitTransaction();
             return result;

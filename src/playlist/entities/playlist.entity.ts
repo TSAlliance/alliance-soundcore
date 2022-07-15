@@ -6,10 +6,17 @@ import { Resource, ResourceFlag, ResourceType } from "../../utils/entities/resou
 import { Slug } from "@tsalliance/utilities";
 import { PlaylistPrivacy } from "../enums/playlist-privacy.enum";
 import { PlaylistItem } from "./playlist-item.entity";
+import { Syncable, SyncFlag } from "../../meilisearch/interfaces/syncable.interface";
 
 @Entity()
-export class Playlist implements Resource {
+export class Playlist implements Resource, Syncable {
     public resourceType: ResourceType = "playlist";
+
+    @Column({ nullable: true, default: null})
+    public lastSyncedAt: Date;
+
+    @Column({ default: 0 })
+    public lastSyncFlag: SyncFlag;
 
     @PrimaryGeneratedColumn("uuid")
     public id: string;

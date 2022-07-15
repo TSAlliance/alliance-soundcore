@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { MulterModule } from '@nestjs/platform-express';
 
 import { ArtistModule } from './artist/artist.module';
 import { AllianceRestModule } from '@tsalliance/rest';
@@ -19,7 +18,6 @@ import { GenreModule } from './genre/genre.module';
 import { PlaylistModule } from './playlist/playlist.module';
 import { UserModule } from './user/user.module';
 import { ImportModule } from './import/import.module';
-import { EventEmitterModule } from '@nestjs/event-emitter';
 import { CollectionModule } from './collection/collection.module';
 import { BullModule } from '@nestjs/bull';
 import { NotificationModule } from './notification/notification.module';
@@ -30,6 +28,7 @@ import { FileModule } from './file/file.module';
 import { IndexerModule } from './indexer/indexer.module';
 import { MeilisearchModule } from './meilisearch/meilisearch.module';
 import { FileSystemModule } from './filesystem/filesystem.module';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 
 @Module({
   imports: [
@@ -55,7 +54,12 @@ import { FileSystemModule } from './filesystem/filesystem.module';
       retryAttempts: Number.MAX_VALUE,
       retryDelay: 10000
     }),
-    MulterModule.register(),
+    MeilisearchModule.forRoot({
+      host: `${process.env.MEILISEARCH_HOST}:${process.env.MEILISEARCH_PORT}`,
+      headers: {
+        "Authorization": `Bearer ${process.env.MEILISEARCH_KEY}`
+      }
+    }),
     AllianceRestModule.forRoot({
       logging: false,
       disableErrorHandling: true,
@@ -99,13 +103,7 @@ import { FileSystemModule } from './filesystem/filesystem.module';
     ProfileModule,
     MountModule,
     FileModule,
-    IndexerModule,
-    MeilisearchModule.forRoot({
-      host: `${process.env.MEILISEARCH_HOST}:${process.env.MEILISEARCH_PORT}`,
-      headers: {
-        "Authorization": `Bearer ${process.env.MEILISEARCH_KEY}`
-      }
-    })
+    IndexerModule
   ],
   controllers: [],
   providers: []

@@ -10,7 +10,7 @@ import { MEILI_INDEX_PLAYLIST } from "../meilisearch.constants";
 import { MeiliService } from "./meili.service";
 
 @Injectable()
-export class MeiliPlaylistService extends MeiliService {
+export class MeiliPlaylistService extends MeiliService<MeiliPlaylist> {
 
     constructor(client: MeiliSearch) {
         super(client, MEILI_INDEX_PLAYLIST, {
@@ -58,14 +58,14 @@ export class MeiliPlaylistService extends MeiliService {
     }
 
     /**
-     * Search for playlist ids.
+     * Search for playlist.
      * @param {string} query Search query
      * @param {Pageable} pageable Page settings
-     * @param {User} authentication 
+     * @param {User} authentication Authentication object
      * @returns {SearchResponse} SearchResponse<MeiliPlaylist>
      */
     public async searchPlaylists(query: string, pageable: Pageable, authentication: User): Promise<SearchResponse<MeiliPlaylist>> {
-        return this.index().search(query, {
+        return this.search(query, {
             attributesToRetrieve: ["*"],
             limit: pageable.size,
             offset: pageable.size * pageable.page,
