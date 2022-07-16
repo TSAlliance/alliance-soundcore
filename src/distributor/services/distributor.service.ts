@@ -1,7 +1,7 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
-import { DeleteResult, ILike, Repository } from 'typeorm';
+import { DeleteResult, Repository } from 'typeorm';
 import { Artwork } from '../../artwork/entities/artwork.entity';
 import { RedlockError } from '../../exceptions/redlock.exception';
 import { CreateResult } from '../../utils/results/creation.result';
@@ -51,8 +51,8 @@ export class DistributorService extends RedisLockableService {
      * @param createDistributorDto Publisher data to create
      * @returns CreateResult<Distributor>
      */
-    public async createIfNotExists(createDistributorDto: CreateDistributorDTO): Promise<CreateResult<Distributor>> {
-        createDistributorDto.name = createDistributorDto.name.replace(/^[ ]+|[ ]+$/g,'').trim();
+    public async createIfNotExists(createDistributorDto: CreateDistributorDTO, waitForLock = false): Promise<CreateResult<Distributor>> {
+        createDistributorDto.name = createDistributorDto.name.trim();
         createDistributorDto.description = createDistributorDto.description?.trim();
 
         // Acquire lock
@@ -70,7 +70,10 @@ export class DistributorService extends RedisLockableService {
             return this.repository.save(distributor).then((result) => {
                 return new CreateResult(result, false)
             })
-        })
+        }, waitForLock).catch((error: Error) => {
+            this.logger.error(`Failed creating distributor: ${error.message}`, error.stack);
+            throw new InternalServerErrorException();
+        });
     }
 
     /**
@@ -80,7 +83,7 @@ export class DistributorService extends RedisLockableService {
      * @returns Distributor
      */
     public async update(distributorId: string, updateDistributorDto: UpdateDistributorDTO): Promise<Distributor> {
-        updateDistributorDto.name = updateDistributorDto.name.replace(/^[ ]+|[ ]+$/g,'').trim();
+        updateDistributorDto.name = updateDistributorDto.name.trim();
         updateDistributorDto.description = updateDistributorDto.description?.trim();
 
         const distributor = await this.findById(distributorId);

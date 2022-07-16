@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
 import { DeleteResult, ILike, Repository } from 'typeorm';
@@ -51,7 +51,7 @@ export class PublisherService extends RedisLockableService {
      * @param createPublisherDto Publisher data to create
      * @returns Publisher
      */
-    public async createIfNotExists(createPublisherDto: CreatePublisherDTO): Promise<CreateResult<Publisher>> {
+    public async createIfNotExists(createPublisherDto: CreatePublisherDTO, waitForLock = false): Promise<CreateResult<Publisher>> {
         createPublisherDto.name = createPublisherDto.name?.replace(/^[ ]+|[ ]+$/g,'')?.trim();
         createPublisherDto.description = createPublisherDto.description?.trim();
 
@@ -68,9 +68,12 @@ export class PublisherService extends RedisLockableService {
             publisher.description = createPublisherDto.description;
 
             return this.repository.save(publisher).then((result) => {
-                return new CreateResult(result, false)
-            })
-        })
+                return new CreateResult(result, false);
+            });
+        }, waitForLock).catch((error: Error) => {
+            this.logger.error(`Failed creating publisher: ${error.message}`, error.stack);
+            throw new InternalServerErrorException();
+        });
     }
 
     /**

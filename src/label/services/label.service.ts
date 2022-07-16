@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
 import { DeleteResult, ILike, Repository } from 'typeorm';
@@ -51,8 +51,8 @@ export class LabelService extends RedisLockableService {
      * @param createLabelDto Label data to create
      * @returns Label
      */
-    public async createIfNotExists(createLabelDto: CreateLabelDTO): Promise<CreateResult<Label>> {
-        createLabelDto.name = createLabelDto.name?.replace(/^[ ]+|[ ]+$/g,'')?.trim();
+    public async createIfNotExists(createLabelDto: CreateLabelDTO, waitForLock = false): Promise<CreateResult<Label>> {
+        createLabelDto.name = createLabelDto.name?.trim();
         createLabelDto.description = createLabelDto.description?.trim();
 
         // Acquire lock
@@ -70,7 +70,10 @@ export class LabelService extends RedisLockableService {
             return this.repository.save(label).then((result) => {
                 return new CreateResult(result, false)
             })
-        })
+        }, waitForLock).catch((error: Error) => {
+            this.logger.error(`Failed creating label: ${error.message}`, error.stack);
+            throw new InternalServerErrorException();
+        });
     }
 
     /**
@@ -80,7 +83,7 @@ export class LabelService extends RedisLockableService {
      * @returns Label
      */
     public async update(labelId: string, updateLabelDto: UpdateLabelDTO): Promise<Label> {
-        updateLabelDto.name = updateLabelDto.name?.replace(/^[ ]+|[ ]+$/g,'')?.trim();
+        updateLabelDto.name = updateLabelDto.name?.trim();
         updateLabelDto.description = updateLabelDto.description?.trim();
 
         const label = await this.findById(labelId);

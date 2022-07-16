@@ -1,7 +1,7 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
-import { ILike, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { RedlockError } from '../../exceptions/redlock.exception';
 import { CreateResult } from '../../utils/results/creation.result';
 import { RedisLockableService } from '../../utils/services/redis-lockable.service';
@@ -80,7 +80,7 @@ export class GenreService extends RedisLockableService {
      * @param createGenreDto Genre data to create
      * @returns Genre
      */
-     public async createIfNotExists(createGenreDto: CreateGenreDTO): Promise<CreateResult<Genre>> {
+     public async createIfNotExists(createGenreDto: CreateGenreDTO, waitForLock = false): Promise<CreateResult<Genre>> {
         createGenreDto.name = createGenreDto.name.trim();
         createGenreDto.description = createGenreDto.description?.trim();
 
@@ -99,6 +99,9 @@ export class GenreService extends RedisLockableService {
                 
                 return this.repository.save(genre).then((result) => ({ data: result, existed: false }));
             });
+        }, waitForLock).catch((error: Error) => {
+            this.logger.error(`Failed creating genre: ${error.message}`, error.stack);
+            throw new InternalServerErrorException();
         });
     }
 

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
@@ -16,6 +16,8 @@ import { Artist } from './entities/artist.entity';
 
 @Injectable()
 export class ArtistService extends RedisLockableService {
+    private readonly logger: Logger = new Logger(ArtistService.name);
+
     constructor(
         private readonly meiliClient: MeiliArtistService,
         private readonly events: EventEmitter2,
@@ -88,7 +90,7 @@ export class ArtistService extends RedisLockableService {
      * @param createArtistDto Data to create artist from
      * @returns Artist
      */
-    public async createIfNotExists(createArtistDto: CreateArtistDTO): Promise<CreateResult<Artist>> {
+    public async createIfNotExists(createArtistDto: CreateArtistDTO, waitForLock = false): Promise<CreateResult<Artist>> {
         createArtistDto.name = createArtistDto.name?.trim();
         createArtistDto.description = createArtistDto.description?.trim();
 
@@ -109,6 +111,9 @@ export class ArtistService extends RedisLockableService {
                 if(createArtistDto.doGeniusLookup) this.events.emitAsync(EVENT_ARTIST_CHANGED, new ArtistChangedEvent(result));
                 return new CreateResult(result, false);
             })
+        }, waitForLock).catch((error: Error) => {
+            this.logger.error(`Failed creating artist: ${error.message}`, error.stack);
+            throw new InternalServerErrorException();
         });
     }
 

@@ -3,7 +3,7 @@ import NodeID3 from "node-id3";
 import ffprobe from 'ffprobe';
 import ffprobeStatic from "ffprobe-static";
 
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { CreateSongDTO } from './dtos/create-song.dto';
 import { Song } from './entities/song.entity';
 import { Page, Pageable } from 'nestjs-pager';
@@ -232,8 +232,9 @@ export class SongService extends RedisLockableService {
      * @param createSongDto Song data to be saved
      * @returns [Song, hasExistedBefore]
      */
-    public async createIfNotExists(createSongDto: CreateSongDTO): Promise<{ song: Song, existed: boolean }> {
+    public async createIfNotExists(createSongDto: CreateSongDTO, waitForLock = false): Promise<{ song: Song, existed: boolean }> {
         // Do some validation to be sure there is an existing value
+        createSongDto.name = createSongDto.name.trim();
         createSongDto.duration = createSongDto.duration || 0;
         createSongDto.order = createSongDto.order || 0;
         createSongDto.featuredArtists = createSongDto.featuredArtists || [];
@@ -268,6 +269,9 @@ export class SongService extends RedisLockableService {
             return this.repository.save(song).then(async (result) => {
                 return { song: result, existed: false }
             });
+        }, waitForLock).catch((error: Error) => {
+            this.logger.error(`Failed creating song: ${error.message}`, error.stack);
+            throw new InternalServerErrorException();
         });
     }
 

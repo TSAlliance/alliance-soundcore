@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
@@ -188,8 +188,8 @@ export class AlbumService extends RedisLockableService {
      * @param createAlbumDto Data to create album from
      * @returns Album
      */
-     public async createIfNotExists(createAlbumDto: CreateAlbumDTO): Promise<CreateResult<Album>> {
-        createAlbumDto.name = createAlbumDto.name?.replace(/^[ ]+|[ ]+$/g,'').trim();
+     public async createIfNotExists(createAlbumDto: CreateAlbumDTO, waitForLock = false): Promise<CreateResult<Album>> {
+        createAlbumDto.name = createAlbumDto.name?.trim();
 
         // Acquire lock
         return this.lock(createAlbumDto.name, async (signal) => {
@@ -206,6 +206,9 @@ export class AlbumService extends RedisLockableService {
             return this.repository.save(album).then((result) => {
                 return new CreateResult(result, false);
             })
+        }, waitForLock).catch((error: Error) => {
+            this.logger.error(`Failed creating album: ${error.message}`, error.stack);
+            throw new InternalServerErrorException();
         })
     }
 

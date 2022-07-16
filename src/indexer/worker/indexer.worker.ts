@@ -61,7 +61,7 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
                     // Create all artists found in id3tags if they do not already exist in database.
                     const featuredArtistsResults = await Promise.all(id3Artists.map(async (artist) => (await artistService.createIfNotExists({
                         name: artist.name
-                    }))));
+                    }, true))));
 
                     // First artist in artists array becomes primary artist
                     // as they are listed first most of the times (can be changed later
@@ -75,7 +75,7 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
                         albumResult = await albumService.createIfNotExists({
                             name: id3Tags.album,
                             primaryArtist: primaryArtist
-                        });
+                        }, true);
                     }
 
                     // Create song if not exists.
@@ -87,12 +87,12 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
                         order: id3Tags.orderNr,
                         primaryArtist: primaryArtist,
                         featuredArtists: featuredArtistsResults.map((result) => result.data)
-                    });
+                    }, true);
                     const song = songResult.song;
                     const existed = songResult.existed;
     
                     // Create artwork if a similar one does not already exist.
-                    const artwork: Artwork = await artworkService.createForSongIfNotExists(song, id3Tags.cover);
+                    const artwork: Artwork = await artworkService.createForSongIfNotExists(song, true, id3Tags.cover);
                     songService.setArtwork(song, artwork);
     
                     // If the mode is set to SCAN, it means the file will be 

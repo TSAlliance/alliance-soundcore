@@ -134,7 +134,7 @@ export class GeniusClientService {
                 // Download url to buffer
                 return this.artworkService.downloadToBuffer(resource.cover_art_thumbnail_url).then((buffer) => {
                     // Create artwork and write buffer to file
-                    return this.artworkService.createForAlbumIfNotExists(album, buffer).then((artwork) => {
+                    return this.artworkService.createForAlbumIfNotExists(album, true, buffer).then((artwork) => {
                         // Update relation
                         result.artwork = artwork;
                         return result;
@@ -203,7 +203,7 @@ export class GeniusClientService {
                 // Download url to buffer
                 return this.artworkService.downloadToBuffer(resource.song_art_image_thumbnail_url).then((buffer) => {
                     // Create artwork and write buffer to file
-                    return this.artworkService.createForSongIfNotExists(song, buffer).then((artwork) => {
+                    return this.artworkService.createForSongIfNotExists(song, true, buffer).then((artwork) => {
                         // Update relation
                         result.artwork = artwork;
                         return result;
@@ -234,13 +234,13 @@ export class GeniusClientService {
                 name: resource.name,
                 description: resource.description_preview,
                 geniusId: resource.id
-            }).then((result) => {
+            }, true).then((result) => {
                 const label = result.data;
 
                 // Download image url to buffer
                 return this.artworkService.downloadToBuffer(resource.image_url).then((buffer) => {
                     // Write artwork
-                    return this.artworkService.createForLabelIfNotExists(label, buffer).then((artwork) => {
+                    return this.artworkService.createForLabelIfNotExists(label, true, buffer).then((artwork) => {
                         // Set artwork to label
                         return this.labelService.setArtwork(label, artwork);
                     });
@@ -284,13 +284,13 @@ export class GeniusClientService {
                 name: resource.name,
                 description: resource.description_preview,
                 geniusId: resource.id
-            }).then((result) => {
+            }, true).then((result) => {
                 const distributor = result.data;
 
                 // Download image url to buffer
                 return this.artworkService.downloadToBuffer(resource.image_url).then((buffer) => {
                     // Write artwork
-                    return this.artworkService.createForDistributorIfNotExists(distributor, buffer).then((artwork) => {
+                    return this.artworkService.createForDistributorIfNotExists(distributor, true, buffer).then((artwork) => {
                         // Set artwork to distributor
                         return this.distributorService.setArtwork(distributor, artwork);
                     });
@@ -334,13 +334,13 @@ export class GeniusClientService {
                 name: resource.name,
                 description: resource.description_preview,
                 geniusId: resource.id
-            }).then((result) => {
+            }, true).then((result) => {
                 const publisher = result.data;
 
                 // Download image url to buffer
                 return this.artworkService.downloadToBuffer(resource.image_url).then((buffer) => {
                     // Write artwork
-                    return this.artworkService.createForPublisherIfNotExists(publisher, buffer).then((artwork) => {
+                    return this.artworkService.createForPublisherIfNotExists(publisher, true, buffer).then((artwork) => {
                         // Set artwork to publisher
                         return this.publisherService.setArtwork(publisher, artwork);
                     });
@@ -379,7 +379,7 @@ export class GeniusClientService {
             const genreResult: Genre = await this.genreService.createIfNotExists({
                 name: resource.name,
                 description: null
-            }).then((result) => {
+            }, true).then((result) => {
                 return result.data;
             }).catch((error) => {
                 // In case of error just skip this publisher
