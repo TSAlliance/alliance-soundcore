@@ -136,7 +136,6 @@ export abstract class MeiliService<T = any> {
         }).catch((error: MeiliSearchError) => {
             this._logger.error(`Error occured while initializing Index on meilisearch: ${error.message}`, error.stack);
         }).finally(() => {
-            console.log("done.");
             this._initializedSubject.next(true);
         });
     }

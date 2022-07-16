@@ -8,7 +8,6 @@ import path from "path";
 import { Artist } from "../../artist/entities/artist.entity";
 import { AlbumService } from "../../album/album.service";
 import { ArtworkService } from "../../artwork/services/artwork.service";
-import { ArtworkStorageHelper } from "../../artwork/helper/artwork-storage.helper";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Logger } from "@nestjs/common";
 import { DBWorker } from "../../utils/workers/worker.util";
@@ -31,6 +30,8 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
     DBWorker.instance().then((worker) => {
         worker.establishConnection().then((dataSource) => {
             const meiliClient = worker.meiliClient();
+            const fileSystem = worker.getFileSystem();
+
             const eventEmitter = new EventEmitter2();
 
             const songRepo = dataSource.getRepository(Song);
@@ -42,7 +43,7 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
             const songService = new SongService(songRepo);
             const artistService = new ArtistService(new MeiliArtistService(meiliClient), eventEmitter, artistRepo);
             const albumService = new AlbumService(albumRepo, eventEmitter);
-            const artworkService = new ArtworkService(artworkRepo, new ArtworkStorageHelper());
+            const artworkService = new ArtworkService(artworkRepo, fileSystem);
             const fileService = new FileService(fileRepo, eventEmitter, null);
     
             // Check if file is accessible by the process
@@ -91,7 +92,7 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
                     const existed = songResult.existed;
     
                     // Create artwork if a similar one does not already exist.
-                    const artwork: Artwork = await artworkService.createForSongIfNotExists(song, mount, id3Tags.cover);
+                    const artwork: Artwork = await artworkService.createForSongIfNotExists(song, id3Tags.cover);
                     songService.setArtwork(song, artwork);
     
                     // If the mode is set to SCAN, it means the file will be 
@@ -138,7 +139,6 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
 
                     // End worker by reporting success
                     reportSuccess({
-                        mount,
                         song,
                         createdSong: existed ? null : song,
                         createdAlbum: albumResult?.existed ? null : albumResult?.album,

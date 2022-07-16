@@ -5,7 +5,6 @@ import { Album } from "../../album/entities/album.entity";
 import { ArtistService } from "../../artist/artist.service";
 import { Artist } from "../../artist/entities/artist.entity";
 import { Artwork } from "../../artwork/entities/artwork.entity";
-import { ArtworkStorageHelper } from "../../artwork/helper/artwork-storage.helper";
 import { ArtworkService } from "../../artwork/services/artwork.service";
 import { Distributor } from "../../distributor/entities/distributor.entity";
 import { DistributorService } from "../../distributor/services/distributor.service";
@@ -27,8 +26,10 @@ export default function (job: Job<GeniusProcessDTO>, dc: DoneCallback) {
 
     DBWorker.instance().then((worker) => {
         worker.establishConnection().then(async (dataSource) => {
-            const eventEmitter = new EventEmitter2();
+            const fileSystem = worker.getFileSystem();
             const meiliClient = worker.meiliClient();
+
+            const eventEmitter = new EventEmitter2();
 
             // Build services
             const meiliService = new MeiliArtistService(meiliClient);
@@ -37,7 +38,7 @@ export default function (job: Job<GeniusProcessDTO>, dc: DoneCallback) {
             const songService = new SongService(dataSource.getRepository(Song));
 
             // Build GeniusClientService and dependencies
-            const artworkService = new ArtworkService(dataSource.getRepository(Artwork), new ArtworkStorageHelper());
+            const artworkService = new ArtworkService(dataSource.getRepository(Artwork), fileSystem);
             const labelService = new LabelService(dataSource.getRepository(Label));
             const distributorService = new DistributorService(dataSource.getRepository(Distributor));
             const publisherService = new PublisherService(dataSource.getRepository(Publisher));
@@ -85,7 +86,7 @@ async function lookupArtist(job: Job<GeniusProcessDTO>, service: ArtistService, 
     await service.setGeniusFlag(artistData, GeniusFlag.GENIUS_PENDING);
 
     // Lookup artist data
-    geniusService.lookupArtist(artistData, job.data.useMount).then((artist) => {
+    geniusService.lookupArtist(artistData).then((artist) => {
         // Update genius flag
         artist.geniusFlag = GeniusFlag.OK;
         return service.save(artist).then(async (result) => {
@@ -110,7 +111,7 @@ async function lookupArtist(job: Job<GeniusProcessDTO>, service: ArtistService, 
     await service.setGeniusFlag(albumData, GeniusFlag.GENIUS_PENDING);
 
     // Lookup album data
-    geniusService.lookupAlbum(albumData, job.data.useMount).then((album) => {
+    geniusService.lookupAlbum(albumData).then((album) => {
         // Update genius flag
         album.geniusFlag = GeniusFlag.OK;
         return service.save(album).then(async (result) => {
@@ -135,7 +136,7 @@ async function lookupArtist(job: Job<GeniusProcessDTO>, service: ArtistService, 
     await service.setGeniusFlag(songData, GeniusFlag.GENIUS_PENDING);
 
     // Lookup song data
-    geniusService.lookupSong(songData, job.data.useMount).then((song) => {
+    geniusService.lookupSong(songData).then((song) => {
         // Update genius flag
         song.geniusFlag = GeniusFlag.OK;
         return service.save(song).then(async (result) => {

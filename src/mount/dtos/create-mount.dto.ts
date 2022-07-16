@@ -8,7 +8,7 @@ export class CreateMountDTO {
 
     @IsNotEmpty()
     @Length(3, 4095)
-    public directory: string;
+    public directory?: string;
 
     @IsNotEmpty()
     @Length(36)

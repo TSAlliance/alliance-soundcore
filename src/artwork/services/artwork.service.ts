@@ -3,7 +3,6 @@ import { CreateArtworkDTO } from "../dtos/create-artwork.dto";
 import { Artwork, ArtworkColors, ArtworkFlag, ArtworkType } from "../entities/artwork.entity";
 import fs from "fs";
 import sharp from "sharp";
-import { ArtworkStorageHelper } from "../helper/artwork-storage.helper";
 import path from "path";
 import Vibrant from "node-vibrant";
 import { Random, Slug } from "@tsalliance/utilities";
@@ -12,7 +11,6 @@ import { RedlockError } from "../../exceptions/redlock.exception";
 import axios from "axios";
 import { DeleteResult, Repository } from "typeorm";
 import { Artist } from "../../artist/entities/artist.entity";
-import { Mount } from "../../mount/entities/mount.entity";
 import { Album } from "../../album/entities/album.entity";
 import { Song } from "../../song/entities/song.entity";
 import { Label } from "../../label/entities/label.entity";
@@ -20,6 +18,7 @@ import { Distributor } from "../../distributor/entities/distributor.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
 import { Response } from "express";
 import { InjectRepository } from "@nestjs/typeorm";
+import { FileSystemService } from "../../filesystem/services/filesystem.service";
 
 @Injectable()
 export class ArtworkService extends RedisLockableService {
@@ -27,7 +26,7 @@ export class ArtworkService extends RedisLockableService {
 
     constructor(
         @InjectRepository(Artwork) private readonly repository: Repository<Artwork>,
-        private readonly storageHelper: ArtworkStorageHelper
+        private readonly fileSystem: FileSystemService
     ) {
         super()
     }
@@ -78,7 +77,6 @@ export class ArtworkService extends RedisLockableService {
             artwork.flag = ArtworkFlag.OK;
             artwork.name = createArtworkDto.name;
             artwork.type = createArtworkDto.type;
-            artwork.mount = createArtworkDto.mount;
 
             return this.repository.save(artwork).then((result) => {
                 // If process has not specified a source to write from,
@@ -96,12 +94,11 @@ export class ArtworkService extends RedisLockableService {
      * preconfigured options to fit requirements for artist artworks.
      * Should always be called in separate process, as its blocking.
      * @param artist Artist's data
-     * @param mount Mount to write artwork to
      * @param fromSource (Optional) Filepath or buffer. If not set, no artwork will be written during creation.
      * @returns Artwork
      */
-    public async createForArtistIfNotExists(artist: Artist, mount: Mount, fromSource?: string | Buffer): Promise<Artwork> {
-        return this.createIfNotExists({ mount, name: artist.name, type: ArtworkType.ARTIST, fromSource })
+    public async createForArtistIfNotExists(artist: Artist, fromSource?: string | Buffer): Promise<Artwork> {
+        return this.createIfNotExists({ name: artist.name, type: ArtworkType.ARTIST, fromSource })
     }
 
     /**
@@ -109,13 +106,11 @@ export class ArtworkService extends RedisLockableService {
      * preconfigured options to fit requirements for album artworks.
      * Should always be called in separate process, as its blocking.
      * @param album Album's data
-     * @param mount Mount to write artwork to
      * @param fromSource (Optional) Filepath or buffer. If not set, no artwork will be written during creation.
      * @returns Artwork
      */
-    public async createForAlbumIfNotExists(album: Album, mount: Mount, fromSource?: string | Buffer): Promise<Artwork> {
-        // if(!album.primaryArtist) throw new NotFoundException("No primary artist present on album data but is required.");
-        return this.createIfNotExists({ mount, name: `${album.name} ${album.primaryArtist?.name || Random.randomString(8)}`, type: ArtworkType.ALBUM, fromSource })
+    public async createForAlbumIfNotExists(album: Album, fromSource?: string | Buffer): Promise<Artwork> {
+        return this.createIfNotExists({ name: `${album.name} ${album.primaryArtist?.name || Random.randomString(8)}`, type: ArtworkType.ALBUM, fromSource })
     }
 
     /**
@@ -123,12 +118,11 @@ export class ArtworkService extends RedisLockableService {
      * preconfigured options to fit requirements for label artworks.
      * Should always be called in separate process, as its blocking.
      * @param label Label's data
-     * @param mount Mount to write artwork to
      * @param fromSource (Optional) Filepath or buffer. If not set, no artwork will be written during creation.
      * @returns Artwork
      */
-    public async createForLabelIfNotExists(label: Label, mount: Mount, fromSource?: string | Buffer): Promise<Artwork> {
-        return this.createIfNotExists({ mount, name: `${label.name}`, type: ArtworkType.LABEL, fromSource })
+    public async createForLabelIfNotExists(label: Label, fromSource?: string | Buffer): Promise<Artwork> {
+        return this.createIfNotExists({ name: `${label.name}`, type: ArtworkType.LABEL, fromSource })
     }
 
     /**
@@ -136,12 +130,11 @@ export class ArtworkService extends RedisLockableService {
      * preconfigured options to fit requirements for distributor artworks.
      * Should always be called in separate process, as its blocking.
      * @param distributor Distributor's data
-     * @param mount Mount to write artwork to
      * @param fromSource (Optional) Filepath or buffer. If not set, no artwork will be written during creation.
      * @returns Artwork
      */
-    public async createForDistributorIfNotExists(distributor: Distributor, mount: Mount, fromSource?: string | Buffer): Promise<Artwork> {
-        return this.createIfNotExists({ mount, name: `${distributor.name}`, type: ArtworkType.DISTRIBUTOR, fromSource })
+    public async createForDistributorIfNotExists(distributor: Distributor, fromSource?: string | Buffer): Promise<Artwork> {
+        return this.createIfNotExists({ name: `${distributor.name}`, type: ArtworkType.DISTRIBUTOR, fromSource })
     }
 
     /**
@@ -149,12 +142,11 @@ export class ArtworkService extends RedisLockableService {
      * preconfigured options to fit requirements for publisher artworks.
      * Should always be called in separate process, as its blocking.
      * @param publisher Publisher's data
-     * @param mount Mount to write artwork to
      * @param fromSource (Optional) Filepath or buffer. If not set, no artwork will be written during creation.
      * @returns Artwork
      */
-     public async createForPublisherIfNotExists(publisher: Publisher, mount: Mount, fromSource?: string | Buffer): Promise<Artwork> {
-        return this.createIfNotExists({ mount, name: `${publisher.name}`, type: ArtworkType.PUBLISHER, fromSource })
+     public async createForPublisherIfNotExists(publisher: Publisher, fromSource?: string | Buffer): Promise<Artwork> {
+        return this.createIfNotExists({ name: `${publisher.name}`, type: ArtworkType.PUBLISHER, fromSource })
     }
 
     /**
@@ -162,17 +154,13 @@ export class ArtworkService extends RedisLockableService {
      * preconfigured options to fit requirements for song artworks.
      * Should always be called in separate process, as its blocking.
      * @param song Song's data
-     * @param mount Mount to write artwork to
      * @param fromSource (Optional) Filepath or buffer. If not set, no artwork will be written during creation.
      * @returns Artwork
      */
-     public async createForSongIfNotExists(song: Song, mount: Mount, fromSource?: string | Buffer): Promise<Artwork> {
-        // if(!song.primaryArtist) throw new NotFoundException("No primary artist present on album data but is required.");
-        // if(!song.featuredArtists) throw new NotFoundException("No primary artist present on album data but is required.");
-
+     public async createForSongIfNotExists(song: Song, fromSource?: string | Buffer): Promise<Artwork> {
         const primaryArtistName = song.primaryArtist?.name || Random.randomString(8);      
         const featuredArtistNames = song.featuredArtists.map((artist) => artist.name).join(" ") || "";
-        return this.createIfNotExists({ mount, name: `${song.name} ${primaryArtistName} ${featuredArtistNames}`, type: ArtworkType.SONG, fromSource })
+        return this.createIfNotExists({ name: `${song.name} ${primaryArtistName} ${featuredArtistNames}`, type: ArtworkType.SONG, fromSource })
     }
 
     /**
@@ -195,7 +183,7 @@ export class ArtworkService extends RedisLockableService {
      */
     public async writeFromBufferOrFile(bufferOrFile: string | Buffer, artwork: Artwork): Promise<Artwork> {
         return new Promise((resolve, reject) => {
-            const dstFile = this.storageHelper.findArtworkFilepath(artwork);
+            const dstFile = this.fileSystem.resolveArtworkDir(artwork);
             let srcBuffer: Buffer;
 
             // Check if parameter is a buffer, if not
@@ -249,7 +237,7 @@ export class ArtworkService extends RedisLockableService {
      */
      public async getAccentColorFromArtwork(idOrObject: Artwork): Promise<ArtworkColors> {
         const artwork = await this.resolveArtwork(idOrObject);
-        const filepath = this.storageHelper.findArtworkFilepath(artwork);
+        const filepath = this.fileSystem.resolveArtworkDir(artwork);
 
         return new Promise((resolve, reject) => {
             fs.access(filepath, (err) => {
@@ -293,7 +281,7 @@ export class ArtworkService extends RedisLockableService {
         if(!artwork) throw new NotFoundException("Could not find artwork.");
 
         return new Promise((resolve, reject) => {
-            const filepath = this.storageHelper.findArtworkFilepath(artwork);
+            const filepath = this.fileSystem.resolveArtworkDir(artwork);
 
             fs.access(filepath, (err) => {
                 if(err) {

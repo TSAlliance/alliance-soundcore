@@ -1,10 +1,12 @@
 import MeiliSearch from "meilisearch";
 import { DataSource } from "typeorm";
 import { TYPEORM_ENTITY_GLOB } from "../../constants";
+import { FileSystemService } from "../../filesystem/services/filesystem.service";
 
 export class DBWorker {
     private static _instance: DBWorker;
     private _meili: MeiliSearch;
+    private _fileSystem: FileSystemService = new FileSystemService();
 
     private readonly _datasource: DataSource = new DataSource({
         type: "mysql",
@@ -54,6 +56,10 @@ export class DBWorker {
 
     public meiliClient() {
         return this._meili;
+    }
+
+    public getFileSystem() {
+        return this._fileSystem;
     }
 
     public static instance(): Promise<DBWorker> {

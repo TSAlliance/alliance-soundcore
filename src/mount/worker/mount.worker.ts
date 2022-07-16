@@ -11,7 +11,6 @@ import { File } from "../../file/entities/file.entity";
 import { MountScanReportDTO } from "../dtos/scan-report.dto";
 import { ProgressInfoDTO } from "./progress-info.dto";
 import { DBWorker } from "../../utils/workers/worker.util";
-import { FileSystemService } from "../../filesystem/services/filesystem.service";
 
 const logger = new Logger("MountWorker");
 
@@ -35,7 +34,7 @@ export default function (job: Job<MountScanProcessDTO>, dc: DoneCallback) {
             DBWorker.instance().then((worker) => {
                 worker.establishConnection().then((dataSource) => {
                     const repository = dataSource.getRepository(File);
-                    const fileSystem = new FileSystemService();
+                    const fileSystem = worker.getFileSystem();
 
                     repository.find({ where: { mount: { id: mount.id }, }, select: ["name", "directory"]}).then((existingFiles) => {
                         updateProgress(job, { currentStep: 1, totalSteps: MAX_STEPS, stepCode: MOUNT_STEP_MKDIR });

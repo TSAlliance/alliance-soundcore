@@ -8,6 +8,8 @@ import { UpdateMountDTO } from '../dtos/update-mount.dto';
 import { Mount } from '../entities/mount.entity';
 import { MountService } from '../services/mount.service';
 
+// TODO: Implement artwork mount per bucket.
+
 @Controller('mounts')
 export class MountController {
   constructor(private readonly mountService: MountService) {}

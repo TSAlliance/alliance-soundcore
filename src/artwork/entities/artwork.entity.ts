@@ -1,6 +1,5 @@
 
-import { Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
-import { Mount } from "../../mount/entities/mount.entity";
+import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from "typeorm";
 
 export enum ArtworkType {
     SONG = 0,
@@ -53,13 +52,5 @@ export class Artwork {
 
     @Column({ type: "tinyint", default: 0 })
     public flag?: ArtworkFlag;
-
-    // Prevent duplicate files by specifying filename
-    // This also applies to externalImages even if they haven't been downloaded
-    // (because they could be downloaded in future)
-    
-    @ManyToOne(() => Mount, { onDelete: "CASCADE" })
-    @JoinColumn()
-    public mount?: Mount;
 
 }

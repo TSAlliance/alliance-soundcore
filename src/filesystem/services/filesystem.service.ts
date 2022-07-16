@@ -9,6 +9,8 @@ import { File } from "../../file/entities/file.entity";
 import { Mount } from "../../mount/entities/mount.entity";
 import { SC_ARTWORKDIR_NAME, SC_IDFILE_NAME } from "../filesystem.module";
 import { RandomUtil } from "@tsalliance/rest";
+import { Artwork } from "../../artwork/entities/artwork.entity";
+import { Random } from "@tsalliance/utilities";
 
 @Injectable()
 export class FileSystemService {
@@ -62,11 +64,54 @@ export class FileSystemService {
     }
 
     /**
-     * Get artworks directory of a mount that contains all cover images
-     * @returns {string} Absolute filepath of artwork directory in mount
+     * Resolve the directory to an absolute path.
+     * Directories starting with . or .. or have nullish values,
+     * get a directory under the root instance folder.
+     * @param directory (Optional) Directory to resolve
+     * @returns Absolute directory path
      */
-    public resolveArtworkDir(mount: Mount): string {
-        return path.resolve(this.resolveMountPath(mount), SC_ARTWORKDIR_NAME);
+    public resolveMountDirectory(directory?: string): string {
+        if(!directory || directory.startsWith(".") || directory.startsWith("..")) {
+            return path.resolve(this.resolveRootMountsDir(), Random.randomString(36));
+        } else {
+            return path.resolve(directory);
+        }
+    }
+
+    /**
+     * Get root artworks directory of bucket.
+     * @returns {string} Absolute filepath of artwork directory in bucket
+     */
+    public resolveArtworkRootDir(): string {
+        return path.resolve(this.getInstanceDir(), SC_ARTWORKDIR_NAME);
+    }
+
+    /**
+     * Get filepath to an artwork file.
+     * @param artwork Artwork database entry
+     * @returns Absolute filepath
+     */
+    public resolveArtworkDir(artwork: Artwork): string {
+        return path.join(this.resolveArtworkRootDir(), `${artwork.type}_${artwork.name}.jpeg`);
+    }
+
+    /**
+     * Get the root mounts directory.
+     * This directory is used for mounts that were created using
+     * paths that start with ./
+     * @returns Absolute root directory path
+     */
+    public resolveRootMountsDir(): string {
+        return path.resolve(this.getInstanceDir(), "mounts");
+    }
+
+    /**
+     * Get the directory of the initial mount that is being created upon
+     * first start of the application.
+     * @returns Absolute directory path
+     */
+    public resolveInitialMountPath(): string {
+        return path.resolve(this.resolveRootMountsDir(), this.getInstanceId());
     }
 
     /**
