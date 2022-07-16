@@ -1,3 +1,4 @@
+import { InternalServerErrorException } from "@nestjs/common";
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { DoneCallback, Job } from "bull";
 import { AlbumService } from "../../album/album.service";
@@ -79,7 +80,7 @@ export default function (job: Job<GeniusProcessDTO>, dc: DoneCallback) {
 async function lookupArtist(job: Job<GeniusProcessDTO>, service: ArtistService, geniusService: GeniusClientService, dc: DoneCallback) {
     const artistData = job.data.payload as Artist;
     if(!artistData) {
-        reportError(new Error("Received no artist data."), dc);
+        reportError(new InternalServerErrorException("Received no artist data."), dc);
         return;
     }
     // Update genius flag
