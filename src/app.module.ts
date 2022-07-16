@@ -29,6 +29,8 @@ import { IndexerModule } from './indexer/indexer.module';
 import { MeilisearchModule } from './meilisearch/meilisearch.module';
 import { FileSystemModule } from './filesystem/filesystem.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { AppController } from './app.controller';
+import { AppService } from './app.service';
 
 @Module({
   imports: [
@@ -105,7 +107,11 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
     FileModule,
     IndexerModule
   ],
-  controllers: [],
-  providers: []
+  controllers: [
+    AppController
+  ],
+  providers: [
+    AppService
+  ]
 })
 export class AppModule {}
