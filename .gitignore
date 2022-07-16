@@ -1,12 +1,9 @@
 # compiled output
 /dist
 /node_modules
-meili_data
 
 .env.dev
-uploaded-data/
-tmp-data/
-artwork-data
+databases
 .package-lock.json
 
 # Logs

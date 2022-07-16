@@ -23,6 +23,8 @@ services:
     restart: always
     ports:
       - "6379:6379"
+    volumes:
+      - "./databases/redis:/data"
 
   meilisearch:
     image: getmeili/meilisearch:v0.28
@@ -32,5 +34,5 @@ services:
     environment:
       - MEILI_MASTER_KEY=super_secret_master_key
     volumes:
-      - "./meili_data:/meili_data"
+      - "./databases/meilisearch:/meili_data"
     entrypoint: ["meilisearch", "--env=development"]
