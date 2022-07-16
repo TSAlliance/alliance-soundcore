@@ -89,7 +89,7 @@ export class ArtistService extends RedisLockableService {
      * @returns Artist
      */
     public async createIfNotExists(createArtistDto: CreateArtistDTO): Promise<CreateResult<Artist>> {
-        createArtistDto.name = createArtistDto.name?.replace(/^[ ]+|[ ]+$/g,'').trim();
+        createArtistDto.name = createArtistDto.name?.trim();
         createArtistDto.description = createArtistDto.description?.trim();
 
         // Acquire lock
@@ -106,7 +106,7 @@ export class ArtistService extends RedisLockableService {
             return this.save(artist).then((result) => {
                 // Emit event, so that the genius service can
                 // catch it and do a lookup on the artist.
-                if(createArtistDto.doGeniusLookup) this.events.emitAsync(EVENT_ARTIST_CHANGED, new ArtistChangedEvent(result, null));
+                if(createArtistDto.doGeniusLookup) this.events.emitAsync(EVENT_ARTIST_CHANGED, new ArtistChangedEvent(result));
                 return new CreateResult(result, false);
             })
         });
@@ -119,7 +119,7 @@ export class ArtistService extends RedisLockableService {
      * @returns Artist
      */
     public async updateArtist(artistId: string, updateArtistDto: UpdateArtistDTO): Promise<Artist> {
-        updateArtistDto.name = updateArtistDto.name?.replace(/^[ ]+|[ ]+$/g,'').trim();
+        updateArtistDto.name = updateArtistDto.name?.trim();
         updateArtistDto.description = updateArtistDto.description?.trim();
 
         // Acquire lock
