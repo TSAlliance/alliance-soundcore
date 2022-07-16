@@ -9,7 +9,7 @@ module.exports = {
         time: false,
         exec_interpreter: "node",
         env: {
-            PORT: 3001
+            PORT: 3002
         }
     }]
 }

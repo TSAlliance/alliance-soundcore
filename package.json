@@ -13,7 +13,7 @@
     "build": "nest build",
     "build:docker": "docker builder prune --all --force && docker build -t soundcore:latest .",
     "bundle": "npm run build && node bundle/bundle-packagejson.js && node bundle/bundle-env.js && node bundle/bundle-info.js",
-    "bundle:pm2": "npm run bundle && npm run bundle/bundle-pm2.js ",
+    "bundle:pm2": "npm run bundle && node ./bundle/bundle-pm2.js",
     "bundle:docker": "npm run bundle && docker builder prune --all --force && docker build -t z3ttee/soundcore:latest .",
     "docker-compose": "docker-compose up",
     "depcheck": "npx depcheck",
