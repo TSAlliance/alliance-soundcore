@@ -18,7 +18,7 @@ import path from "path";
 
 import { FileFlag } from "../file/entities/file.entity";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository, TypeORMError } from "typeorm";
+import { Repository } from "typeorm";
 
 @Injectable()
 export class SongService extends RedisLockableService {
@@ -201,7 +201,6 @@ export class SongService extends RedisLockableService {
     public async findCoverSongsInPlaylist(playlistId: string): Promise<Page<Song>> {
         const qb = this.repository.createQueryBuilder("song")
             .leftJoinAndSelect("song.artwork", "artwork")
-            .leftJoinAndSelect("artwork.mount", "mount")
             .leftJoin("song.playlists", "item")
             .leftJoin("item.playlist", "playlist")
             .leftJoin("song.index", "index")

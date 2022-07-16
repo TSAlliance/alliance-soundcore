@@ -33,13 +33,11 @@ export class ArtworkService extends RedisLockableService {
 
     /**
      * Find an artwork by its id.
-     * Included relations: Mount(id, name, directory)
      * @param artworkId 
      * @returns 
      */
     public async findById(artworkId: string): Promise<Artwork> {
         return this.repository.createQueryBuilder("artwork")
-            .leftJoinAndSelect("artwork.mount", "mount")
             .where("artwork.id = :artworkId", { artworkId })
             .getOne();
     }
@@ -52,14 +50,13 @@ export class ArtworkService extends RedisLockableService {
      */
     public async findByNameAndType(name: string, type: ArtworkType): Promise<Artwork> {
         return this.repository.createQueryBuilder("artwork")
-            .leftJoinAndSelect("artwork.mount", "mount")
             .where("artwork.name = :name AND artwork.type = :type", { name, type })
             .getOne();
     }
 
     /**
      * Find an artwork or create it if it does not exist.
-     * For finding the artwork, only the "name", "type" and "mount" properties
+     * For finding the artwork, only the "name", "type" properties
      * of the createArtworkDto object are used.
      * Should always be called in separate process, as its blocking.
      * @param createArtworkDto Creation and Find options
