@@ -1,3 +1,4 @@
+import { InternalServerErrorException } from "@nestjs/common";
 import Client from "ioredis";
 import Redlock, { RedlockAbortSignal } from "redlock";
 import { RedlockError } from "../../exceptions/redlock.exception";
@@ -25,11 +26,17 @@ export abstract class RedisLockableService {
             let acquiredLock = false;
             let result;
 
+            // Timeout after 2 minutes
+            const timeout = setTimeout(() => {
+                throw new InternalServerErrorException("Timed out while acquiring lock.");
+            }, 1000*60*2);
+
             do {
                 result = await this.acquireLock<T>(redlock, name, duration, true, routine).catch(() => null);
                 acquiredLock = typeof result !== "undefined" && result != null;
             } while (!acquiredLock);
 
+            clearTimeout(timeout);
             return result;
         }
 

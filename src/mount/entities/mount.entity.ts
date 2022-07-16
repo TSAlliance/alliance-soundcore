@@ -41,7 +41,7 @@ export class Mount {
     // after custom database queries.
     public filesCount?: number;
 
-    @Column({ select: false, nullable: true })
+    @Column({ select: false, nullable: true, type: "unsigned big int" })
     public usedSpace?: number;
 
 }
