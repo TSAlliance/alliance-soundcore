@@ -175,7 +175,6 @@ export class FileSystemService {
             instanceId = buffer.toString();
         }
 
-        this._logger.log(`ID of this instance is '${instanceId}'`);
         return instanceId;
     }
 }

@@ -142,7 +142,9 @@ export class PlaylistService {
         const result = await this.playlistRepository.createQueryBuilder("playlist")
             .leftJoin("playlist.items", "item")
             .leftJoin("item.song", "song")
-            .leftJoin("song.artists", "artist")
+            .leftJoin("song.primaryArtist", "primaryArtist")
+
+            // TODO: Include featured artists
 
             .leftJoinAndSelect("playlist.author", "author")
             .leftJoinAndSelect("playlist.artwork", "artwork")
@@ -156,7 +158,7 @@ export class PlaylistService {
             // Count how many likes. This takes user's id in count
             .loadRelationCountAndMap("playlist.liked", "playlist.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication.id }))
 
-            .where("(artist.id = :artistId OR artist.slug = :artistId) AND (playlist.privacy = :privacy OR author.id = :authorId OR collaborator.id = :authorId OR (likedByUser.userId = :authorId AND playlist.privacy != 'private'))", { artistId: artistId, privacy: PlaylistPrivacy.PUBLIC.toString(), authorId: authentication.id })
+            .where("(primaryArtist.id = :primaryArtistId OR primaryArtist.slug = :primaryArtistId) AND (playlist.privacy = :privacy OR author.id = :authorId OR collaborator.id = :authorId OR (likedByUser.userId = :authorId AND playlist.privacy != 'private'))", { artistId: artistId, privacy: PlaylistPrivacy.PUBLIC.toString(), authorId: authentication.id })
             .getManyAndCount();
 
         return Page.of(result[0], result[1], pageable.page);
