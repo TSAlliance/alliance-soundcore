@@ -19,6 +19,10 @@ export class DBWorker {
         ]
     });
 
+    constructor() {
+        this.createMeiliInstance();
+    }
+
     /**
      * Get a connection to the database via typeorm.
      * If the datasource was initialized previously, then
@@ -35,7 +39,7 @@ export class DBWorker {
      * Create a new meili instance.
      * @returns MeiliSearch
      */
-    public createMeiliInstance() {
+    private createMeiliInstance() {
         if(!this._meili) {
             this._meili = new MeiliSearch({
                 host: `${process.env.MEILISEARCH_HOST}:${process.env.MEILISEARCH_PORT}`,
@@ -45,6 +49,10 @@ export class DBWorker {
             })
         }
 
+        return this._meili;
+    }
+
+    public meiliClient() {
         return this._meili;
     }
 

@@ -30,7 +30,7 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
 
     DBWorker.instance().then((worker) => {
         worker.establishConnection().then((dataSource) => {
-            const meiliClient = worker.createMeiliInstance();
+            const meiliClient = worker.meiliClient();
             const eventEmitter = new EventEmitter2();
 
             const songRepo = dataSource.getRepository(Song);
@@ -40,7 +40,7 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
             const fileRepo = dataSource.getRepository(File);
     
             const songService = new SongService(songRepo);
-            const artistService = new ArtistService(new MeiliArtistService(meiliClient), artistRepo, eventEmitter);
+            const artistService = new ArtistService(new MeiliArtistService(meiliClient), eventEmitter, artistRepo);
             const albumService = new AlbumService(albumRepo, eventEmitter);
             const artworkService = new ArtworkService(artworkRepo, new ArtworkStorageHelper());
             const fileService = new FileService(fileRepo, eventEmitter, null);

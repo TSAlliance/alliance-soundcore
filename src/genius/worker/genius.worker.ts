@@ -1,6 +1,5 @@
 import { EventEmitter2 } from "@nestjs/event-emitter";
 import { DoneCallback, Job } from "bull";
-import MeiliSearch from "meilisearch";
 import { AlbumService } from "../../album/album.service";
 import { Album } from "../../album/entities/album.entity";
 import { ArtistService } from "../../artist/artist.service";
@@ -29,11 +28,11 @@ export default function (job: Job<GeniusProcessDTO>, dc: DoneCallback) {
     DBWorker.instance().then((worker) => {
         worker.establishConnection().then(async (dataSource) => {
             const eventEmitter = new EventEmitter2();
-            const meiliClient = worker.createMeiliInstance();
+            const meiliClient = worker.meiliClient();
 
             // Build services
             const meiliService = new MeiliArtistService(meiliClient);
-            const artistService = new ArtistService(meiliService, dataSource.getRepository(Artist), eventEmitter);
+            const artistService = new ArtistService(meiliService, eventEmitter, dataSource.getRepository(Artist));
             const albumService = new AlbumService(dataSource.getRepository(Album), eventEmitter);
             const songService = new SongService(dataSource.getRepository(Song));
 

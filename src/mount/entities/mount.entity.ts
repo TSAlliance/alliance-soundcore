@@ -27,7 +27,7 @@ export class Mount {
     @Column({ type: "tinyint", nullable: false, default: 0 })
     public status: MountStatus;
 
-    @Column({ default: true })
+    @Column({ default: false })
     public isDefault: boolean;
 
     @ManyToOne(() => Bucket, { onDelete: "CASCADE" })
@@ -40,6 +40,8 @@ export class Mount {
     // Below fields may only be populated
     // after custom database queries.
     public filesCount?: number;
+
+    @Column({ select: false, nullable: true })
     public usedSpace?: number;
 
 }

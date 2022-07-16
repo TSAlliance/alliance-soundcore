@@ -3,7 +3,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import Bull, { Queue } from 'bull';
 import { Page, Pageable } from 'nestjs-pager';
 import path from 'path';
-import { DeleteResult, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Bucket } from '../../bucket/entities/bucket.entity';
 import { EVENT_FILE_FOUND, QUEUE_MOUNTSCAN_NAME } from '../../constants';
 import { CreateMountDTO } from '../dtos/create-mount.dto';
@@ -16,7 +16,6 @@ import { MountGateway } from '../gateway/mount.gateway';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Random } from '@tsalliance/utilities';
 import { InjectRepository } from '@nestjs/typeorm';
-import sanitizeFilename from "sanitize-filename";
 import { CreateResult } from '../../utils/results/creation.result';
 import { RedisLockableService } from '../../utils/services/redis-lockable.service';
 import { RedlockError } from '../../exceptions/redlock.exception';
@@ -24,7 +23,7 @@ import { FileSystemService } from '../../filesystem/services/filesystem.service'
 
 @Injectable()
 export class MountService extends RedisLockableService {
-    private logger: Logger = new Logger(MountService.name);
+    private readonly logger: Logger = new Logger(MountService.name);
 
     constructor(
         @InjectRepository(Mount) private readonly repository: Repository<Mount>,
@@ -87,15 +86,27 @@ export class MountService extends RedisLockableService {
             .leftJoinAndSelect("mount.bucket", "bucket")
             .leftJoin("mount.files", "file")
             .loadRelationCountAndMap("mount.filesCount", "mount.files")
-            .addSelect("SUM(file.size) AS usedSpace")
+            .addSelect("SUM(file.size) AS mount_usedSpace")
             .where("mount.id = :mountId", { mountId })
-            .getRawAndEntities().then((result) => {
-                const mount = result.entities[0];
-                if(!mount) throw new NotFoundException("Mount not found.");
+            .groupBy("mount.id")
+            .getOne()
+    }
 
-                mount.usedSpace = result.raw[0]?.usedSpace || 0;
-                return mount;
-            });
+    /**
+     * Find random bucket in mount.
+     * Used for example in setRandomAsDefaultMount()
+     * @param exclude Exclude a set of mounts
+     * @returns Mount
+     */
+    public async findOneInBucket(exclude: string[]): Promise<Mount> {
+        return await this.repository.createQueryBuilder("mount")
+            .leftJoinAndSelect("mount.bucket", "bucket")
+            .leftJoin("mount.files", "file")
+            .loadRelationCountAndMap("mount.filesCount", "mount.files")
+            .addSelect("SUM(file.size) AS mount_usedSpace")
+            .where("mount.id NOT IN(:exclude)", { exclude })
+            .groupBy("mount.id")
+            .getOne()
     }
 
     /**
@@ -106,6 +117,16 @@ export class MountService extends RedisLockableService {
      */
     public async findByNameInBucket(bucketId: string, name: string): Promise<Mount> {
         return await this.repository.findOne({ where: { name, bucket: { id: bucketId } }, relations: ["bucket"]});
+    }
+
+    /**
+     * Find a mount inside a bucket that has mounted a specific directory
+     * @param bucketId Bucket id
+     * @param directory Directory
+     * @returns Mount
+     */
+    public async findByDirectoryInBucket(bucketId: string, directory: string): Promise<Mount> {
+        return await this.repository.findOne({ where: { directory: path.resolve(directory), bucket: { id: bucketId } }, relations: ["bucket"]});
     }
 
     /**
@@ -170,7 +191,7 @@ export class MountService extends RedisLockableService {
         const directory = path.resolve(createMountDto.directory);
 
         return this.lock(createMountDto.name, async(signal) => {
-            const existingMount = await this.findByNameInBucket(createMountDto.bucketId, createMountDto.name);
+            const existingMount = await this.findByNameInBucket(createMountDto.bucketId, createMountDto.name) || await this.findByDirectoryInBucket(createMountDto.bucketId, createMountDto.directory);
             if(existingMount) return new CreateResult(existingMount, true);
             if(signal.aborted) throw new RedlockError();
 
@@ -198,14 +219,30 @@ export class MountService extends RedisLockableService {
         const mount = await this.findById(mountId);
 
         if(!mount || !mount.bucket) {
-            throw new NotFoundException("Could not find mount or the bucket the mount belongs to.")
+            throw new NotFoundException("Mount not found.")
         }
 
-        if(updateMountDto.name) mount.name = updateMountDto.name;
         if(updateMountDto.name && updateMountDto.name != mount.name && await this.existsByNameInBucket(mount.bucket.id, updateMountDto.name)) {
-            throw new BadRequestException("Mount with that name already exists in bucket.");
+            throw new BadRequestException("Mount with that name already exists inside this bucket.");
         }
-        return this.repository.save(mount);
+
+        mount.name = updateMountDto.name;
+        
+        if(mount.isDefault && !updateMountDto.setAsDefault) {
+            // Mount is removed as default mount, but no other mount
+            // is selected to be next default --> select random one
+            if(!await this.setRandomAsDefaultMount([mount.id])) {
+                throw new BadRequestException("Cannot remove this mount as default mount as it is the only mount in the bucket.");
+            } else {
+                mount.isDefault = false;
+            }
+        }
+
+        return this.repository.save(mount).then(async (result) => {
+            if(updateMountDto.setAsDefault) await this.setDefaultMount(mount);
+            if(updateMountDto.doScan) this.rescanMount(mount);
+            return result;
+        });
     }
 
     /**
@@ -237,8 +274,10 @@ export class MountService extends RedisLockableService {
      */
     public async setDefaultMount(idOrObject: string | Mount): Promise<Mount> {
         const mount = await this.resolveMount(idOrObject);
-        mount.isDefault = true;
+        if(!mount) throw new NotFoundException("Mount not found.");
+        if(mount.isDefault) return mount;
 
+        mount.isDefault = true;
         return this.repository.manager.transaction<Mount>(async (manager) => {
             await manager.createQueryBuilder().update(Mount).set({ isDefault: false }).where("isDefault = :isDefault AND bucketId = :bucketId", { isDefault: true, bucketId: mount.bucket.id }).execute();
             return manager.save(mount).then((m) => {
@@ -246,6 +285,23 @@ export class MountService extends RedisLockableService {
                 return m;
             });
         })
+    }
+
+    /**
+     * Set a random mount in bucket as default.
+     * @param exclude Exclude a set of mounts
+     * @returns Mount that has been set as default.
+     */
+    public async setRandomAsDefaultMount(exclude: string[]): Promise<Mount> {
+        const mount = await this.findOneInBucket(exclude);
+        if(!mount) return null;
+
+        return this.setDefaultMount(mount).then((result) => {
+            this.logger.verbose(`Mount '${mount.name}' was set to be new default mount for bucket '${mount.bucket?.id}'.`)
+            return result;
+        }).catch(() => {
+            return null;
+        });
     }
 
     /**
@@ -273,10 +329,19 @@ export class MountService extends RedisLockableService {
     /**
      * Delete mount by its id.
      * @param mountId Mount's id
-     * @returns DeleteResult
+     * @returns boolean
      */
-    public async delete(mountId: string): Promise<DeleteResult> {
-        return this.repository.delete({ id: mountId })
+    public async delete(mountId: string): Promise<boolean> {
+        const mount = await this.resolveMount(mountId);
+        if(!mount) return true;
+
+        if(!await this.setRandomAsDefaultMount([mount.id])) {
+            throw new BadRequestException("Cannot delete default mount. First, select an other mount as default.");
+        }
+        
+        return this.repository.delete({ id: mountId }).then((result) => {
+            return result.affected > 0;
+        })
     }
 
     /**

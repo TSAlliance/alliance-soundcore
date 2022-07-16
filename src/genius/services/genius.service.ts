@@ -4,7 +4,8 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { Job, Queue } from 'bull';
 import { Album } from '../../album/entities/album.entity';
 import { Artist } from '../../artist/entities/artist.entity';
-import { EVENT_METADATA_CREATED, QUEUE_GENIUS_NAME } from '../../constants';
+import { EVENT_ARTIST_CHANGED, EVENT_METADATA_CREATED, QUEUE_GENIUS_NAME } from '../../constants';
+import { ArtistChangedEvent } from '../../events/artist-changed.event';
 import { IndexerResultDTO } from '../../indexer/dtos/indexer-result.dto';
 import { Mount } from '../../mount/entities/mount.entity';
 import { Song } from '../../song/entities/song.entity';
@@ -28,7 +29,7 @@ export class GeniusService {
     }
     
     @OnEvent(EVENT_METADATA_CREATED)
-    public handleMetadataCreatedEvent(payload: IndexerResultDTO) {
+    public async handleMetadataCreatedEvent(payload: IndexerResultDTO) {
         if(payload?.createdSong) this.createSongLookupJob(payload.createdSong, payload.mount);
         if(payload?.createdAlbum) this.createAlbumLookupJob(payload.createdAlbum, payload.mount);
         if(payload?.createdArtists && payload.createdArtists.length > 0) {
@@ -36,6 +37,11 @@ export class GeniusService {
                 this.createArtistLookupJob(artist, payload.mount);
             }
         }
+    }
+
+    @OnEvent(EVENT_ARTIST_CHANGED)
+    public async handleArtistChangedEvent(payload: ArtistChangedEvent) {
+        this.createArtistLookupJob(payload.data, payload.mount)
     }
 
     public async createSongLookupJob(song: Song, useMount: Mount) {

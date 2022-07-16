@@ -1,7 +1,9 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
+import { EVENT_ARTIST_CHANGED } from '../constants';
+import { ArtistChangedEvent } from '../events/artist-changed.event';
 import { RedlockError } from '../exceptions/redlock.exception';
 import { SyncFlag } from '../meilisearch/interfaces/syncable.interface';
 import { MeiliArtistService } from '../meilisearch/services/meili-artist.service';
@@ -14,12 +16,10 @@ import { Artist } from './entities/artist.entity';
 
 @Injectable()
 export class ArtistService extends RedisLockableService {
-    private logger: Logger = new Logger(ArtistService.name)
-
     constructor(
         private readonly meiliClient: MeiliArtistService,
+        private readonly events: EventEmitter2,
         @InjectRepository(Artist) private readonly repository: Repository<Artist>,
-        private readonly eventEmitter: EventEmitter2
     ){
         super();
     }
@@ -101,8 +101,12 @@ export class ArtistService extends RedisLockableService {
             const artist = new Artist();
             artist.name = createArtistDto.name;
             artist.description = createArtistDto.description;
+            artist.geniusId = createArtistDto.geniusId;
 
             return this.save(artist).then((result) => {
+                // Emit event, so that the genius service can
+                // catch it and do a lookup on the artist.
+                if(createArtistDto.doGeniusLookup) this.events.emitAsync(EVENT_ARTIST_CHANGED, new ArtistChangedEvent(result, null));
                 return new CreateResult(result, false);
             })
         });

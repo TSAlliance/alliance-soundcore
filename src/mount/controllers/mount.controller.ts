@@ -1,6 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
 import { Page, Pageable, Pagination } from 'nestjs-pager';
-import { DeleteResult } from 'typeorm';
 import { Roles } from '../../authentication/decorators/role.decorator';
 import { ROLE_ADMIN } from '../../constants';
 import { CreateResult } from '../../utils/results/creation.result';
@@ -39,7 +38,7 @@ export class MountController {
 
   @Roles(ROLE_ADMIN)
   @Delete(":mountId")
-  public async deleteMount(@Param("mountId") mountId: string): Promise<DeleteResult> {
+  public async deleteMount(@Param("mountId") mountId: string): Promise<boolean> {
     return this.mountService.delete(mountId)
   }
 

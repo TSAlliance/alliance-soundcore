@@ -28,7 +28,7 @@ export class MeiliUserService extends MeiliService<MeiliUser> {
             name: user.name,
             slug: user.slug,
             resourceType: user.resourceType,
-            artwork: user.artwork ? new MeiliArtwork(user.artwork.id, user.artwork.colors) : null,
+            artwork: user.artwork ? new MeiliArtwork(user.artwork.id) : null,
             accentColor: user.accentColor
         }, timeOutMs);
     }

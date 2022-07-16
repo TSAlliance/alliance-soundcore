@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, Length } from "class-validator";
+import { IsBoolean, IsNotEmpty, IsOptional, Length } from "class-validator";
 
 export class CreateArtistDTO {
 
@@ -9,5 +9,12 @@ export class CreateArtistDTO {
     @IsOptional()
     @Length(3, 4000)
     public description?: string;
+
+    @IsOptional()
+    public geniusId?: string;
+
+    @IsOptional()
+    @IsBoolean()
+    public doGeniusLookup?: boolean;
 
 }

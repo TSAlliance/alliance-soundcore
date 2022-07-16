@@ -33,7 +33,7 @@ export class MeiliPlaylistService extends MeiliService<MeiliPlaylist> {
             resourceType: playlist.resourceType,
             createdAt: playlist.createdAt,
             description: playlist.description,
-            artwork: playlist.artwork ? new MeiliArtwork(playlist.artwork?.id, playlist.artwork?.colors) : null,
+            artwork: playlist.artwork ? new MeiliArtwork(playlist.artwork?.id) : null,
             privacy: playlist.privacy,
             flag: playlist.flag,
             author: {
@@ -42,7 +42,7 @@ export class MeiliPlaylistService extends MeiliService<MeiliPlaylist> {
                 slug: playlist.author.slug,
                 accentColor: playlist.author.accentColor,
                 resourceType: playlist.author.resourceType,
-                artwork: playlist.author.artwork ? new MeiliArtwork(playlist.author.artwork?.id, playlist.author.artwork?.colors) : null
+                artwork: playlist.author.artwork ? new MeiliArtwork(playlist.author.artwork?.id) : null
             }
         }, timeOutMs);
     }
