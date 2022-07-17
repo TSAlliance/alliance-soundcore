@@ -19,13 +19,17 @@ import path from "path";
 import { FileFlag } from "../file/entities/file.entity";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
+import { MeiliSongService } from "../meilisearch/services/meili-song.service";
+import { SyncFlag } from "../meilisearch/interfaces/syncable.interface";
+import { CreateResult } from "../utils/results/creation.result";
 
 @Injectable()
 export class SongService extends RedisLockableService {
     private readonly logger: Logger = new Logger(SongService.name)
 
     constructor(
-        @InjectRepository(Song) private readonly repository: Repository<Song>
+        @InjectRepository(Song) private readonly repository: Repository<Song>,
+        private readonly meiliSong: MeiliSongService
     ){
         super();
     }
@@ -222,7 +226,10 @@ export class SongService extends RedisLockableService {
      * @returns Song
      */
     public async save(song: Song): Promise<Song> {
-        return this.repository.save(song);
+        return this.repository.save(song).then((result) => {
+            this.sync(result);
+            return result;
+        });
     }
 
     /**
@@ -232,7 +239,7 @@ export class SongService extends RedisLockableService {
      * @param createSongDto Song data to be saved
      * @returns [Song, hasExistedBefore]
      */
-    public async createIfNotExists(createSongDto: CreateSongDTO, waitForLock = false): Promise<{ song: Song, existed: boolean }> {
+    public async createIfNotExists(createSongDto: CreateSongDTO, waitForLock = false): Promise<CreateResult<Song>> {
         // Do some validation to be sure there is an existing value
         createSongDto.name = createSongDto.name.trim();
         createSongDto.duration = createSongDto.duration || 0;
@@ -253,7 +260,7 @@ export class SongService extends RedisLockableService {
             // Execute find query.
             const existingSong = await this.findUniqueSong(uniqueDto)
             // If song already exists
-            if(existingSong) return { song: existingSong, existed: true };
+            if(existingSong) return new CreateResult(existingSong, true);
             if(signal.aborted) throw new RedlockError();
 
             const song = new Song();
@@ -266,8 +273,8 @@ export class SongService extends RedisLockableService {
             song.file = createSongDto.file;
             song.artwork = createSongDto.artwork;
 
-            return this.repository.save(song).then(async (result) => {
-                return { song: result, existed: false }
+            return this.save(song).then((result) => {
+                return new CreateResult(result, false);
             });
         }, waitForLock).catch((error: Error) => {
             this.logger.error(`Failed creating song: ${error.message}`, error.stack);
@@ -315,6 +322,34 @@ export class SongService extends RedisLockableService {
 
         song.geniusFlag = flag;
         return this.repository.save(song);
+    }
+
+    /**
+     * Update the sync flag of an artist.
+     * @param idOrObject Id or object of the artist
+     * @param flag Updated sync flag
+     * @returns Song
+     */
+     private async setSyncFlag(idOrObject: string | Song, flag: SyncFlag): Promise<Song> {
+        const resource = await this.resolveSong(idOrObject);
+        if(!resource) return null;
+
+        resource.lastSyncedAt = new Date();
+        resource.lastSyncFlag = flag;
+        return this.repository.save(resource);
+    }
+
+    /**
+     * Synchronize the corresponding document on meilisearch.
+     * @param resource Song data
+     * @returns Song
+     */
+    private async sync(resource: Song) {
+        return this.meiliSong.setSong(resource).then(() => {
+            return this.setSyncFlag(resource, SyncFlag.OK);
+        }).catch(() => {
+            return this.setSyncFlag(resource, SyncFlag.ERROR);
+        });
     }
 
     /**

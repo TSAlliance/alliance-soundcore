@@ -33,4 +33,9 @@ export class SearchController {
     return this.service.searchAlbums(query, pageable);
   }
 
+  @Get("songs")
+  public async searchSongs(@Query("q") query: string, @Pagination() pageable: Pageable) {
+    return this.service.searchSongs(query, pageable);
+  }
+
 }

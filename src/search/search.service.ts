@@ -1,18 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { Pageable } from 'nestjs-pager';
-import { AlbumService } from '../album/album.service';
 import { DistributorService } from '../distributor/services/distributor.service';
-import { GenreService } from '../genre/services/genre.service';
 import { LabelService } from '../label/services/label.service';
 import { MeiliAlbumService } from '../meilisearch/services/meili-album.service';
 import { MeiliArtistService } from '../meilisearch/services/meili-artist.service';
 import { MeiliPlaylistService } from '../meilisearch/services/meili-playlist.service';
+import { MeiliSongService } from '../meilisearch/services/meili-song.service';
 import { MeiliUserService } from '../meilisearch/services/meili-user.service';
-import { PlaylistService } from '../playlist/playlist.service';
 import { PublisherService } from '../publisher/services/publisher.service';
-import { SongService } from '../song/song.service';
 import { User } from '../user/entities/user.entity';
-import { UserService } from '../user/user.service';
 import { Levenshtein } from '../utils/levenshtein';
 import { SearchBestMatch, SearchBestMatchType } from './entities/best-match.entity';
 import { ComplexSearchResult } from './entities/complex-search.entity';
@@ -23,41 +19,34 @@ type MatchCandidate = { compareString: string, obj: any, type: SearchBestMatchTy
 export class SearchService {
 
     constructor(
-        private songService: SongService,
-        private genreService: GenreService,
         private publisherService: PublisherService,
         private distributorService: DistributorService,
         private labelService: LabelService,
-        private albumService: AlbumService,
-        private userService: UserService,
-        private playlistService: PlaylistService,
 
         private readonly meiliPlaylist: MeiliPlaylistService,
         private readonly meiliUser: MeiliUserService,
         private readonly meiliArtist: MeiliArtistService,
-        private readonly meiliAlbum: MeiliAlbumService
+        private readonly meiliAlbum: MeiliAlbumService,
+        private readonly meiliSong: MeiliSongService
     ) {}
 
     public async complexSearch(query: string, authentication?: User): Promise<ComplexSearchResult> {
         const settings: Pageable = new Pageable(0, 12);
         
-        const songs = await this.songService.findBySearchQuery(query, settings, authentication);
         const publisher = await this.publisherService.findBySearchQuery(query, settings);
         const distributors = await this.distributorService.findBySearchQuery(query, settings);
         const labels = await this.labelService.findBySearchQuery(query, settings);
-        const users = await this.userService.findBySearchQuery(query, settings);
-        const playlists = await this.playlistService.findBySearchQuery(query, settings, authentication);
 
         const searchResult: ComplexSearchResult = {
-            songs: songs.size > 0 ? songs : undefined,
+            songs: undefined,
             artists: undefined,
             genres: undefined,
             publisher: publisher.size > 0 ? publisher : undefined,
             distributors: distributors.size > 0 ? distributors : undefined,
             labels: labels.size > 0 ? labels : undefined,
             albums: undefined,
-            users: users.size > 0 ? users : undefined,
-            playlists: playlists.size > 0 ? playlists : undefined
+            users: undefined,
+            playlists: undefined
         }
 
         if(query && query.length > 0 && query != " ") {
@@ -137,8 +126,18 @@ export class SearchService {
      * @param {Pageable} pageable Page settings
      * @returns {SearchResponse<MeiliAlbum>} SearchResponse<MeiliAlbum>
      */
-     public async searchAlbums(query: string, pageable: Pageable) {
+    public async searchAlbums(query: string, pageable: Pageable) {
         return this.meiliAlbum.searchAlbums(query, pageable);
+    }
+
+    /**
+     * Search songs by a given query
+     * @param {string} query Search query
+     * @param {Pageable} pageable Page settings
+     * @returns {SearchResponse<MeiliSong>} SearchResponse<MeiliSong>
+     */
+    public async searchSongs(query: string, pageable: Pageable) {
+        return this.meiliSong.searchSongs(query, pageable);
     }
 
 }

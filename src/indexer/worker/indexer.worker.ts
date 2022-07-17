@@ -19,6 +19,8 @@ import { Song } from "../../song/entities/song.entity";
 import { Album } from "../../album/entities/album.entity";
 import { MeiliArtistService } from "../../meilisearch/services/meili-artist.service";
 import { MeiliAlbumService } from "../../meilisearch/services/meili-album.service";
+import { MeiliSongService } from "../../meilisearch/services/meili-song.service";
+import { CreateResult } from "../../utils/results/creation.result";
 
 const logger = new Logger("IndexerWorker");
 
@@ -41,7 +43,7 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
             const artworkRepo = dataSource.getRepository(Artwork);
             const fileRepo = dataSource.getRepository(File);
     
-            const songService = new SongService(songRepo);
+            const songService = new SongService(songRepo, new MeiliSongService(meiliClient));
             const artistService = new ArtistService(new MeiliArtistService(meiliClient), eventEmitter, artistRepo);
             const albumService = new AlbumService(albumRepo, eventEmitter, new MeiliAlbumService(meiliClient));
             const artworkService = new ArtworkService(artworkRepo, fileSystem);
@@ -60,7 +62,7 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
                     const id3Artists = id3Tags.artists || [];
     
                     // Create all artists found in id3tags if they do not already exist in database.
-                    const featuredArtistsResults = await Promise.all(id3Artists.map(async (artist) => (await artistService.createIfNotExists({
+                    const featuredArtistsResults: CreateResult<Artist>[] = await Promise.all(id3Artists.map(async (artist) => (await artistService.createIfNotExists({
                         name: artist.name
                     }, true))));
 
@@ -70,7 +72,7 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
                     const primaryArtistResult = featuredArtistsResults.splice(0, 1)[0];
                     const primaryArtist = primaryArtistResult?.data;
 
-                    let albumResult = null;
+                    let albumResult: CreateResult<Album> = null;
                     if(id3Tags.album) {
                         // Create album found in id3tags if not exists.
                         albumResult = await albumService.createIfNotExists({
@@ -84,17 +86,15 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
                         duration: id3Tags.duration,
                         name: songTitle,
                         file: file,
-                        album: albumResult?.album,
+                        album: albumResult?.data,
                         order: id3Tags.orderNr,
                         primaryArtist: primaryArtist,
                         featuredArtists: featuredArtistsResults.map((result) => result.data)
                     }, true);
-                    const song = songResult.song;
-                    const existed = songResult.existed;
     
                     // Create artwork if a similar one does not already exist.
-                    const artwork: Artwork = await artworkService.createForSongIfNotExists(song, true, id3Tags.cover);
-                    songService.setArtwork(song, artwork);
+                    const artwork: Artwork = await artworkService.createForSongIfNotExists(songResult.data, true, id3Tags.cover);
+                    songService.setArtwork(songResult.data, artwork);
     
                     // If the mode is set to SCAN, it means the file will be 
                     // scanned from scratch and possibly overwrite data.
@@ -103,24 +103,24 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
                         // metadata? If so, mark file as duplicate
                         // Otherwise update the file's relation to 
                         // point to newly created song
-                        if(existed) {
+                        if(songResult.existed) {
                             // logger.warn(`Found a duplicate song file '${filepath}'. Is a duplicate of: ${song.name} by ${song.primaryArtist.name} of album ${song.album.name}`);
                             reportError(new Error("Duplicate song file detected."), FileFlag.DUPLICATE, true);
                             return;
                         } else {
                             // Update the file's relation to the created song.
-                            await fileService.setSong(file, song);
+                            await fileService.setSong(file, songResult.data);
                         }
                     } else {
-                        if(!existed) {
+                        if(!songResult.existed) {
                             reportError(new Error("Rescanning a file that was never scanned before is not allowed."));
                             return;
                         } else {
                             // At this point, the scan-mode is set to RESCAN (meaning the file should be updated)
                             logger.warn(`Song for file '${filepath}' already existed. Updating song metadata...`);
-                            await songService.setArtwork(song, artwork);
-                            await songService.setAlbumOrder(song, id3Tags.orderNr);
-                            await fileService.setSong(file, song);
+                            await songService.setArtwork(songResult.data, artwork);
+                            await songService.setAlbumOrder(songResult.data, id3Tags.orderNr);
+                            await fileService.setSong(file, songResult.data);
                         }
                     }
                     
@@ -140,9 +140,9 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
 
                     // End worker by reporting success
                     reportSuccess({
-                        song,
-                        createdSong: existed ? null : song,
-                        createdAlbum: albumResult?.existed ? null : albumResult?.album,
+                        song: songResult.data,
+                        createdSong: songResult.existed ? null : songResult.data,
+                        createdAlbum: albumResult?.existed ? null : albumResult?.data,
                         createdArtists: createdArtists
                     });
                 }).catch((error) => {
