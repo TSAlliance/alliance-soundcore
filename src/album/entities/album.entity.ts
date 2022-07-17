@@ -9,11 +9,18 @@ import { Publisher } from "../../publisher/entities/publisher.entity";
 import { Song } from "../../song/entities/song.entity";
 import { GeniusFlag, Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
 import { Slug } from "@tsalliance/utilities";
+import { Syncable, SyncFlag } from "../../meilisearch/interfaces/syncable.interface";
 
 @Entity()
 @Index(["name", "primaryArtist"], { unique: true })
-export class Album implements Resource {
+export class Album implements Resource, Syncable {
     public resourceType: ResourceType = "album";
+
+    @Column({ nullable: true, default: null})
+    public lastSyncedAt: Date;
+
+    @Column({ default: 0 })
+    public lastSyncFlag: SyncFlag;
 
     @PrimaryGeneratedColumn("uuid")
     public id: string;

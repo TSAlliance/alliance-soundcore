@@ -44,7 +44,6 @@ export class SearchService {
         const publisher = await this.publisherService.findBySearchQuery(query, settings);
         const distributors = await this.distributorService.findBySearchQuery(query, settings);
         const labels = await this.labelService.findBySearchQuery(query, settings);
-        const albums = await this.albumService.findBySearchQuery(query, settings);
         const users = await this.userService.findBySearchQuery(query, settings);
         const playlists = await this.playlistService.findBySearchQuery(query, settings, authentication);
 
@@ -55,7 +54,7 @@ export class SearchService {
             publisher: publisher.size > 0 ? publisher : undefined,
             distributors: distributors.size > 0 ? distributors : undefined,
             labels: labels.size > 0 ? labels : undefined,
-            albums: albums.size > 0 ? albums : undefined,
+            albums: undefined,
             users: users.size > 0 ? users : undefined,
             playlists: playlists.size > 0 ? playlists : undefined
         }

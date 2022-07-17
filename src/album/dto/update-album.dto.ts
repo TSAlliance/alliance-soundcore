@@ -11,7 +11,7 @@ export class UpdateAlbumDTO {
     public lookupGenius?: boolean;
 
     @IsOptional()
-    public primaryArtist?: Artist;
+    public primaryArtist: Artist;
 
     @IsOptional()
     @IsDate()
@@ -20,4 +20,5 @@ export class UpdateAlbumDTO {
     @IsOptional()
     @Length(3, 4000)
     public description?: string;
+    
 }
