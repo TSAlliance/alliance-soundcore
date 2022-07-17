@@ -18,6 +18,7 @@ import { IndexerResultDTO } from "../dtos/indexer-result.dto";
 import { Song } from "../../song/entities/song.entity";
 import { Album } from "../../album/entities/album.entity";
 import { MeiliArtistService } from "../../meilisearch/services/meili-artist.service";
+import { MeiliAlbumService } from "../../meilisearch/services/meili-album.service";
 
 const logger = new Logger("IndexerWorker");
 
@@ -42,7 +43,7 @@ export default function (job: Job<IndexerProcessDTO>, dc: DoneCallback) {
     
             const songService = new SongService(songRepo);
             const artistService = new ArtistService(new MeiliArtistService(meiliClient), eventEmitter, artistRepo);
-            const albumService = new AlbumService(albumRepo, eventEmitter);
+            const albumService = new AlbumService(new MeiliAlbumService(meiliClient), albumRepo, eventEmitter);
             const artworkService = new ArtworkService(artworkRepo, fileSystem);
             const fileService = new FileService(fileRepo, eventEmitter, null);
     

@@ -28,4 +28,9 @@ export class SearchController {
     return this.service.searchArtists(query, pageable);
   }
 
+  @Get("albums")
+  public async searchAlbums(@Query("q") query: string, @Pagination() pageable: Pageable) {
+    return this.service.searchAlbums(query, pageable);
+  }
+
 }

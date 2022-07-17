@@ -10,6 +10,8 @@ import { IndexerResultDTO } from '../../indexer/dtos/indexer-result.dto';
 import { Song } from '../../song/entities/song.entity';
 import { GeniusProcessDTO, GeniusProcessType } from '../dtos/genius-process.dto';
 
+// TODO: Add event handlers for other resources
+
 @Injectable()
 export class GeniusService {
     private readonly logger: Logger = new Logger(GeniusService.name);

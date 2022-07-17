@@ -11,7 +11,7 @@ export class UpdateAlbumDTO {
     public lookupGenius?: boolean;
 
     @IsOptional()
-    public primaryArtist?: Artist;
+    public primaryArtist: Artist;
 
     @IsOptional()
     @IsDate()

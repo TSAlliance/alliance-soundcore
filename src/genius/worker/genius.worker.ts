@@ -12,6 +12,7 @@ import { Genre } from "../../genre/entities/genre.entity";
 import { GenreService } from "../../genre/services/genre.service";
 import { Label } from "../../label/entities/label.entity";
 import { LabelService } from "../../label/services/label.service";
+import { MeiliAlbumService } from "../../meilisearch/services/meili-album.service";
 import { MeiliArtistService } from "../../meilisearch/services/meili-artist.service";
 import { Publisher } from "../../publisher/entities/publisher.entity";
 import { PublisherService } from "../../publisher/services/publisher.service";
@@ -32,9 +33,8 @@ export default function (job: Job<GeniusProcessDTO>, dc: DoneCallback) {
             const eventEmitter = new EventEmitter2();
 
             // Build services
-            const meiliService = new MeiliArtistService(meiliClient);
-            const artistService = new ArtistService(meiliService, eventEmitter, dataSource.getRepository(Artist));
-            const albumService = new AlbumService(dataSource.getRepository(Album), eventEmitter);
+            const artistService = new ArtistService(new MeiliArtistService(meiliClient), eventEmitter, dataSource.getRepository(Artist));
+            const albumService = new AlbumService(new MeiliAlbumService(meiliClient), dataSource.getRepository(Album), eventEmitter);
             const songService = new SongService(dataSource.getRepository(Song));
 
             // Build GeniusClientService and dependencies

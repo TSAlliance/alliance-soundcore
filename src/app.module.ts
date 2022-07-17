@@ -74,8 +74,8 @@ import { PipesModule } from '@tsalliance/utilities';
         removeOnComplete: true,
       },
       limiter: {
-        // Maximum 200 tasks per second
-        max: 200,
+        // Maximum 50 tasks per second
+        max: 50,
         duration: 1000
       }
     }),

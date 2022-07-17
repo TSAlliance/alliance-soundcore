@@ -1,5 +1,6 @@
 import { DynamicModule, Logger, Module } from '@nestjs/common';
 import MeiliSearch, { Config } from 'meilisearch';
+import { MeiliAlbumService } from './services/meili-album.service';
 import { MeiliArtistService } from './services/meili-artist.service';
 import { MeiliPlaylistService } from './services/meili-playlist.service';
 import { MeiliUserService } from './services/meili-user.service';
@@ -28,13 +29,15 @@ export class MeilisearchModule {
                 },
                 MeiliPlaylistService,
                 MeiliUserService,
-                MeiliArtistService
+                MeiliArtistService,
+                MeiliAlbumService,
             ],
             exports: [
                 MeiliSearch,
                 MeiliPlaylistService,
                 MeiliUserService,
-                MeiliArtistService
+                MeiliArtistService,
+                MeiliAlbumService
             ]
         }
     }

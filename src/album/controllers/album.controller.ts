@@ -1,8 +1,12 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
 import { Pageable, Pagination } from 'nestjs-pager';
 import { Authentication } from '../../authentication/decorators/authentication.decorator';
+import { Roles } from '../../authentication/decorators/role.decorator';
+import { ROLE_ADMIN, ROLE_MOD } from '../../constants';
 import { User } from '../../user/entities/user.entity';
 import { AlbumService } from '../album.service';
+import { CreateAlbumDTO } from '../dto/create-album.dto';
+import { UpdateAlbumDTO } from '../dto/update-album.dto';
 
 @Controller('albums')
 export class AlbumController {
@@ -10,7 +14,7 @@ export class AlbumController {
 
   @Get("/byArtist/:artistId")
   public async findProfilesByArtist(@Param("artistId") artistId: string, @Pagination() pageable: Pageable, @Authentication() authentication: User) {
-    return this.albumService.findProfilesByArtist(artistId, pageable, authentication);
+    return this.albumService.findByArtist(artistId, pageable, authentication);
   }
 
   @Get("/byArtist/:artistId/recommended")
@@ -30,7 +34,19 @@ export class AlbumController {
 
   @Get(":albumId")
   public async findProfileById(@Param("albumId") albumId: string, @Authentication() authentication: User) {
-    return this.albumService.findProfileById(albumId, authentication);
+    return this.albumService.findById(albumId, authentication);
+  }
+
+  @Roles(ROLE_MOD, ROLE_ADMIN)
+  @Post()
+  public async createAlbum(@Body() createAlbumDto: CreateAlbumDTO) {
+    return this.albumService.createIfNotExists(createAlbumDto);
+  }
+
+  @Roles(ROLE_MOD, ROLE_ADMIN)
+  @Put(":albumId")
+  public async updateAlbum(@Param("albumId") albumId: string, @Body() updateAlbumDto: UpdateAlbumDTO) {
+    return this.albumService.update(albumId, updateAlbumDto);
   }
 
 }
