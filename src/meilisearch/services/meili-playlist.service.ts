@@ -15,7 +15,7 @@ export class MeiliPlaylistService extends MeiliService<MeiliPlaylist> {
     constructor(client: MeiliSearch) {
         super(client, MEILI_INDEX_PLAYLIST, {
             filterableAttributes: ["privacy", "author.id"],
-            searchableAttributes: ["name", "slug"]
+            searchableAttributes: ["name"]
         })
     }
 

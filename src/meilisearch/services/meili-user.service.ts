@@ -12,7 +12,7 @@ export class MeiliUserService extends MeiliService<MeiliUser> {
 
     constructor(client: MeiliSearch) {
         super(client, MEILI_INDEX_USER, {
-            searchableAttributes: ["name", "slug"]
+            searchableAttributes: ["name"]
         })
     }
 
