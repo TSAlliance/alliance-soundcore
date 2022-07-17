@@ -2,7 +2,6 @@ import { Injectable, Logger } from "@nestjs/common";
 import axios, { AxiosResponse } from "axios";
 import { Album } from "../../album/entities/album.entity";
 import { Artist } from "../../artist/entities/artist.entity";
-import { ArtworkType } from "../../artwork/entities/artwork.entity";
 import { ArtworkService } from "../../artwork/services/artwork.service";
 import { GENIUS_API_BASE_URL } from "../../constants";
 import { Distributor } from "../../distributor/entities/distributor.entity";
@@ -60,28 +59,15 @@ export class GeniusClientService {
             // If there is an image url present on the resource.
             // Download it and create an artwork for the artist
             if(resource.image_url) {
-                // Create new artwork in database
-                const artwork = await this.artworkService.createIfNotExists({
-                    name: artist.name,
-                    type: ArtworkType.ARTIST,
-                    fromSource: null
-                });
-
-                // Continue only if artwork was created
-                if(!!artwork) {
-                    // Download url to buffer
-                    const artworkResult = await this.artworkService.downloadToBuffer(resource.image_url).then((buffer) => {
-                        // Write buffer to artwork file.
-                        return this.artworkService.writeFromBufferOrFile(buffer, artwork);
-                    }).catch(async (error) => {
-                        // Delete artwork entity if write failed.
-                        await this.artworkService.deleteById(artwork.id);
-                        throw error;
+                // Download url to buffer
+                return this.artworkService.downloadToBuffer(resource.image_url).then((buffer) => {
+                    // Create artwork and write buffer to file
+                    return this.artworkService.createForArtistIfNotExists(artist, true, buffer).then((artwork) => {
+                        // Update relation
+                        result.artwork = artwork;
+                        return result;
                     })
-
-                    // Update relation
-                    result.artwork = artworkResult;
-                }
+                })
             }
 
             return result;
