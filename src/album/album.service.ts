@@ -1,15 +1,19 @@
-import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
-import { Repository } from 'typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
 import { Artist } from '../artist/entities/artist.entity';
+import { EVENT_ALBUM_CHANGED } from '../constants';
+import { AlbumChangedEvent } from '../events/album-changed.event';
 import { RedlockError } from '../exceptions/redlock.exception';
+import { SyncFlag } from '../meilisearch/interfaces/syncable.interface';
 import { User } from '../user/entities/user.entity';
 import { GeniusFlag, ResourceFlag } from '../utils/entities/resource';
 import { CreateResult } from '../utils/results/creation.result';
 import { RedisLockableService } from '../utils/services/redis-lockable.service';
 import { CreateAlbumDTO } from './dto/create-album.dto';
+import { UpdateAlbumDTO } from './dto/update-album.dto';
 import { Album } from './entities/album.entity';
 
 @Injectable()
@@ -23,142 +27,118 @@ export class AlbumService extends RedisLockableService {
         super()
     }
 
-    public async findProfilesByArtist(artistId: string, pageable: Pageable, authentication?: User): Promise<Page<Album>> {
-        const result = await this.repository.createQueryBuilder("album")
-            .leftJoinAndSelect("album.artwork", "artwork")
-            .leftJoin("album.primaryArtist", "primaryArtist")
-
-            .loadRelationCountAndMap("album.liked", "album.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication?.id }))
-
-            .addSelect(["artwork.id", "primaryArtist.id", "primaryArtist.name"])
-            .where("primaryArtist.id = :artistId", { artistId })
-            .orWhere("primaryArtist.slug = :artistId", { artistId })
-
-            .orderBy("album.releasedAt", "DESC")
-            .addOrderBy("album.createdAt", "DESC")
-
-            // Pagination
-            .offset((pageable?.page || 0) * (pageable?.size || 30))
-            .limit(pageable.size || 30)
-
-            .getManyAndCount();
-
-        return Page.of(result[0], result[1], pageable.page);
-    }
-
-    public async findFeaturedWithArtist(artistId: string, pageable: Pageable, authentication?: User): Promise<Page<Album>> {
-        /*const result = await this.repository.createQueryBuilder("album")
-            .leftJoin("album.artwork", "artwork")
-            .leftJoin("album.primaryArtist", "primaryArtist")
-            .leftJoin("album.songs", "song")
-            .leftJoin("song.artists", "featuredArtist", "featuredArtist.id != primaryArtist.id AND (featuredArtist.id = :featArtistId OR featuredArtist.slug = :featArtistId)", { featArtistId: artistId })
-
-            .loadRelationCountAndMap("album.liked", "album.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication?.id }))
-
-            .addSelect(["artwork.id", "artwork.accentColor", "primaryArtist.id", "primaryArtist.name", "featuredArtist.id", "featuredArtist.name"])
-
-            .where("featuredArtist.id = :featArtistId OR featuredArtist.slug = :slug", { featArtistId: artistId, slug: artistId })
-            .orderBy("album.releasedAt", "DESC")
-            .addOrderBy("album.createdAt", "DESC")
-
-            // Pagination
-            .offset((pageable?.page || 0) * (pageable?.size || 30))
-            .limit(pageable.size || 30)
-
-            .getManyAndCount();     */   
-
-            // TODO
-        return Page.of([], 0, pageable.page);
-    }
-
-    public async findRecommendedProfilesByArtist(artistId: string, exceptAlbumIds: string | string[] = [], authentication?: User): Promise<Page<Album>> {
-        if(!exceptAlbumIds) exceptAlbumIds = []
-        if(!Array.isArray(exceptAlbumIds)) {
-            exceptAlbumIds = [ exceptAlbumIds ];
-        }
-
-        let qb = await this.repository.createQueryBuilder("album")
-            .leftJoinAndSelect("album.artwork", "artwork")
-            .leftJoinAndSelect("album.primaryArtist", "primaryArtist")
-
-            .loadRelationCountAndMap("album.liked", "album.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication?.id }))
-
-            .addSelect(["primaryArtist.id", "primaryArtist.name"])
-            .limit(10);
-
-        if(exceptAlbumIds && exceptAlbumIds.length > 0) {
-            qb = qb.where("album.id NOT IN(:except)", { except: exceptAlbumIds || [] })
-        }
-        qb = qb.andWhere("(primaryArtist.id = :artistId OR primaryArtist.slug = :artistId)", { artistId })
-
-        const result = await qb.getMany();
-        return Page.of(result, 10, 0);
-    }
-
-    public async findByGenre(genreId: string, pageable: Pageable, authentication?: User): Promise<Page<Album>> {
-        const result = await this.repository.createQueryBuilder("album")
-            .leftJoin("album.primaryArtist", "primaryArtist")
-            .leftJoin("album.artwork", "artwork")
-            .leftJoin("album.songs", "song")
-            .leftJoin("song.genres", "genre")
-
-            .loadRelationCountAndMap("album.liked", "album.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication?.id }))
-
-            .addSelect(["artwork.id", "primaryArtist.id", "primaryArtist.name"])
-
-            // Pagination
-            .offset((pageable?.page || 0) * (pageable?.size || 30))
-            .limit(pageable.size || 30)
-
-            .where("genre.id = :genreId OR genre.slug = :genreId", { genreId })
-            .getMany()
-
-        return Page.of(result, result.length, pageable.page);
-    }
-
     /**
      * Find album by its id including all information required to display the album
      * page on the frontend
      * @param albumId Album's id
      * @returns Album
      */
-    public async findProfileById(albumId: string, authentication?: User): Promise<Album> {
-        const result = await this.repository.createQueryBuilder("album")
-                .where("album.id = :albumId", { albumId })
-                .orWhere("album.slug = :albumId", { albumId })
+     public async findById(albumId: string, authentication?: User): Promise<Album> {
+        const result = await this.buildGeneralQuery("album", authentication)
+            .addSelect(["artwork.colors"])
+            .loadRelationCountAndMap("album.songsCount", "album.songs")
 
-                // Relation for counting and summing up duration
-                .leftJoin("album.songs", "song")
-                
-                // This is for relations
-                .leftJoinAndSelect("album.artwork", "artwork")
-                .leftJoinAndSelect("album.distributor", "distributor")
-                .leftJoinAndSelect("distributor.artwork", "distrArtwork")
-                .leftJoinAndSelect("album.label", "label")
-                .leftJoinAndSelect("label.artwork", "labelArtwork")
-                .leftJoinAndSelect("album.publisher", "publisher")
-                .leftJoinAndSelect("publisher.artwork", "publisherArtwork")
-                .leftJoinAndSelect("album.primaryArtist", "primaryArtist")
-                .leftJoinAndSelect("primaryArtist.artwork", "albumArtwork")
+            .leftJoin("album.distributor", "distributor").leftJoin("distributor.artwork", "da").addSelect(["distributor.id", "distributor.slug", "distributor.name", "da.id"])
+            .leftJoin("album.publisher", "publisher").leftJoin("publisher.artwork", "da").addSelect(["publisher.id", "publisher.slug", "publisher.name", "da.id"])
+            .leftJoin("album.label", "label").leftJoin("label.artwork", "da").addSelect(["label.id", "label.slug", "label.name", "da.id"])
+            .leftJoin("primaryArtist.artwork", "artistArtwork").addSelect(["artistArtwork.id"])
+            .leftJoin("album.songs", "song").addSelect('SUM(song.duration) as _album_totalDuration')
+            
+            .groupBy("album.id")
+            .where("album.id = :albumId OR album.slug = :albumId", { albumId })
+            .getOne();
 
-                .loadRelationCountAndMap("album.liked", "album.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication?.id }))
+        return result;
+    }
 
-                .groupBy("album.id")
+    /**
+     * Find albums by an artist
+     * @param artistId Artist's id
+     * @param pageable Page settings
+     * @param authentication Authentication object
+     * @returns Page<Album>
+     */
+    public async findByArtist(artistId: string, pageable: Pageable, authentication?: User): Promise<Page<Album>> {
+        const result = await this.buildGeneralQuery("album", authentication)
+            .skip((pageable?.page || 0) * (pageable?.size || 30))
+            .take(pageable.size || 30)
 
-                // Counting the songs
-                .addSelect('COUNT(song.id)', 'songsCount')
+            .orderBy("album.releasedAt", "DESC")
+            .addOrderBy("album.createdAt", "DESC")
 
-                // SUM up the duration of every song to get total duration of the playlist
-                .addSelect('SUM(song.duration)', 'totalDuration')
-                .getRawAndEntities()
+            .where("primaryArtist.id = :artistId OR primaryArtist.slug = :artistId", { artistId })
+            .getManyAndCount();
 
-        const album = result.entities[0];
-        if(!album) throw new NotFoundException("Album not found.")
+        return Page.of(result[0], result[1], pageable.page);
+    }
 
-        album.totalDuration = parseInt(result.raw[0].totalDuration);
-        album.songsCount = parseInt(result.raw[0].songsCount)
+    /**
+     * Find albums where a special artist is featured in.
+     * This looksup songs where the artist might be primary or featured artist
+     * inside an album.
+     * @param artistId Artist's id
+     * @param pageable Page settings
+     * @param authentication Authentication object
+     * @returns Page<Album>
+     */
+    public async findFeaturedWithArtist(artistId: string, pageable: Pageable, authentication?: User): Promise<Page<Album>> {
+        const result = await this.buildGeneralQuery("album", authentication)
+            .leftJoin("album.songs", "song")
+            .leftJoin("song.primaryArtist", "songArtist")
+            .leftJoin("song.featuredArtists", "songFeatArtist")
 
-        return album
+            .skip((pageable?.page || 0) * (pageable?.size || 30))
+            .take(pageable.size || 30)
+
+            .orderBy("album.releasedAt", "DESC")
+            .addOrderBy("album.createdAt", "DESC")
+
+            .where("songArtist.id = :artistId OR songArtist.slug = :artistId OR songFeatArtist.id = :artistId OR songFeatArtist.slug = :artistId", { artistId })
+            .getManyAndCount();
+        
+        return Page.of(result[0], result[1], pageable.page);
+    }
+
+    /**
+     * Find 10 recommendation of albums by an artist.
+     * @param artistId Artist's id
+     * @param exceptAlbumIds Exclude album ids
+     * @param authentication Authentication object
+     * @returns Page<Album>
+     */
+    public async findRecommendedProfilesByArtist(artistId: string, exceptAlbumIds: string | string[] = [], authentication?: User): Promise<Page<Album>> {
+        if(!exceptAlbumIds) exceptAlbumIds = []
+        if(!Array.isArray(exceptAlbumIds)) {
+            exceptAlbumIds = [ exceptAlbumIds ];
+        }
+
+        const result = await this.buildGeneralQuery("album", authentication)
+            .take(10)
+            .where("album.id NOT IN(:except) AND (primaryArtist.id = :artistId OR primaryArtist.slug = :artistId)", { except: exceptAlbumIds || [], artistId })
+            .getMany()
+
+        return Page.of(result, 10, 0);
+    }
+
+    /**
+     * Find albums by song genres.
+     * @param genreId Genre id
+     * @param pageable Page settings
+     * @param authentication Authentication Object
+     * @returns Page<Album>
+     */
+    public async findByGenre(genreId: string, pageable: Pageable, authentication?: User): Promise<Page<Album>> {
+        const result = await this.buildGeneralQuery("album", authentication)
+            .leftJoin("album.songs", "song")
+            .leftJoin("song.genres", "genre")
+
+            .skip(pageable.page * pageable?.size)
+            .take(pageable.size)
+
+            .where("genre.id = :genreId OR genre.slug = :genreId", { genreId })
+            .getManyAndCount()
+
+        return Page.of(result[0], result[1], pageable.page);
     }
 
     /**
@@ -180,7 +160,10 @@ export class AlbumService extends RedisLockableService {
      * @returns Album
      */
     public async save(album: Album): Promise<Album> {
-        return this.repository.save(album);
+        return this.repository.save(album).then((result) => {
+            this.sync(result);
+            return result;
+        });
     }
 
     /**
@@ -188,11 +171,13 @@ export class AlbumService extends RedisLockableService {
      * @param createAlbumDto Data to create album from
      * @returns Album
      */
-     public async createIfNotExists(createAlbumDto: CreateAlbumDTO, waitForLock = false): Promise<CreateResult<Album>> {
+    public async createIfNotExists(createAlbumDto: CreateAlbumDTO, waitForLock = false): Promise<CreateResult<Album>> {
         createAlbumDto.name = createAlbumDto.name?.trim();
+        createAlbumDto.description = createAlbumDto.description?.trim();
+        if(!createAlbumDto.primaryArtist) throw new BadRequestException("Creating album without primary artist is not allowed.");
 
         // Acquire lock
-        return this.lock(createAlbumDto.name, async (signal) => {
+        return this.lock(`${createAlbumDto.name}_${createAlbumDto.primaryArtist.name}`, async (signal) => {
             const existingAlbum = await this.findByNameAndArtist(createAlbumDto.name, createAlbumDto.primaryArtist);
             if(existingAlbum) return new CreateResult(existingAlbum, true); 
             if(signal.aborted) throw new RedlockError();
@@ -203,12 +188,40 @@ export class AlbumService extends RedisLockableService {
             album.releasedAt = createAlbumDto.releasedAt;
             album.primaryArtist = createAlbumDto.primaryArtist;
 
-            return this.repository.save(album).then((result) => {
+            return this.save(album).then((result) => {
+                // Emit changed event to proceed with automatic genius lookup
+                if(createAlbumDto.lookupGenius) this.eventEmitter.emit(EVENT_ALBUM_CHANGED, new AlbumChangedEvent(result));
                 return new CreateResult(result, false);
             })
         }, waitForLock).catch((error: Error) => {
             this.logger.error(`Failed creating album: ${error.message}`, error.stack);
             throw new InternalServerErrorException();
+        })
+    }
+
+    /**
+     * Update an existing album.
+     * @param albumId Album's id
+     * @param updateAlbumDto Updated album data
+     * @returns Album
+     */
+    public async update(albumId: string, updateAlbumDto: UpdateAlbumDTO): Promise<Album> {
+        updateAlbumDto.name = updateAlbumDto.name.trim();
+        updateAlbumDto.description = updateAlbumDto.description?.trim();
+        if(!updateAlbumDto.primaryArtist) throw new BadRequestException("Creating album without primary artist is not allowed.");
+
+        const album = await this.resolveAlbum(albumId);
+        if(!album) throw new NotFoundException("Album not found");
+
+        album.name = updateAlbumDto.name;
+        album.primaryArtist = updateAlbumDto.primaryArtist;
+        album.description = updateAlbumDto.description;
+        album.releasedAt = updateAlbumDto.releasedAt;
+        
+        return this.save(album).then((result) => {
+            // Emit changed event to proceed with automatic genius lookup
+            if(updateAlbumDto.lookupGenius) this.eventEmitter.emit(EVENT_ALBUM_CHANGED, new AlbumChangedEvent(result));
+            return result;
         })
     }
 
@@ -255,42 +268,55 @@ export class AlbumService extends RedisLockableService {
     }
 
     /**
+     * Update the sync flag of an album.
+     * @param idOrObject Id or object of the album
+     * @param flag Updated sync flag
+     * @returns Album
+     */
+    private async setSyncFlag(idOrObject: string | Album, flag: SyncFlag): Promise<Album> {
+        const resource = await this.resolveAlbum(idOrObject);
+        if(!resource) return null;
+
+        resource.lastSyncedAt = new Date();
+        resource.lastSyncFlag = flag;
+        return this.repository.save(resource);
+    }
+
+    /**
+     * Synchronize the corresponding document on meilisearch.
+     * @param resource Album data
+     * @returns Album
+     */
+    private async sync(resource: Album) {
+        /*return this.meiliAlbum.setAlbum(resource).then(() => {
+            return this.setSyncFlag(resource, SyncFlag.OK);
+        }).catch(() => {
+            return this.setSyncFlag(resource, SyncFlag.ERROR);
+        });*/
+
+        return resource;
+    }
+
+    /**
      * Find album by its id or object itself.
      * @param idOrObject Id or album object
      * @returns Album
      */
     private async resolveAlbum(idOrObject: string | Album): Promise<Album> {
         if(typeof idOrObject == "string") {
-            return this.findProfileById(idOrObject);
+            return this.findById(idOrObject);
         }
 
         return idOrObject;
     }
 
-    public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Album>> {
-        if(!query || query == "") {
-            query = "%"
-        } else {
-            query = `%${query.replace(/\s/g, '%')}%`;
-        }
+    private buildGeneralQuery(alias: string, authentication?: User): SelectQueryBuilder<Album> {
+        return this.repository.createQueryBuilder(alias)
+            .leftJoin(`${alias}.artwork`, "artwork").addSelect(["artwork.id"])
+            .leftJoin(`${alias}.primaryArtist`, "primaryArtist").addSelect(["primaryArtist.id", "primaryArtist.slug", "primaryArtist.name"])
+            .loadRelationCountAndMap(`${alias}.liked`, `${alias}.likedBy`, "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication?.id }))
+    }    
 
-        let qb = this.repository.createQueryBuilder("album")
-            .leftJoinAndSelect("album.artwork", "artwork")
-            .leftJoin("album.primaryArtist", "primaryArtist")
-
-            .limit(pageable.size)
-            .offset(pageable.page * pageable.size)
-
-            .addSelect(["primaryArtist.id", "primaryArtist.name", "primaryArtist.slug"])
-            .where("album.title LIKE :query", { query });
-
-        if(query == "%") {
-            qb = qb.orderBy("rand()");
-        }
-
-        const result = await qb.getManyAndCount();
-        return Page.of(result[0], result[1], pageable.page);
-    }
 
     
 

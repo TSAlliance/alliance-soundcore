@@ -10,7 +10,7 @@ export class AlbumController {
 
   @Get("/byArtist/:artistId")
   public async findProfilesByArtist(@Param("artistId") artistId: string, @Pagination() pageable: Pageable, @Authentication() authentication: User) {
-    return this.albumService.findProfilesByArtist(artistId, pageable, authentication);
+    return this.albumService.findByArtist(artistId, pageable, authentication);
   }
 
   @Get("/byArtist/:artistId/recommended")
@@ -30,7 +30,7 @@ export class AlbumController {
 
   @Get(":albumId")
   public async findProfileById(@Param("albumId") albumId: string, @Authentication() authentication: User) {
-    return this.albumService.findProfileById(albumId, authentication);
+    return this.albumService.findById(albumId, authentication);
   }
 
 }
