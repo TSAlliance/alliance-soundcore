@@ -28,8 +28,6 @@ export class MeiliArtistService extends MeiliService<MeiliArtist> {
             name: artist.name,
             slug: artist.slug,
             resourceType: artist.resourceType,
-            createdAt: artist.createdAt,
-            description: artist.description,
             artwork: artist.artwork ? new MeiliArtwork(artist.artwork?.id) : null
         }, timeOutMs);
     }
