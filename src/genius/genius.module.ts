@@ -8,10 +8,15 @@ import { GenreModule } from '../genre/genre.module';
 import { LabelModule } from '../label/label.module';
 import { PublisherModule } from '../publisher/publisher.module';
 import { GeniusClientService } from './services/genius-client.service';
+import { GeniusQueueService } from './services/genius-queue.service';
 import { GeniusService } from './services/genius.service';
 
 @Module({
-  providers: [GeniusService, GeniusClientService ],
+  providers: [
+    GeniusService, 
+    GeniusClientService ,
+    GeniusQueueService
+  ],
   exports: [ GeniusService, GeniusClientService ],
   imports: [
     ArtworkModule,

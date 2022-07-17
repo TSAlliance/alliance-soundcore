@@ -5,15 +5,11 @@ import { Page, Pageable } from 'nestjs-pager';
 import path from 'path';
 import { Repository } from 'typeorm';
 import { Bucket } from '../../bucket/entities/bucket.entity';
-import { EVENT_FILE_FOUND, QUEUE_MOUNTSCAN_NAME } from '../../constants';
+import { QUEUE_MOUNTSCAN_NAME } from '../../constants';
 import { CreateMountDTO } from '../dtos/create-mount.dto';
 import { UpdateMountDTO } from '../dtos/update-mount.dto';
 import { Mount } from '../entities/mount.entity';
 import { MountScanProcessDTO } from '../dtos/mount-scan.dto';
-import { MountScanResultDTO } from '../dtos/scan-result.dto';
-import { ProgressInfoDTO } from '../worker/progress-info.dto';
-import { MountGateway } from '../gateway/mount.gateway';
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Random } from '@tsalliance/utilities';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CreateResult } from '../../utils/results/creation.result';
@@ -27,27 +23,10 @@ export class MountService extends RedisLockableService {
 
     constructor(
         @InjectRepository(Mount) private readonly repository: Repository<Mount>,
-        private readonly gateway: MountGateway,
-        private readonly eventEmitter: EventEmitter2,
         private readonly fileSystem: FileSystemService,
         @InjectQueue(QUEUE_MOUNTSCAN_NAME) private readonly queue: Queue<MountScanProcessDTO>
     ) {
-        super();
-
-        this.queue.on("failed", (job, err) => this.logger.error(`Failed scanning mount '${job?.data?.mount?.name}': ${err.message}`, err.stack));
-        this.queue.on("error", (err) => this.logger.error(`Error occured on mount-scan-worker: ${err.message}`, err.stack));
-        this.queue.on("progress", (job, progress: ProgressInfoDTO) => {
-            this.gateway.sendMountUpdateEvent(job.data.mount, progress);
-        })
-
-        this.queue.on("completed", (job, result: MountScanResultDTO) => {
-            this.gateway.sendMountUpdateEvent(job.data.mount, null);
-            this.updateLastScanned(job.data.mount);
-
-            for(const file of result.files) {
-                this.eventEmitter.emit(EVENT_FILE_FOUND, file);
-            }
-        });
+        super();        
     }
 
     /**
@@ -364,7 +343,7 @@ export class MountService extends RedisLockableService {
      * @param idOrObject Id or Mount object
      * @returns Mount
      */
-    private async updateLastScanned(idOrObject: string | Mount): Promise<Mount> {
+    public async updateLastScanned(idOrObject: string | Mount): Promise<Mount> {
         const mount = await this.resolveMount(idOrObject);
         mount.lastScannedAt = new Date();
 

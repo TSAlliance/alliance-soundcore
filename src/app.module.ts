@@ -3,7 +3,6 @@ import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { ArtistModule } from './artist/artist.module';
-import { AllianceRestModule } from '@tsalliance/rest';
 import { BucketModule } from './bucket/bucket.module';
 import { AlbumModule } from './album/album.module';
 import { SongModule } from './song/song.module';
@@ -31,6 +30,7 @@ import { FileSystemModule } from './filesystem/filesystem.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { PipesModule } from '@tsalliance/utilities';
 
 @Module({
   imports: [
@@ -62,11 +62,7 @@ import { AppService } from './app.service';
         "Authorization": `Bearer ${process.env.MEILISEARCH_KEY}`
       }
     }),
-    AllianceRestModule.forRoot({
-      logging: false,
-      disableErrorHandling: true,
-      disableValidation: false
-    }),
+    PipesModule,
     BullModule.forRoot({
       redis: {
         host: process.env.REDIS_HOST,
@@ -75,7 +71,12 @@ import { AppService } from './app.service';
       },
       defaultJobOptions: {
         removeOnFail: true,
-        removeOnComplete: true
+        removeOnComplete: true,
+      },
+      limiter: {
+        // Maximum 200 tasks per second
+        max: 200,
+        duration: 1000
       }
     }),
     EventEmitterModule.forRoot({ global: true, ignoreErrors: true }),

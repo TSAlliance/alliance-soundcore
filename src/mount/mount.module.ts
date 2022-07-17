@@ -1,12 +1,13 @@
 import path from 'path';
 import { BullModule } from '@nestjs/bull';
-import { Module, OnModuleInit } from '@nestjs/common';
+import { Logger, Module, OnModuleInit } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { QUEUE_MOUNTSCAN_NAME } from '../constants';
 import { MountService } from './services/mount.service'
 import { MountController } from './controllers/mount.controller';
 import { MountGateway } from './gateway/mount.gateway';
 import { Mount } from './entities/mount.entity';
+import { MountQueueService } from './services/mount-queue.service';
 
 @Module({
   controllers: [
@@ -14,7 +15,8 @@ import { Mount } from './entities/mount.entity';
   ],
   providers: [
     MountService,
-    MountGateway
+    MountGateway,
+    MountQueueService
   ],
   imports: [
     TypeOrmModule.forFeature([ Mount ]),
@@ -37,17 +39,21 @@ import { Mount } from './entities/mount.entity';
   ]
 })
 export class MountModule implements OnModuleInit {
+  private readonly logger: Logger = new Logger(MountModule.name);
 
   constructor(
-    private readonly service: MountService
+    private readonly service: MountService,
+    private readonly queueService: MountQueueService
   ) {}
 
   public async onModuleInit() {
-    this.service.checkForDefaultMount().finally(() => {
-      this.service.checkMounts();
-    })
+    return this.queueService.empty().then(() => {
+      return this.service.checkForDefaultMount().then(() => {
+        return this.service.checkMounts();
+      });
+    }).catch((error: Error) => {
+      this.logger.error(`Error occured while initializing ${MountModule.name}: ${error.message}`, error.stack);
+    });
   }
-
-  
 
 }

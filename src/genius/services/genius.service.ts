@@ -1,14 +1,13 @@
 import { InjectQueue } from '@nestjs/bull';
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { Job, Queue } from 'bull';
+import { Queue } from 'bull';
 import { Album } from '../../album/entities/album.entity';
 import { Artist } from '../../artist/entities/artist.entity';
 import { EVENT_ARTIST_CHANGED, EVENT_METADATA_CREATED, QUEUE_GENIUS_NAME } from '../../constants';
 import { ArtistChangedEvent } from '../../events/artist-changed.event';
 import { IndexerResultDTO } from '../../indexer/dtos/indexer-result.dto';
 import { Song } from '../../song/entities/song.entity';
-import { Resource } from '../../utils/entities/resource';
 import { GeniusProcessDTO, GeniusProcessType } from '../dtos/genius-process.dto';
 
 @Injectable()
@@ -17,15 +16,7 @@ export class GeniusService {
 
     constructor(
         @InjectQueue(QUEUE_GENIUS_NAME) private readonly queue: Queue<GeniusProcessDTO>
-    ) {
-        this.queue?.on("failed", (job, err) => {
-            this.logger.error(`${err.message}`, err.stack);
-        })
-        this.queue?.on("completed", (job: Job<GeniusProcessDTO>, result: Resource) => {
-            const type = result.resourceType;
-            this.logger.verbose(`Successfully looked up ${type} '${result.name}' on genius.`);
-        })
-    }
+    ) {}
     
     @OnEvent(EVENT_METADATA_CREATED)
     public async handleMetadataCreatedEvent(payload: IndexerResultDTO) {

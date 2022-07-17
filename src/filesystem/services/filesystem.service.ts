@@ -8,7 +8,6 @@ import { v4 as uuidv4 } from "uuid"
 import { File } from "../../file/entities/file.entity";
 import { Mount } from "../../mount/entities/mount.entity";
 import { SC_ARTWORKDIR_NAME, SC_IDFILE_NAME } from "../filesystem.module";
-import { RandomUtil } from "@tsalliance/rest";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Random } from "@tsalliance/utilities";
 
@@ -165,7 +164,7 @@ export class FileSystemService {
         // - Return instanceId and skip file read
         if(!fs.existsSync(filepath)) {
             this._logger.warn(`Could not find file ${SC_IDFILE_NAME}. Creating new instance id.`);
-            instanceId = RandomUtil.randomString(36);
+            instanceId = Random.randomString(36);
             fs.writeFileSync(filepath, instanceId, { encoding: "utf-8" });
             return instanceId;
         } else {
