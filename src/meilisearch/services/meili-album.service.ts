@@ -4,15 +4,15 @@ import { Pageable } from "nestjs-pager";
 import { Album } from "../../album/entities/album.entity";
 import { MeiliAlbum } from "../entities/meili-album.entity";
 import { MeiliArtwork } from "../entities/meili-artwork.entity";
-import { MEILI_INDEX_ARTIST } from "../meilisearch.constants";
+import { MEILI_INDEX_ALBUM } from "../meilisearch.constants";
 import { MeiliService } from "./meili.service";
 
 @Injectable()
 export class MeiliAlbumService extends MeiliService<MeiliAlbum> {
 
     constructor(client: MeiliSearch) {
-        super(client, MEILI_INDEX_ARTIST, {
-            searchableAttributes: ["name"]
+        super(client, MEILI_INDEX_ALBUM, {
+            searchableAttributes: ["name", "primaryArtist.name"]
         })
     }
 
@@ -31,7 +31,7 @@ export class MeiliAlbumService extends MeiliService<MeiliAlbum> {
             artwork: album.artwork ? new MeiliArtwork(album.artwork?.id) : null,
             createdAt: album.createdAt,
             releasedAt: album.releasedAt,
-            artist: {
+            primaryArtist: {
                 id: album.primaryArtist.id,
                 name: album.primaryArtist.name,
                 artwork: null,

@@ -4,6 +4,7 @@ import { AlbumService } from '../album/album.service';
 import { DistributorService } from '../distributor/services/distributor.service';
 import { GenreService } from '../genre/services/genre.service';
 import { LabelService } from '../label/services/label.service';
+import { MeiliAlbumService } from '../meilisearch/services/meili-album.service';
 import { MeiliArtistService } from '../meilisearch/services/meili-artist.service';
 import { MeiliPlaylistService } from '../meilisearch/services/meili-playlist.service';
 import { MeiliUserService } from '../meilisearch/services/meili-user.service';
@@ -33,14 +34,14 @@ export class SearchService {
 
         private readonly meiliPlaylist: MeiliPlaylistService,
         private readonly meiliUser: MeiliUserService,
-        private readonly meiliArtist: MeiliArtistService
+        private readonly meiliArtist: MeiliArtistService,
+        private readonly meiliAlbum: MeiliAlbumService
     ) {}
 
     public async complexSearch(query: string, authentication?: User): Promise<ComplexSearchResult> {
         const settings: Pageable = new Pageable(0, 12);
         
         const songs = await this.songService.findBySearchQuery(query, settings, authentication);
-        const genres = await this.genreService.findBySearchQuery(query, settings);
         const publisher = await this.publisherService.findBySearchQuery(query, settings);
         const distributors = await this.distributorService.findBySearchQuery(query, settings);
         const labels = await this.labelService.findBySearchQuery(query, settings);
@@ -50,7 +51,7 @@ export class SearchService {
         const searchResult: ComplexSearchResult = {
             songs: songs.size > 0 ? songs : undefined,
             artists: undefined,
-            genres: genres.size > 0 ? genres : undefined,
+            genres: undefined,
             publisher: publisher.size > 0 ? publisher : undefined,
             distributors: distributors.size > 0 ? distributors : undefined,
             labels: labels.size > 0 ? labels : undefined,
@@ -126,8 +127,18 @@ export class SearchService {
      * @param {Pageable} pageable Page settings
      * @returns {SearchResponse<MeiliArtist>} SearchResponse<MeiliArtist>
      */
-     public async searchArtists(query: string, pageable: Pageable) {
+    public async searchArtists(query: string, pageable: Pageable) {
         return this.meiliArtist.searchArtists(query, pageable);
+    }
+
+    /**
+     * Search albums by a given query
+     * @param {string} query Search query
+     * @param {Pageable} pageable Page settings
+     * @returns {SearchResponse<MeiliAlbum>} SearchResponse<MeiliAlbum>
+     */
+     public async searchAlbums(query: string, pageable: Pageable) {
+        return this.meiliAlbum.searchAlbums(query, pageable);
     }
 
 }

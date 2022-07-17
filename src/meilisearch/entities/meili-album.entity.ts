@@ -12,7 +12,7 @@ export class MeiliAlbum {
         public readonly releasedAt: Date,
         public readonly createdAt: Date,
         public readonly artwork: MeiliArtwork,
-        public readonly artist: MeiliArtist
+        public readonly primaryArtist: MeiliArtist
     ) {}
 
 }

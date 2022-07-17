@@ -1,7 +1,7 @@
 import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
-import { Repository } from 'typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
 import { RedlockError } from '../../exceptions/redlock.exception';
 import { CreateResult } from '../../utils/results/creation.result';
 import { RedisLockableService } from '../../utils/services/redis-lockable.service';
@@ -20,13 +20,27 @@ export class GenreService extends RedisLockableService {
     }
 
     /**
+     * Find a page of genres
+     * @param pageable Page settings
+     * @returns Page<Genre>
+     */
+    public async findAll(pageable: Pageable): Promise<Page<Genre>> {
+        const result = await this.buildGeneralQuery("genre")
+            .skip(pageable.page * pageable.size)
+            .take(pageable.size)
+            .getManyAndCount();
+
+        return Page.of(result[0], result[1], pageable.page);
+    }
+
+    /**
      * Find a genre by its id.
      * @param genreId Id of the genre
      * @returns Genre
      */
     public async findById(genreId: string): Promise<Genre> {
-        return this.repository.createQueryBuilder("genre")
-            .where("genre.id = :genreId", { genreId })
+        return this.buildGeneralQuery("genre")
+            .where("genre.id = :genreId OR genre.slug = :genreId", { genreId })
             .getOne();
     }
 
@@ -36,19 +50,8 @@ export class GenreService extends RedisLockableService {
      * @returns Genre
      */
     public async findByName(name: string): Promise<Genre> {
-        return this.repository.createQueryBuilder("genre")
+        return this.buildGeneralQuery("genre")
             .where("genre.name = :name", { name })
-            .getOne();
-    }
-
-    /**
-     * Find a genre by its id or slug.
-     * @param slugOrId Id or slug of the genre
-     * @returns Genre
-     */
-    public async findByIdOrSlug(slugOrId: string): Promise<Genre> {
-        return this.repository.createQueryBuilder("genre")
-            .where("genre.id = :slugOrId OR genre.slug = :slugOrId", { slugOrId })
             .getOne();
     }
 
@@ -127,16 +130,9 @@ export class GenreService extends RedisLockableService {
         });
     }
 
-
-    public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Genre>> {
-        if(!query || query == "") {
-            query = "%"
-        } else {
-            query = `%${query.replace(/\s/g, '%')}%`;
-        }
-
-        // return this.repository.findAll(pageable, { where: { name: ILike(query) }})
-        return null;
+    private buildGeneralQuery(alias: string): SelectQueryBuilder<Genre> {
+        return this.repository.createQueryBuilder(alias)
+            .leftJoin(`${alias}.artwork`, "artwork").addSelect(["artwork.id"])
     }
 
 }

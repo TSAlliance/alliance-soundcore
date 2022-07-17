@@ -8,6 +8,7 @@ import { EVENT_ALBUM_CHANGED } from '../constants';
 import { AlbumChangedEvent } from '../events/album-changed.event';
 import { RedlockError } from '../exceptions/redlock.exception';
 import { SyncFlag } from '../meilisearch/interfaces/syncable.interface';
+import { MeiliAlbumService } from '../meilisearch/services/meili-album.service';
 import { User } from '../user/entities/user.entity';
 import { GeniusFlag, ResourceFlag } from '../utils/entities/resource';
 import { CreateResult } from '../utils/results/creation.result';
@@ -22,7 +23,8 @@ export class AlbumService extends RedisLockableService {
 
     constructor(
         @InjectRepository(Album) private readonly repository: Repository<Album>,
-        private readonly eventEmitter: EventEmitter2
+        private readonly eventEmitter: EventEmitter2,
+        private readonly meiliClient: MeiliAlbumService
     ) {
         super()
     }
@@ -288,13 +290,11 @@ export class AlbumService extends RedisLockableService {
      * @returns Album
      */
     private async sync(resource: Album) {
-        /*return this.meiliAlbum.setAlbum(resource).then(() => {
+        return this.meiliClient.setAlbum(resource).then(() => {
             return this.setSyncFlag(resource, SyncFlag.OK);
         }).catch(() => {
             return this.setSyncFlag(resource, SyncFlag.ERROR);
-        });*/
-
-        return resource;
+        });
     }
 
     /**

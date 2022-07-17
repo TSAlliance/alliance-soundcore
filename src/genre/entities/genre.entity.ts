@@ -2,7 +2,7 @@
 import { BeforeInsert, BeforeUpdate, Column, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Song } from "../../song/entities/song.entity";
-import { Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
+import { ResourceType } from "../../utils/entities/resource";
 import { Slug } from "@tsalliance/utilities";
 
 @Entity()
