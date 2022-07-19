@@ -25,7 +25,7 @@ export class PlaylistController {
     return this.playlistService.deleteById(playlistId, authentication);
   }
 
-  @Put(":playlistId/songs/add") 
+  @Put(":playlistId/addSongs") 
   public async addSongs(@Param("playlistId") playlistId: string, @Body() songIds: string[], @Authentication() authentication: User) {
     return this.playlistService.addSongs(playlistId, songIds, authentication)
   }

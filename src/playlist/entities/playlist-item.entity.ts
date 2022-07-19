@@ -1,5 +1,6 @@
 import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Song } from "../../song/entities/song.entity";
+import { User } from "../../user/entities/user.entity";
 import { Playlist } from "./playlist.entity";
 
 @Entity({ name: "song2playlist" })
@@ -19,6 +20,9 @@ export class PlaylistItem {
 
     @Column({ nullable: true, default: 0 })
     public order: number;
+
+    @ManyToOne(() => User, { onDelete: "SET NULL", nullable: true })
+    public addedBy: User;
 
     @ManyToOne(() => Song, s => s.playlists, { onDelete: "CASCADE" })
     public song!: Song;
