@@ -1,10 +1,13 @@
-import { IsArray, IsNotEmpty } from "class-validator";
-import { Song } from "../../song/entities/song.entity";
+import { IsBoolean, IsNotEmpty, IsOptional, IsString } from "class-validator";
 
 export class AddSongDTO {
 
     @IsNotEmpty()
-    @IsArray()
-    public songs: Song[];
+    @IsString()
+    public targetSongId: string;
+
+    @IsOptional()
+    @IsBoolean()
+    public force?: boolean;
 
 }

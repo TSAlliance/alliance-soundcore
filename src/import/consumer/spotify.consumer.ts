@@ -63,7 +63,7 @@ export class SpotifyConsumer {
             }
 
             // Add songs to playlist
-            await this.playlistService.addSongs(playlist.id, songIds, importer);
+            // await this.playlistService.addSongs(playlist.id, songIds, importer);
 
             // Update job so it does not get into stalled state
             job.update(job.data);

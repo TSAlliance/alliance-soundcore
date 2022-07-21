@@ -237,6 +237,7 @@ export class TracklistService {
             // If this has landed, this row can actually be moved to buildGeneralQuery()
             .leftJoin('song.streams', 'streams').addSelect(["SUM(IFNULL(streams.streamCount, 0)) AS streamCount"])
             .leftJoin("song.playlists", "item")
+            .leftJoin("item.playlist", "playlist")
 
             .orderBy("item.order", "ASC")
             .addOrderBy("item.createdAt", "ASC")

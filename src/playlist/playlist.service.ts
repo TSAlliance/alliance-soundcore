@@ -1,14 +1,15 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
-import { DeleteResult, In, Not, Repository, SelectQueryBuilder } from 'typeorm';
-import { SyncFlag } from '../meilisearch/interfaces/syncable.interface';
-import { MEILI_INDEX_PLAYLIST } from '../meilisearch/meilisearch.constants';
+import { In, Not, Repository, SelectQueryBuilder } from 'typeorm';
 import { MeiliPlaylistService } from '../meilisearch/services/meili-playlist.service';
+import { Song } from '../song/entities/song.entity';
 import { SongService } from '../song/song.service';
 import { User } from '../user/entities/user.entity';
+import { AddSongDTO } from './dtos/add-song.dto';
 import { CreatePlaylistDTO } from './dtos/create-playlist.dto';
 import { UpdatePlaylistDTO } from './dtos/update-playlist.dto';
+import { PlaylistAddSongFailReason, PlaylistItemAddResult } from './entities/playlist-item-added.entity';
 import { PlaylistItem } from './entities/playlist-item.entity';
 import { Playlist } from './entities/playlist.entity';
 import { PlaylistPrivacy } from './enums/playlist-privacy.enum';
@@ -60,8 +61,22 @@ export class PlaylistService {
         return this.playlistRepository.findOne({ where: { id: playlistId }, relations: ["artwork", "author", "collaborators"]})
     }
 
-    public async findPlaylistByIdWithSongs(playlistId: string): Promise<Playlist> {
-        return this.playlistRepository.findOne({ where: { id: playlistId }, relations: ["items", "items.song", "author", "artwork"]})
+    /**
+     * Check if a playlist already contains a song.
+     * @param playlistId Playlist's id
+     * @param songId Song's id
+     * @returns True or False
+     */
+    public async containsSong(playlistId: string, songId: string): Promise<boolean> {
+        const result = await this.playlistRepository.createQueryBuilder("playlist")
+            .leftJoin("playlist.items", "item")
+            .leftJoin("item.song", "song")
+
+            .where("song.id = :songId AND (playlist.id = :playlistId OR playlist.slug = :playlistId)", { songId, playlistId })
+            .select(["playlist.id"])
+            .getOne();
+
+        return !!result;
     }
 
     public async findPlaylistByIdWithCollaborators(playlistId: string): Promise<Playlist> {
@@ -214,8 +229,7 @@ export class PlaylistService {
             // Save playlist to database
             const result = await queryrunner.manager.save(playlist);
             // Sync database entry with meilisearch
-            const syncResult = await this.meiliClient.setPlaylist(result);
-
+            await this.meiliClient.setPlaylist(result);
             // Commit transaction
             await queryrunner.commitTransaction();
             return result;
@@ -261,50 +275,39 @@ export class PlaylistService {
     /**
      * Add a song to a playlist
      * @param playlistId Playlist's id
-     * @param songId Song's id
+     * @param addSongDto Body of the request. Contains the song and if duplicates should be ignored
      * @param requester The user requesting the operation. Used to check if the user is allowed to add songs
      * @returns 
      */
-    public async addSongs(playlistId: string, songIds: string[], authentication: User): Promise<Playlist> {
+    public async addSong(playlistId: string, addSongDto: AddSongDTO, authentication: User): Promise<PlaylistItemAddResult> {
         // Check if user could theoretically access the playlist.
         if(!await this.hasUserAccessToPlaylist(playlistId, authentication)) {
-            throw new NotFoundException("Playlist not found.")
+            throw new NotFoundException("Playlist not found")
         }
 
-        const playlist: Playlist = await this.findPlaylistByIdWithSongs(playlistId);
-        if(!playlist) throw new NotFoundException("Playlist does not exist.");    
-        if(!playlist.items) playlist.items = [];
+        // Check if the playlist object
+        // exists in the database
+        const playlist: Playlist = await this.findById(playlistId);
+        if(!playlist) throw new NotFoundException("Playlist not found");    
 
-        let hadDuplicates = false;
-        for(const key of songIds) {
-            // TODO: Optimize, as this would perform bad on large playlists (Remember this solution would be O(n2))
-            if(!!playlist.items.find((v) => v.songId == key)) {
-                // A song would be duplicate
-                hadDuplicates = true;
-                continue;
-            }
+        const targetId = addSongDto.targetSongId;
 
-            // Check if the songs exist in databse to prevent
-            // errors.
-            const song = await this.songService.findByIdWithArtwork(key);
-            if(!song) continue;
-
-            const relation = new PlaylistItem()
-            relation.song = song;
-            relation.playlist = playlist;
-
-            await this.song2playlistRepository.save(relation).then(async () => {
-                // TODO: Generate artwork
-            })
+        // Check if the playlist already contains the same song.
+        // If the force flag was set, this will be ignored.
+        if(!addSongDto.force && !!await this.containsSong(playlistId, targetId)) {
+            return new PlaylistItemAddResult(targetId, true, PlaylistAddSongFailReason.DUPLICATE);
         }
 
-        if(hadDuplicates) {
-            throw new ConflictException("Some songs were not added as they already exists in playlist.")
-        }
+        // Create new item object
+        const item = new PlaylistItem();
+        item.song = { id: targetId } as Song;
+        item.playlist = { id: playlist.id } as Playlist;
+        item.addedBy = { id: authentication.id } as User;
 
-        // Return updated playlist
-        delete playlist.items;
-        return playlist;
+        // Save the relation
+        return this.song2playlistRepository.save(item).then(() => {
+            return new PlaylistItemAddResult(targetId, false);
+        })
     }
 
     /**
@@ -315,7 +318,7 @@ export class PlaylistService {
      * @returns 
      */
     public async removeSongs(playlistId: string, songIds: string[], authentication: User): Promise<Playlist> {
-        if(!await this.hasUserAccessToPlaylist(playlistId, authentication)) {
+        /*if(!await this.hasUserAccessToPlaylist(playlistId, authentication)) {
             throw new NotFoundException("Playlist not found.")
         }
 
@@ -327,7 +330,8 @@ export class PlaylistService {
             return playlist;
         }).catch(() => {
             return playlist;
-        });
+        });*/
+        throw new InternalServerErrorException();
     }
 
     public async deleteById(playlistId: string, authentication?: User): Promise<boolean> {

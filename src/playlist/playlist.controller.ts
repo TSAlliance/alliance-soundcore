@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common'
 import { Pageable, Pagination } from 'nestjs-pager';
 import { Authentication } from '../authentication/decorators/authentication.decorator';
 import { User } from '../user/entities/user.entity';
+import { AddSongDTO } from './dtos/add-song.dto';
 import { CreatePlaylistDTO } from './dtos/create-playlist.dto';
 import { UpdatePlaylistDTO } from './dtos/update-playlist.dto';
 import { PlaylistService } from './playlist.service';
@@ -25,9 +26,9 @@ export class PlaylistController {
     return this.playlistService.deleteById(playlistId, authentication);
   }
 
-  @Put(":playlistId/addSongs") 
-  public async addSongs(@Param("playlistId") playlistId: string, @Body() songIds: string[], @Authentication() authentication: User) {
-    return this.playlistService.addSongs(playlistId, songIds, authentication)
+  @Put(":playlistId/addSong") 
+  public async addSongs(@Param("playlistId") playlistId: string, @Body() addSongDto: AddSongDTO, @Authentication() authentication: User) {
+    return this.playlistService.addSong(playlistId, addSongDto, authentication)
   }
 
   @Put(":playlistId/songs/remove") 
