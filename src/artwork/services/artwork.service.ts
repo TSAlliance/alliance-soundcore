@@ -169,6 +169,8 @@ export class ArtworkService extends RedisLockableService {
      * @returns Buffer
      */
     public async downloadToBuffer(url: string): Promise<Buffer> {
+        if(url.includes("default_avatar")) return null;
+
         return axios.get(url, { responseType: "arraybuffer" }).then((response) => {
             const buffer = Buffer.from(response.data, "binary");
             return buffer;
