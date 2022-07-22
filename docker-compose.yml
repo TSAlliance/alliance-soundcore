@@ -35,4 +35,4 @@ services:
       - MEILI_MASTER_KEY=super_secret_master_key
     volumes:
       - "./databases/meilisearch:/meili_data"
-    entrypoint: ["meilisearch", "--env=development"]
+    entrypoint: ["meilisearch", "--env=development", "--enable-auto-batching", "--debounce-duration-sec=1", "--max-documents-per-batch=30"]
