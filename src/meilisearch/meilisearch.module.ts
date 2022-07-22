@@ -2,7 +2,10 @@ import { DynamicModule, Logger, Module } from '@nestjs/common';
 import MeiliSearch, { Config } from 'meilisearch';
 import { MeiliAlbumService } from './services/meili-album.service';
 import { MeiliArtistService } from './services/meili-artist.service';
+import { MeiliDistributorService } from './services/meili-distributor.service';
+import { MeiliLabelService } from './services/meili-label.service';
 import { MeiliPlaylistService } from './services/meili-playlist.service';
+import { MeiliPublisherService } from './services/meili-publisher.service';
 import { MeiliSongService } from './services/meili-song.service';
 import { MeiliUserService } from './services/meili-user.service';
 
@@ -32,7 +35,10 @@ export class MeilisearchModule {
                 MeiliUserService,
                 MeiliArtistService,
                 MeiliAlbumService,
-                MeiliSongService
+                MeiliSongService,
+                MeiliLabelService,
+                MeiliPublisherService,
+                MeiliDistributorService
             ],
             exports: [
                 MeiliSearch,
@@ -40,7 +46,10 @@ export class MeilisearchModule {
                 MeiliUserService,
                 MeiliArtistService,
                 MeiliAlbumService,
-                MeiliSongService
+                MeiliSongService,
+                MeiliLabelService,
+                MeiliPublisherService,
+                MeiliDistributorService
             ]
         }
     }

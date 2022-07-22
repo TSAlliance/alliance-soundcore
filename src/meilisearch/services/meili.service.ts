@@ -1,7 +1,9 @@
 import { InternalServerErrorException, Logger } from "@nestjs/common";
-import MeiliSearch, { Index, MeiliSearchError, SearchParams, Task } from "meilisearch";
+import MeiliSearch, { Index, MeiliSearchError, MeiliSearchTimeOutError, SearchParams, Task } from "meilisearch";
 import { BehaviorSubject, filter, firstValueFrom, Observable } from "rxjs";
 import { Syncable, SyncFlag } from "../interfaces/syncable.interface";
+
+export const MEILI_DEFAULT_TIMEOUT_MS = 1000*60*5 // 5 Mins for background tasks
 
 export enum MeiliServiceSyncInterval {
     HOURLY = 1,
@@ -12,11 +14,9 @@ export enum MeiliServiceSyncInterval {
 }
 
 export interface MeiliServiceOptions {
-
     searchableAttributes?: string[];
     filterableAttributes?: string[];
     syncRecommendedInterval?: MeiliServiceSyncInterval;
-
 }
 
 export abstract class MeiliService<T = any> {
@@ -39,15 +39,23 @@ export abstract class MeiliService<T = any> {
      * @param {number} timeOutMs (Optional) Timeout when waiting for task to finish
      * @returns {Task} Task
      */
-    public async sync(document: T | T[], timeOutMs?: number): Promise<Task> {
+    public async sync(document: T | T[], timeOutMs: number = MEILI_DEFAULT_TIMEOUT_MS): Promise<Task> {
         const docs = Array.isArray(document) ? document : [ document ];
 
         return this.index().then((index) => {
             return index.addDocuments(docs).then((enqueuedTask) => {
-                return this.client().waitForTask(enqueuedTask.taskUid, { timeOutMs });
+                return this.client().waitForTask(enqueuedTask.taskUid, {
+                    timeOutMs,
+                    intervalMs: 100
+                });
             }).catch((error: MeiliSearchError) => {
-                this._logger.error(`Failed creating document: ${error.message}`, error.stack);
-                throw new InternalServerErrorException(`Synchronisation failed: ${error.message}`);
+                if(!(error instanceof MeiliSearchTimeOutError)) {
+                    this._logger.warn(`Timed out while waiting for task completion: ${error.message}`);
+                    throw error;
+                } else {
+                    this._logger.error(`Failed creating document: ${error.message}`, error.stack);
+                    throw new InternalServerErrorException(`Synchronisation failed: ${error.message}`);
+                }
             });
         });
     }
@@ -58,13 +66,20 @@ export abstract class MeiliService<T = any> {
      * @param {number} timeOutMs (Optional) Timeout when waiting for task to finish
      * @returns {Task} Task
      */
-    protected async delete(documentId: string, timeOutMs?: number) {
+    protected async delete(documentId: string, timeOutMs: number = MEILI_DEFAULT_TIMEOUT_MS) {
         return this.index().then((index) => {
             return index.deleteDocument(documentId).then((task) => {
-                return this.client().waitForTask(task.taskUid, { timeOutMs });
+                return this.client().waitForTask(task.taskUid, {
+                    timeOutMs,
+                    intervalMs: 100
+                });
             }).catch((error: MeiliSearchError) => {
-                this._logger.error(`Failed deleting document with id '${documentId}': ${error.message}`, error.stack);
-                throw new InternalServerErrorException(`Synchronisation failed: ${error.message}`);
+                if(!(error instanceof MeiliSearchTimeOutError)) {
+                    this._logger.warn(`Timed out while waiting for task completion: ${error.message}`);
+                } else {
+                    this._logger.error(`Failed deleting document with id '${documentId}': ${error.message}`, error.stack);
+                    throw new InternalServerErrorException(`Synchronisation failed: ${error.message}`);
+                }
             });
         });
     }
@@ -126,13 +141,9 @@ export abstract class MeiliService<T = any> {
      * or filterableAttributes).
      */
     private _init() {
-        this.client().createIndex(this._indexUid, { primaryKey: "id" }).then((enqueuedTask) => {
-            return this._meili.waitForTask(enqueuedTask.taskUid).then(async () => {
-                return this._meili.waitForTasks([
-                    (await this.client().index<T>(this._indexUid).updateFilterableAttributes(this._options.filterableAttributes || []))?.taskUid,
-                    (await this.client().index<T>(this._indexUid).updateSearchableAttributes(this._options.searchableAttributes || ["*"]))?.taskUid
-                ]);
-            })
+        this.client().createIndex(this._indexUid, { primaryKey: "id" }).then(() => {
+            this.client().index<T>(this._indexUid).updateFilterableAttributes(this._options.filterableAttributes || [])
+            this.client().index<T>(this._indexUid).updateSearchableAttributes(this._options.searchableAttributes || ["*"])
         }).catch((error: MeiliSearchError) => {
             this._logger.error(`Error occured while initializing Index on meilisearch: ${error.message}`, error.stack);
         }).finally(() => {

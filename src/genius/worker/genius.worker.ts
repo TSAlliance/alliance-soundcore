@@ -14,6 +14,9 @@ import { Label } from "../../label/entities/label.entity";
 import { LabelService } from "../../label/services/label.service";
 import { MeiliAlbumService } from "../../meilisearch/services/meili-album.service";
 import { MeiliArtistService } from "../../meilisearch/services/meili-artist.service";
+import { MeiliDistributorService } from "../../meilisearch/services/meili-distributor.service";
+import { MeiliLabelService } from "../../meilisearch/services/meili-label.service";
+import { MeiliPublisherService } from "../../meilisearch/services/meili-publisher.service";
 import { MeiliSongService } from "../../meilisearch/services/meili-song.service";
 import { Publisher } from "../../publisher/entities/publisher.entity";
 import { PublisherService } from "../../publisher/services/publisher.service";
@@ -41,9 +44,9 @@ export default function (job: Job<GeniusProcessDTO>, dc: DoneCallback) {
 
             // Build GeniusClientService and dependencies
             const artworkService = new ArtworkService(dataSource.getRepository(Artwork), fileSystem);
-            const labelService = new LabelService(dataSource.getRepository(Label));
-            const distributorService = new DistributorService(dataSource.getRepository(Distributor));
-            const publisherService = new PublisherService(dataSource.getRepository(Publisher));
+            const labelService = new LabelService(dataSource.getRepository(Label), new MeiliLabelService(meiliClient));
+            const distributorService = new DistributorService(dataSource.getRepository(Distributor), new MeiliDistributorService(meiliClient));
+            const publisherService = new PublisherService(dataSource.getRepository(Publisher), new MeiliPublisherService(meiliClient));
             const genreService = new GenreService(dataSource.getRepository(Genre));
             const clientService = new GeniusClientService(artworkService, labelService, distributorService, publisherService, genreService);
 

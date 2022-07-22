@@ -1,9 +1,10 @@
 import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Page, Pageable } from 'nestjs-pager';
-import { DeleteResult, ILike, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Artwork } from '../../artwork/entities/artwork.entity';
 import { RedlockError } from '../../exceptions/redlock.exception';
+import { SyncFlag } from '../../meilisearch/interfaces/syncable.interface';
+import { MeiliPublisherService } from '../../meilisearch/services/meili-publisher.service';
 import { CreateResult } from '../../utils/results/creation.result';
 import { RedisLockableService } from '../../utils/services/redis-lockable.service';
 import { CreatePublisherDTO } from '../dtos/create-publisher.dto';
@@ -15,7 +16,8 @@ export class PublisherService extends RedisLockableService {
     private readonly logger: Logger = new Logger(PublisherService.name)
 
     constructor(
-        @InjectRepository(Publisher) private readonly repository: Repository<Publisher>
+        @InjectRepository(Publisher) private readonly repository: Repository<Publisher>,
+        private readonly meiliClient: MeiliPublisherService
     ){
         super();
     }
@@ -47,6 +49,18 @@ export class PublisherService extends RedisLockableService {
     }
 
     /**
+     * Save a publisher entity.
+     * @param publisher Entity data to be saved
+     * @returns Publisher
+     */
+    public async save(publisher: Publisher): Promise<Publisher> {
+        return this.repository.save(publisher).then((result) => {
+            this.sync(result);
+            return result;
+        });
+    }
+
+    /**
      * Create new publisher by name if it does not already exist in the database.
      * @param createPublisherDto Publisher data to create
      * @returns Publisher
@@ -67,7 +81,7 @@ export class PublisherService extends RedisLockableService {
             publisher.geniusId = createPublisherDto.geniusId;
             publisher.description = createPublisherDto.description;
 
-            return this.repository.save(publisher).then((result) => {
+            return this.save(publisher).then((result) => {
                 return new CreateResult(result, false);
             });
         }, waitForLock).catch((error: Error) => {
@@ -93,16 +107,20 @@ export class PublisherService extends RedisLockableService {
         publisher.geniusId = updatePublisherDto.geniusId;
         publisher.description = updatePublisherDto.description;
 
-        return this.repository.save(publisher);
+        return this.save(publisher);
     }
 
     /**
      * Delete a publisher by its id.
      * @param publisherId Publisher's id
-     * @returns DeleteResult
+     * @returns boolean
      */
-    public async deleteById(publisherId: string): Promise<DeleteResult> {
-        return this.repository.delete({ id: publisherId });
+    public async deleteById(publisherId: string): Promise<boolean> {
+        return this.meiliClient.deletePublisher(publisherId).then(() => {
+            return this.repository.delete({ id: publisherId }).then((value) => {
+                return value.affected > 0;
+            });
+        });
     }
 
     /**
@@ -132,15 +150,32 @@ export class PublisherService extends RedisLockableService {
         return idOrObject;
     }
 
-    public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Publisher>> {
-        if(!query || query == "") {
-            query = "%"
-        } else {
-            query = `%${query.replace(/\s/g, '%')}%`;
-        }
+    /**
+     * Update the sync flag of a publisher.
+     * @param idOrObject Id or object of the publisher
+     * @param flag Updated sync flag
+     * @returns Publisher
+     */
+     private async setSyncFlag(idOrObject: string | Publisher, flag: SyncFlag): Promise<Publisher> {
+        const resource = await this.resolvePublisher(idOrObject);
+        if(!resource) return null;
 
-        // return this.repository.findAll(pageable, { where: { name: ILike(query) }, relations: ["artwork"]})
-        return null;
+        resource.lastSyncedAt = new Date();
+        resource.lastSyncFlag = flag;
+        return this.repository.save(resource);
+    }
+
+    /**
+     * Synchronize the corresponding document on meilisearch.
+     * @param resource Publisher data
+     * @returns Publisher
+     */
+    private async sync(resource: Publisher) {
+        return this.meiliClient.setPublisher(resource).then(() => {
+            return this.setSyncFlag(resource, SyncFlag.OK);
+        }).catch(() => {
+            return this.setSyncFlag(resource, SyncFlag.ERROR);
+        });
     }
 
 }

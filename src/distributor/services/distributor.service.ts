@@ -1,9 +1,10 @@
 import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Page, Pageable } from 'nestjs-pager';
-import { DeleteResult, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Artwork } from '../../artwork/entities/artwork.entity';
 import { RedlockError } from '../../exceptions/redlock.exception';
+import { SyncFlag } from '../../meilisearch/interfaces/syncable.interface';
+import { MeiliDistributorService } from '../../meilisearch/services/meili-distributor.service';
 import { CreateResult } from '../../utils/results/creation.result';
 import { RedisLockableService } from '../../utils/services/redis-lockable.service';
 import { CreateDistributorDTO } from '../dtos/create-distributor.dto';
@@ -16,6 +17,7 @@ export class DistributorService extends RedisLockableService {
 
     constructor(
         @InjectRepository(Distributor) private readonly repository: Repository<Distributor>,
+        private readonly meiliClient: MeiliDistributorService
     ){
         super()
     }
@@ -47,8 +49,20 @@ export class DistributorService extends RedisLockableService {
     }
 
     /**
+     * Save a distributor entity.
+     * @param distributor Entity data to be saved
+     * @returns Distributor
+     */
+    public async save(distributor: Distributor): Promise<Distributor> {
+        return this.repository.save(distributor).then((result) => {
+            this.sync(result);
+            return result;
+        });
+    }
+
+    /**
      * Create new distributor by name if it does not already exist in the database.
-     * @param createDistributorDto Publisher data to create
+     * @param createDistributorDto Distributor data to create
      * @returns CreateResult<Distributor>
      */
     public async createIfNotExists(createDistributorDto: CreateDistributorDTO, waitForLock = false): Promise<CreateResult<Distributor>> {
@@ -67,7 +81,7 @@ export class DistributorService extends RedisLockableService {
             distributor.geniusId = createDistributorDto.geniusId;
             distributor.description = createDistributorDto.description;
 
-            return this.repository.save(distributor).then((result) => {
+            return this.save(distributor).then((result) => {
                 return new CreateResult(result, false)
             })
         }, waitForLock).catch((error: Error) => {
@@ -93,16 +107,20 @@ export class DistributorService extends RedisLockableService {
         distributor.geniusId = updateDistributorDto.geniusId;
         distributor.description = updateDistributorDto.description;
 
-        return this.repository.save(distributor);
+        return this.save(distributor);
     }
 
     /**
      * Delete a distributor by its id.
      * @param distributorId Distributor's id
-     * @returns DeleteResult
+     * @returns boolean
      */
-    public async deleteById(distributorId: string): Promise<DeleteResult> {
-        return this.repository.delete({ id: distributorId });
+    public async deleteById(distributorId: string): Promise<boolean> {
+        return this.meiliClient.deleteDistributor(distributorId).then(() => {
+            return this.repository.delete({ id: distributorId }).then((value) => {
+                return value.affected > 0;
+            });
+        });
     }
 
     /**
@@ -132,15 +150,32 @@ export class DistributorService extends RedisLockableService {
         return idOrObject;
     }
 
-    public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Distributor>> {
-        if(!query || query == "") {
-            query = "%"
-        } else {
-            query = `%${query.replace(/\s/g, '%')}%`;
-        }
+    /**
+     * Update the sync flag of a distributor.
+     * @param idOrObject Id or object of the distributor
+     * @param flag Updated sync flag
+     * @returns Distributor
+     */
+    private async setSyncFlag(idOrObject: string | Distributor, flag: SyncFlag): Promise<Distributor> {
+        const resource = await this.resolveDistributor(idOrObject);
+        if(!resource) return null;
 
-        // return this.repository.findAll(pageable, { where: { name: ILike(query) }, relations: ["artwork"]})
-        return null;
+        resource.lastSyncedAt = new Date();
+        resource.lastSyncFlag = flag;
+        return this.repository.save(resource);
+    }
+
+    /**
+     * Synchronize the corresponding document on meilisearch.
+     * @param resource Distributor data
+     * @returns Distributor
+     */
+    private async sync(resource: Distributor) {
+        return this.meiliClient.setDistributor(resource).then(() => {
+            return this.setSyncFlag(resource, SyncFlag.OK);
+        }).catch(() => {
+            return this.setSyncFlag(resource, SyncFlag.ERROR);
+        });
     }
 
 }

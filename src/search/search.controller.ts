@@ -8,11 +8,6 @@ import { SearchService } from './search.service';
 export class SearchController {
   constructor(private readonly service: SearchService) {}
 
-  @Get()
-  public async performSearch(@Query("q") query: string, @Authentication() searcher: User) {
-    return this.service.complexSearch(query, searcher);
-  } 
-
   @Get("playlists")
   public async searchPlaylists(@Query("q") query: string, @Pagination() pageable: Pageable, @Authentication() authentication: User) {
     return this.service.searchPlaylists(query, pageable, authentication);
@@ -38,4 +33,18 @@ export class SearchController {
     return this.service.searchSongs(query, pageable);
   }
 
+  @Get("labels")
+  public async searchLabels(@Query("q") query: string, @Pagination() pageable: Pageable) {
+    return this.service.searchLabels(query, pageable);
+  }
+
+  @Get("publishers")
+  public async searchPublishers(@Query("q") query: string, @Pagination() pageable: Pageable) {
+    return this.service.searchPublishers(query, pageable);
+  }
+
+  @Get("distributors")
+  public async searchDistributors(@Query("q") query: string, @Pagination() pageable: Pageable) {
+    return this.service.searchDistributors(query, pageable);
+  }
 }

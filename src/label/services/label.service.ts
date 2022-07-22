@@ -1,9 +1,10 @@
 import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Page, Pageable } from 'nestjs-pager';
-import { DeleteResult, ILike, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Artwork } from '../../artwork/entities/artwork.entity';
 import { RedlockError } from '../../exceptions/redlock.exception';
+import { SyncFlag } from '../../meilisearch/interfaces/syncable.interface';
+import { MeiliLabelService } from '../../meilisearch/services/meili-label.service';
 import { CreateResult } from '../../utils/results/creation.result';
 import { RedisLockableService } from '../../utils/services/redis-lockable.service';
 import { CreateLabelDTO } from '../dtos/create-label.dto';
@@ -15,7 +16,8 @@ export class LabelService extends RedisLockableService {
     private readonly logger: Logger = new Logger(LabelService.name);
 
     constructor(
-        @InjectRepository(Label) private readonly repository: Repository<Label>
+        @InjectRepository(Label) private readonly repository: Repository<Label>,
+        private readonly meiliClient: MeiliLabelService
     ){
         super()
     }
@@ -47,6 +49,18 @@ export class LabelService extends RedisLockableService {
     }
 
     /**
+     * Save a label entity.
+     * @param label Entity data to be saved
+     * @returns Label
+     */
+    public async save(label: Label): Promise<Label> {
+        return this.repository.save(label).then((result) => {
+            this.sync(result);
+            return result;
+        });
+    }
+
+    /**
      * Create new label by name if it does not already exist in the database.
      * @param createLabelDto Label data to create
      * @returns Label
@@ -67,7 +81,7 @@ export class LabelService extends RedisLockableService {
             label.geniusId = createLabelDto.geniusId;
             label.description = createLabelDto.description;
 
-            return this.repository.save(label).then((result) => {
+            return this.save(label).then((result) => {
                 return new CreateResult(result, false)
             })
         }, waitForLock).catch((error: Error) => {
@@ -93,16 +107,20 @@ export class LabelService extends RedisLockableService {
         label.geniusId = updateLabelDto.geniusId;
         label.description = updateLabelDto.description;
 
-        return this.repository.save(label);
+        return this.save(label);
     }
 
     /**
      * Delete a label by its id.
      * @param labelId Label's id
-     * @returns DeleteResult
+     * @returns True or False
      */
-    public async deleteById(labelId: string): Promise<DeleteResult> {
-        return this.repository.delete({ id: labelId });
+    public async deleteById(labelId: string): Promise<boolean> {
+        return this.meiliClient.deleteLabel(labelId).then(() => {
+            return this.repository.delete({ id: labelId }).then((value) => {
+                return value.affected > 0;
+            });
+        });
     }
 
     /**
@@ -132,15 +150,32 @@ export class LabelService extends RedisLockableService {
         return idOrObject;
     }
 
-    public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Label>> {
-        if(!query || query == "") {
-            query = "%"
-        } else {
-            query = `%${query.replace(/\s/g, '%')}%`;
-        }
+    /**
+     * Update the sync flag of a label.
+     * @param idOrObject Id or object of the label
+     * @param flag Updated sync flag
+     * @returns Label
+     */
+    private async setSyncFlag(idOrObject: string | Label, flag: SyncFlag): Promise<Label> {
+        const resource = await this.resolveLabel(idOrObject);
+        if(!resource) return null;
 
-        // return this.repository.findAll(pageable, { where: { name: ILike(query) }, relations: ["artwork"]})
-        return null;
+        resource.lastSyncedAt = new Date();
+        resource.lastSyncFlag = flag;
+        return this.repository.save(resource);
+    }
+
+    /**
+     * Synchronize the corresponding document on meilisearch.
+     * @param resource Label data
+     * @returns Label
+     */
+    private async sync(resource: Label) {
+        return this.meiliClient.setLabel(resource).then(() => {
+            return this.setSyncFlag(resource, SyncFlag.OK);
+        }).catch(() => {
+            return this.setSyncFlag(resource, SyncFlag.ERROR);
+        });
     }
 
 }
