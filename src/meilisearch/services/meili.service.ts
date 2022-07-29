@@ -4,6 +4,8 @@ import { BehaviorSubject, filter, firstValueFrom, Observable } from "rxjs";
 import { Syncable, SyncFlag } from "../interfaces/syncable.interface";
 
 export const MEILI_DEFAULT_TIMEOUT_MS = 1000*60*5 // 5 Mins for background tasks
+export const MEILI_DEFAULT_INTERVAL_MS = 1000*1 // Check task every second
+
 
 export enum MeiliServiceSyncInterval {
     HOURLY = 1,
@@ -46,7 +48,7 @@ export abstract class MeiliService<T = any> {
             return index.addDocuments(docs).then((enqueuedTask) => {
                 return this.client().waitForTask(enqueuedTask.taskUid, {
                     timeOutMs,
-                    intervalMs: 100
+                    intervalMs: MEILI_DEFAULT_INTERVAL_MS
                 });
             }).catch((error: MeiliSearchError) => {
                 if(!(error instanceof MeiliSearchTimeOutError)) {
@@ -71,11 +73,12 @@ export abstract class MeiliService<T = any> {
             return index.deleteDocument(documentId).then((task) => {
                 return this.client().waitForTask(task.taskUid, {
                     timeOutMs,
-                    intervalMs: 100
+                    intervalMs: MEILI_DEFAULT_INTERVAL_MS
                 });
             }).catch((error: MeiliSearchError) => {
                 if(!(error instanceof MeiliSearchTimeOutError)) {
                     this._logger.warn(`Timed out while waiting for task completion: ${error.message}`);
+                    throw error;
                 } else {
                     this._logger.error(`Failed deleting document with id '${documentId}': ${error.message}`, error.stack);
                     throw new InternalServerErrorException(`Synchronisation failed: ${error.message}`);

@@ -19,9 +19,10 @@ export class TracklistService {
      * @param authentication User authentication object
      * @returns Tracklist
      */
-    public async findListByArtist(artistId: string, authentication?: User): Promise<Tracklist> {
+    public async findListByArtist(artistId: string, hostname: string, authentication?: User): Promise<Tracklist> {
         const result = this.buildFindByArtistQuery(artistId, "song", null, authentication).select(["song.id"]).getManyAndCount();
-        return new Tracklist(result[1], TracklistType.ARTIST, result[0]);
+        const metadataUrl = `${hostname}/v1/tracklist/artist/${artistId}/meta`;
+        return new Tracklist(result[1], TracklistType.ARTIST, result[0], metadataUrl);
     }
 
     /**
@@ -48,9 +49,10 @@ export class TracklistService {
      * @param authentication User authentication object
      * @returns Tracklist
      */
-    public async findListByArtistTop(artistId: string, authentication?: User): Promise<Tracklist> {
+    public async findListByArtistTop(artistId: string, hostname: string, authentication?: User): Promise<Tracklist> {
         const result = this.buildFindByArtistTopQuery(artistId, "song", authentication).select(["song.id"]).getManyAndCount();
-        return new Tracklist(result[1], TracklistType.ARTIST, result[0]);
+        const metadataUrl = `${hostname}/v1/tracklist/artist/top/${artistId}/meta`;
+        return new Tracklist(result[1], TracklistType.ARTIST, result[0], metadataUrl);
     }
 
     /**
@@ -78,9 +80,10 @@ export class TracklistService {
      * @param authentication User authentication object
      * @returns Tracklist
      */
-    public async findListByAlbum(albumId: string, authentication?: User): Promise<Tracklist> {
+    public async findListByAlbum(albumId: string, hostname: string, authentication?: User): Promise<Tracklist> {
         const result = await this.buildFindByAlbumQuery(albumId, "song", null, authentication).select(["song.id"]).getMany();
-        return new Tracklist(result.length, TracklistType.ALBUM, result);    
+        const metadataUrl = `${hostname}/v1/tracklist/album/${albumId}/meta`;
+        return new Tracklist(result.length, TracklistType.ALBUM, result, metadataUrl);   
     }
 
     /**
@@ -108,9 +111,10 @@ export class TracklistService {
      * @param authentication User authentication object
      * @returns Tracklist
      */
-    public async findListByPlaylist(playlistId: string, authentication?: User): Promise<Tracklist> {
+    public async findListByPlaylist(playlistId: string, hostname: string, authentication?: User): Promise<Tracklist> {
         const result = await this.buildFindByPlaylistQuery(playlistId, "song", null, authentication).select(["song.id"]).getMany();
-        return new Tracklist(result.length, TracklistType.ALBUM, result);    
+        const metadataUrl = `${hostname}/v1/tracklist/playlist/${playlistId}/meta`;
+        return new Tracklist(result.length, TracklistType.PLAYLIST, result, metadataUrl);    
     }
 
     /**

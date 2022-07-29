@@ -31,6 +31,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PipesModule } from '@tsalliance/utilities';
+import { HostnameModule } from './hostname/hostname.module';
 
 @Module({
   imports: [
@@ -106,7 +107,8 @@ import { PipesModule } from '@tsalliance/utilities';
     ProfileModule,
     MountModule,
     FileModule,
-    IndexerModule
+    IndexerModule,
+    HostnameModule
   ],
   controllers: [
     AppController

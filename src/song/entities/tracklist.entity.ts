@@ -50,7 +50,7 @@ export class Tracklist {
          * to the metadata endpoint for that list.
          * Default: /meta
          */
-        public readonly relativeMetaUrl: string = "/meta"
+        public readonly metadataLocation: string
     ) {}
 
 }

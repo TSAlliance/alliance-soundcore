@@ -1,6 +1,7 @@
 import { Controller, Get, Param } from '@nestjs/common';
 import { Page, Pageable, Pagination } from 'nestjs-pager';
 import { Authentication } from '../../authentication/decorators/authentication.decorator';
+import { Hostname } from '../../hostname/decorator/hostname.decorator';
 import { User } from '../../user/entities/user.entity';
 import { Song } from '../entities/song.entity';
 import { Tracklist } from '../entities/tracklist.entity';
@@ -22,8 +23,8 @@ export class TracklistController {
      * @returns Tracklist
      */
     @Get("/artist/top/:artistId")
-    public async findListByArtistTop(@Param("artistId") artistId: string, @Authentication() authentication: User): Promise<Tracklist> {
-        return this.service.findListByArtistTop(artistId, authentication);
+    public async findListByArtistTop(@Param("artistId") artistId: string, @Authentication() authentication: User, @Hostname() hostname: string): Promise<Tracklist> {
+        return this.service.findListByArtistTop(artistId, hostname, authentication);
     }
  
      /**
@@ -45,8 +46,8 @@ export class TracklistController {
      * @returns Tracklist
      */
     @Get("/artist/:artistId")
-    public async findListByArtist(@Param("artistId") artistId: string, @Authentication() authentication: User): Promise<Tracklist> {
-        return this.service.findListByArtist(artistId, authentication)
+    public async findListByArtist(@Param("artistId") artistId: string, @Authentication() authentication: User, @Hostname() hostname: string): Promise<Tracklist> {
+        return this.service.findListByArtist(artistId, hostname, authentication)
     }
 
     /**
@@ -69,8 +70,8 @@ export class TracklistController {
      * @returns Tracklist
      */
     @Get("/album/:albumId")
-    public async findListByAlbum(@Param("albumId") albumId: string, @Authentication() authentication: User): Promise<Tracklist> {
-        return this.service.findListByAlbum(albumId, authentication);
+    public async findListByAlbum(@Param("albumId") albumId: string, @Authentication() authentication: User, @Hostname() hostname: string): Promise<Tracklist> {
+        return this.service.findListByAlbum(albumId, hostname, authentication);
     }
 
     /**
@@ -93,8 +94,8 @@ export class TracklistController {
      * @returns Tracklist
      */
     @Get("/playlist/:playlistId")
-    public async findListByPlaylist(@Param("playlistId") playlistId: string, @Authentication() authentication: User): Promise<Tracklist> {
-        return this.service.findListByPlaylist(playlistId, authentication);
+    public async findListByPlaylist(@Param("playlistId") playlistId: string, @Authentication() authentication: User, @Hostname() hostname: string): Promise<Tracklist> {
+        return this.service.findListByPlaylist(playlistId, hostname, authentication);
     }
 
     /**
