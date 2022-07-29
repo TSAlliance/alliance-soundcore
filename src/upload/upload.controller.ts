@@ -2,7 +2,6 @@ import { Controller, Get, Post, UploadedFile, UseInterceptors } from '@nestjs/co
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Authentication } from '../authentication/decorators/authentication.decorator';
 
-import { Index } from '../index/entities/index.entity';
 import { User } from '../user/entities/user.entity';
 import { Formats } from './dto/formats.dto';
 import { UploadService } from './upload.service';
@@ -19,7 +18,7 @@ export class UploadController {
 
   @Post("audio")
   @UseInterceptors(FileInterceptor("file"))
-  public async uploadAudio(@UploadedFile() file: Express.Multer.File, @Authentication() uploader: User): Promise<Index> {
+  public async uploadAudio(@UploadedFile() file: Express.Multer.File, @Authentication() uploader: User): Promise<any> {
     return this.uploadService.uploadAudio(file, uploader)
   }
 

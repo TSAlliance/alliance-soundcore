@@ -1,11 +1,15 @@
-import { IsEnum, IsOptional, Length } from "class-validator";
+import { IsEnum, IsNotEmpty, IsOptional, Length } from "class-validator";
 import { PlaylistPrivacy } from "../enums/playlist-privacy.enum";
 
 export class UpdatePlaylistDTO {
 
-    @IsOptional()
-    @Length(3, 64)
+    @IsNotEmpty()
+    @Length(3, 120)
     public title: string;
+
+    @IsOptional()
+    @Length(0, 254)
+    public description?: string;
 
     @IsOptional()
     @IsEnum(PlaylistPrivacy)

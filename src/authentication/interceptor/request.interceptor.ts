@@ -1,5 +1,5 @@
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from "@nestjs/common";
-import { map, Observable, tap } from "rxjs";
+import { Observable } from "rxjs";
 import { UserService } from "../../user/user.service";
 import { OIDCUser } from "../entities/oidc-user.entity";
 import { OIDC_REQUEST_MAPPING } from "../oidc.constants";

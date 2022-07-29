@@ -1,38 +1,46 @@
 
-import { BeforeInsert, BeforeUpdate, Column, Entity, Index, JoinColumn, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { BeforeInsert, BeforeUpdate, Column, Entity, Index, JoinColumn, ManyToMany, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Song } from "../../song/entities/song.entity";
-import { Resource, ResourceType } from "../../utils/entities/resource";
-import { Slug } from "../../utils/slugGenerator";
+import { Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
+import { Slug } from "@tsalliance/utilities";
+import { Syncable, SyncFlag } from "../../meilisearch/interfaces/syncable.interface";
 
 @Entity()
-export class Distributor implements Resource {
+export class Distributor implements Resource, Syncable {
+    public resourceType: ResourceType = "distributor";
+
+    @Column({ nullable: true, default: null})
+    public lastSyncedAt: Date;
+
+    @Column({ default: 0 })
+    public lastSyncFlag: SyncFlag;
 
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
-    @Column({ default: "distributor" as ResourceType, update: false })
-    public resourceType: ResourceType;
+    @Column({ type: "tinyint", default: 0 })
+    public flag: ResourceFlag;
 
     @Column({ nullable: true, unique: true, length: 120 })
     public slug: string;
-
-    @Column({ nullable: true, default: false })
-    public hasGeniusLookupFailed: boolean;
     
     @Column({ nullable: true })
     public geniusId: string;
+
+    @Column({ nullable: true, type: "text" })
+    public description: string;
 
     @Index()
     @Column({ nullable: false })
     public name: string;
 
-    @OneToOne(() => Artwork, { onDelete: "SET NULL", nullable: true })
+    @ManyToMany(() => Song)
+    public songs: Song[];
+
+    @ManyToOne(() => Artwork, { onDelete: "SET NULL", nullable: true })
     @JoinColumn()
     public artwork: Artwork;
-
-    @OneToMany(() => Song, (user) => user.publisher)
-    public songs: Song[]
 
     @BeforeInsert()
     public onBeforeInsert() {
@@ -41,7 +49,7 @@ export class Distributor implements Resource {
 
     @BeforeUpdate() 
     public onBeforeUpdate() {
-        this.slug = Slug.create(this.name);
+        if(!this.slug) Slug.create(this.name);
     }
 
 }

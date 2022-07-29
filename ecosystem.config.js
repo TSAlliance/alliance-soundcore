@@ -1,15 +1,15 @@
 module.exports = {
     apps: [{
-        name: "Alliance-Soundcore",
-        script: "dist/main.js",
-        increment_var: "APP_PORT",
+        name: "Soundcore API @NEXT",
+        script: "main.js",
+        increment_var: "PORT",
         instances: 1,
         autorestart: true,
         watch: false,
         time: false,
         exec_interpreter: "node",
         env: {
-            APP_PORT: 3399
+            PORT: 3002
         }
     }]
 }

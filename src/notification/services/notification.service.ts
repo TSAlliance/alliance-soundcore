@@ -1,21 +1,22 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
+import { Repository } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 import { CreateNotificationDTO } from '../dtos/notification.dto';
 import { Notification } from '../entities/notification.entity';
 import { NotificationGateway } from '../gateway/notification.gateway';
-import { NotificationRepository } from '../repositories/notification.repository';
 
 @Injectable()
 export class NotificationService {
 
     constructor(
         private readonly gateway: NotificationGateway,
-        private readonly notificationRepository: NotificationRepository
+        @InjectRepository(Notification) private readonly repository: Repository<Notification>
     ) {}
 
     public async findByCurrentUser(authentication: User, pageable: Pageable): Promise<Page<Notification>> {
-        const result = await this.notificationRepository.createQueryBuilder("notification")
+        const result = await this.repository.createQueryBuilder("notification")
             .leftJoin("notification.targets", "target")
 
             .loadRelationCountAndMap("notification.hasRead", "notification.readBy", "readBy", (qb) => qb.where("readBy.id = :userId", { userId: authentication.id }))
@@ -41,7 +42,7 @@ export class NotificationService {
             notification.targets = [];
         }
 
-        return this.notificationRepository.save(notification).then((result) => {
+        return this.repository.save(notification).then((result) => {
             this.gateway.sendNotification(notification);
             return result;
         })

@@ -1,5 +1,6 @@
 import { DynamicModule, Logger, Module, OnModuleInit } from '@nestjs/common';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { JwtModule } from '@nestjs/jwt';
 import { UserModule } from '../user/user.module';
 import { OIDCConfig } from './config/oidc.config';
 import { OIDCGuard } from './guard/oidc.guard';
@@ -10,6 +11,7 @@ import { OIDCService } from './services/oidc.service';
 @Module({
     imports: [
         UserModule,
+        JwtModule.register({})
     ],
     providers: [
         OIDCService

@@ -1,5 +1,4 @@
-import { WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
-import { Server } from 'socket.io';
+import { WebSocketGateway } from '@nestjs/websockets';
 import { OIDCService } from '../../authentication/services/oidc.service';
 import { UserService } from '../../user/user.service';
 import { AuthGateway } from '../../utils/gateway/auth-gateway';
@@ -14,9 +13,6 @@ export const NOTIFICATION_EVENT_PUSH = "notification:push";
   path: "/notifications"
 })
 export class NotificationGateway extends AuthGateway {
-
-  @WebSocketServer()
-  public server: Server;
 
   constructor(userService: UserService, oidcService: OIDCService) {
     super(userService, oidcService);

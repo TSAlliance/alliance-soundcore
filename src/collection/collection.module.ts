@@ -3,7 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { PlaylistModule } from '../playlist/playlist.module';
 import { CollectionController } from './controller/collection.controller';
 import { LikeController } from './controller/like.controller';
-import { LikeRepository } from './repositories/like.repository';
+import { Like } from './entities/like.entity';
 import { CollectionService } from './services/collection.service';
 import { LikeService } from './services/like.service';
 
@@ -18,7 +18,7 @@ import { LikeService } from './services/like.service';
   ],
   imports: [
     PlaylistModule,
-    TypeOrmModule.forFeature([ LikeRepository ])
+    TypeOrmModule.forFeature([ Like ])
   ]
 })
 export class CollectionModule {}

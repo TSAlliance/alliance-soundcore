@@ -9,7 +9,6 @@ import { LabelModule } from '../label/label.module';
 import { DistributorModule } from '../distributor/distributor.module';
 import { AlbumModule } from '../album/album.module';
 import { UserModule } from '../user/user.module';
-import { IndexModule } from '../index/index.module';
 import { PlaylistModule } from '../playlist/playlist.module';
 
 @Module({
@@ -24,7 +23,6 @@ import { PlaylistModule } from '../playlist/playlist.module';
     DistributorModule,
     AlbumModule,
     UserModule,
-    IndexModule,
     PlaylistModule
   ]
 })

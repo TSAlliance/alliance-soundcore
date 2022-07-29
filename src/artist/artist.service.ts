@@ -1,125 +1,245 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Page, Pageable } from 'nestjs-pager';
-import { GeniusService } from '../genius/services/genius.service';
-import { User } from '../user/entities/user.entity';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
+import { EVENT_ARTIST_CHANGED } from '../constants';
+import { ArtistChangedEvent } from '../events/artist-changed.event';
+import { RedlockError } from '../exceptions/redlock.exception';
+import { SyncFlag } from '../meilisearch/interfaces/syncable.interface';
+import { MeiliArtistService } from '../meilisearch/services/meili-artist.service';
+import { GeniusFlag, ResourceFlag } from '../utils/entities/resource';
+import { CreateResult } from '../utils/results/creation.result';
+import { RedisLockableService } from '../utils/services/redis-lockable.service';
 import { CreateArtistDTO } from './dtos/create-artist.dto';
+import { UpdateArtistDTO } from './dtos/update-artist.dto';
 import { Artist } from './entities/artist.entity';
-import { ArtistRepository } from './repositories/artist.repository';
 
 @Injectable()
-export class ArtistService {
-    
-    private logger: Logger = new Logger(ArtistService.name)
+export class ArtistService extends RedisLockableService {
+    private readonly logger: Logger = new Logger(ArtistService.name);
 
     constructor(
-        private geniusService: GeniusService,
-        private artistRepository: ArtistRepository
-    ){}
+        private readonly meiliClient: MeiliArtistService,
+        private readonly events: EventEmitter2,
+        @InjectRepository(Artist) private readonly repository: Repository<Artist>,
+    ){
+        super();
+    }
 
-    public async findProfileById(artistId: string, user: User): Promise<Artist> {
-        const result = await this.artistRepository.createQueryBuilder("artist")
-            .leftJoinAndSelect("artist.artwork", "artwork")
-            .leftJoinAndSelect("artist.banner", "banner")
+    /**
+     * Find an artist by its id.
+     * @param artistId Artist's id
+     * @returns Artist
+     */
+    public async findById(artistId: string): Promise<Artist> {
+        return this.buildGeneralQuery("artist")
+            .where("artist.id = :artistId OR artist.slug = :artistId", { artistId })
+            .getOne();
+    }
+
+    /**
+     * Find profile of an artist by its id.
+     * This includes stats like streamCount
+     * @param artistId Artist's id.
+     * @returns Artist
+     */
+    public async findProfileById(artistId: string): Promise<Artist> {
+        const result = await this.repository.createQueryBuilder("artist")
             .leftJoin("artist.songs", "song")
             .leftJoin("song.streams", "stream")
-
-            .addSelect("SUM(stream.streamCount) as streamCount")
-
-            .loadRelationCountAndMap("artist.songCount", "artist.songs")
-            .loadRelationCountAndMap("artist.albumCount", "artist.albums")
-
+            .addSelect("SUM(stream.streamCount) as artist_streamCount")
             .groupBy("artist.id")
-            .where("artist.id = :artistId", { artistId })
-            .orWhere("artist.slug = :artistId", { artistId })
-
-            .getRawAndEntities();
-
-        // TODO: Separate stats and artist info
-        
-        const likedCount = await this.artistRepository.createQueryBuilder("artist")
-            .leftJoin("artist.songs", "song")
-            .leftJoin("song.likedBy", "likedBy", "likedBy.userId = :userId", { userId: user?.id })
-
-            .groupBy("likedBy.userId")
-            .addGroupBy("artist.id")
-
-
-            .select(["artist.id", "COUNT(likedBy.id) AS likedCount"])
-
-            .where("artist.id = :artistId", { artistId })
-            .orWhere("artist.slug = :artistId", { artistId })
-
-            .getRawMany()
-        
-        if(!result.entities[0]) return null;
-
-        const artist = result.entities[0];
-        artist.streamCount = result.raw[0].streamCount;
-        artist.likedCount = likedCount.map((entry) => parseInt(entry["likedCount"] || 0)).reduce((prev: number, current: number) => prev + current, 0)
-        return artist;
+            .where("artist.id = :artistId OR artist.slug = :artistId" , { artistId })
+            .getOne();      
+                    
+        return result;
     }
 
+    /**
+     * Find an artist by its name.
+     * @param name Name of the artist.
+     * @returns Artist
+     */
     public async findByName(name: string): Promise<Artist> {
-        return await this.artistRepository.findOne({ where: { name }});
+        return await this.repository.findOne({ where: { name }});
     }
 
+    /**
+     * Check if an artist exists by a name.
+     * @param name Name of the artist.
+     * @returns True or false
+     */
     public async existsByName(name: string): Promise<boolean> {
-        return !!(await this.artistRepository.findOne({ where: { name }}));
+        return !!(await this.repository.findOne({ where: { name }}));
     }
 
-    public async createIfNotExists(createArtistDto: CreateArtistDTO): Promise<Artist> {
-        createArtistDto.name = createArtistDto.name?.replace(/^[ ]+|[ ]+$/g,'')
-        // Get artist from db if it does exists.
-        // The regex removes leading and trailing spaces
-        let artist = await this.findByName(createArtistDto.name)
-        
-        // Artist exists? If not, create and gather information
-        // Otherwise just return existing artist.
-        if(!artist) {
+    /**
+     * Save an artist entity.
+     * @param artist Entity data to be saved
+     * @returns Artist
+     */
+    public async save(artist: Artist): Promise<Artist> {
+        return this.repository.save(artist).then((result) => {
+            this.sync(result);
+            return result;
+        });
+    }
 
-            // Create new artist in database
-            artist = new Artist();
+    /**
+     * Create an artist if not exists.
+     * @param createArtistDto Data to create artist from
+     * @returns Artist
+     */
+    public async createIfNotExists(createArtistDto: CreateArtistDTO, waitForLock = false): Promise<CreateResult<Artist>> {
+        createArtistDto.name = createArtistDto.name?.trim();
+        createArtistDto.description = createArtistDto.description?.trim();
+
+        // Acquire lock
+        return this.lock(createArtistDto.name, async (signal) => {
+            const existingArtist = await this.findByName(createArtistDto.name);
+            if(existingArtist) return new CreateResult(existingArtist, true); 
+            if(signal.aborted) throw new RedlockError();
+
+            const artist = new Artist();
             artist.name = createArtistDto.name;
             artist.description = createArtistDto.description;
             artist.geniusId = createArtistDto.geniusId;
-            artist.geniusUrl = createArtistDto.geniusUrl;
-            artist = await this.artistRepository.save(artist)
 
-            await this.geniusService.findAndApplyArtistInfo(artist, createArtistDto.mountForArtworkId).then(async () => {
-                artist.hasGeniusLookupFailed = false;
-                await this.artistRepository.save(artist);
-            }).catch((reason) => {
-                artist.hasGeniusLookupFailed = true;
-                this.logger.warn(`Something went wrong whilst gathering information on artist '${createArtistDto.name}': ${reason.message}`)
-                this.artistRepository.save(artist);
+            return this.save(artist).then((result) => {
+                // Emit event, so that the genius service can
+                // catch it and do a lookup on the artist.
+                if(createArtistDto.doGeniusLookup) this.events.emitAsync(EVENT_ARTIST_CHANGED, new ArtistChangedEvent(result));
+                return new CreateResult(result, false);
             })
-        }
-
-        return artist;
+        }, waitForLock).catch((error: Error) => {
+            this.logger.error(`Failed creating artist: ${error.message}`, error.stack);
+            throw new InternalServerErrorException();
+        });
     }
 
-    public async findBySearchQuery(query: string, pageable: Pageable): Promise<Page<Artist>> {
-        if(!query || query == "") {
-            query = "%"
-        } else {
-            query = `%${query.replace(/\s/g, '%')}%`;
+    /**
+     * Update an artist by its id.
+     * @param artistId Artist's id
+     * @param updateArtistDto Updated artist data
+     * @returns Artist
+     */
+    public async updateArtist(artistId: string, updateArtistDto: UpdateArtistDTO): Promise<Artist> {
+        updateArtistDto.name = updateArtistDto.name?.trim();
+        updateArtistDto.description = updateArtistDto.description?.trim();
+
+        // Acquire lock
+        return this.lock(updateArtistDto.name, async (signal) => {
+            const artist = await this.findById(artistId);
+            // Check if artist exists
+            if(!artist) throw new NotFoundException("Artist not found.");
+            // Check if name already exists
+            if(await this.findByName(updateArtistDto.name)) throw new BadRequestException("Artist with that name already exists.");
+            // Check if redlock is valid
+            if(signal.aborted) throw new RedlockError();
+
+            // Update data
+            artist.name = updateArtistDto.name;
+            artist.description = updateArtistDto.description;
+
+            // Save to database
+            return this.save(artist);
+        });
+    }
+
+    /**
+     * Delete an artist by its id.
+     * @param artistId Artist's id
+     * @returns True or False
+     */
+    public async deleteById(artistId: string): Promise<boolean> {
+        return this.meiliClient.deleteArtist(artistId).then(() => {
+            return this.repository.delete({ id: artistId }).then((result) => {
+                return result.affected > 0;
+            });
+        });
+    }
+
+    /**
+     * Set resource flag of an artist.
+     * @param idOrObject Artist id or object
+     * @param flag Resource flag
+     * @returns Artist
+     */
+    public async setFlag(idOrObject: string | Artist, flag: ResourceFlag): Promise<Artist> {
+        const artist = await this.resolveArtist(idOrObject);
+        if(!artist) return null;
+
+        artist.flag = flag;
+        return this.repository.save(artist);
+    }
+
+    /**
+     * Set resource flag of an artist.
+     * @param idOrObject Artist id or object
+     * @param flag Genius flag
+     * @returns Artist
+     */
+    public async setGeniusFlag(idOrObject: string | Artist, flag: GeniusFlag): Promise<Artist> {
+        const artist = await this.resolveArtist(idOrObject);
+        if(!artist) return null;
+
+        artist.geniusFlag = flag;
+        return this.repository.save(artist);
+    }
+
+    /**
+     * Resolve an id or object to an artist object.
+     * @param idOrObject Artist id or object
+     * @returns Artist
+     */
+    protected async resolveArtist(idOrObject: string | Artist): Promise<Artist> {
+        if(typeof idOrObject == "string") {
+            return this.findById(idOrObject);
         }
 
-        let qb = this.artistRepository.createQueryBuilder("artist")
-            .leftJoinAndSelect("artist.artwork", "artwork")
-            .leftJoinAndSelect("artist.banner", "banner")
+        return idOrObject;
+    }
 
-            .limit(pageable.size)
-            .offset(pageable.page * pageable.size)
+    /**
+     * Update the sync flag of an artist.
+     * @param idOrObject Id or object of the artist
+     * @param flag Updated sync flag
+     * @returns Artist
+     */
+    private async setSyncFlag(idOrObject: string | Artist, flag: SyncFlag): Promise<Artist> {
+        const resource = await this.resolveArtist(idOrObject);
+        if(!resource) return null;
 
-            .where("artist.name LIKE :query", { query });
+        resource.lastSyncedAt = new Date();
+        resource.lastSyncFlag = flag;
+        return this.repository.save(resource);
+    }
 
-        if(query == "%") {
-            qb = qb.orderBy("rand()");
-        }
+    /**
+     * Synchronize the corresponding document on meilisearch.
+     * @param resource Artist data
+     * @returns Artist
+     */
+    private async sync(resource: Artist) {
+        return this.meiliClient.setArtist(resource).then(() => {
+            return this.setSyncFlag(resource, SyncFlag.OK);
+        }).catch(() => {
+            return this.setSyncFlag(resource, SyncFlag.ERROR);
+        });
+    }
 
-        const result = await qb.getManyAndCount();
-        return Page.of(result[0], result[1], pageable.page);
+    /**
+     * Build general query. This includes relations for
+     * artwork ...
+     * @param alias Query alias for the artist.
+     * @returns SelectQueryBuilder
+     */
+    private buildGeneralQuery(alias: string): SelectQueryBuilder<Artist> {
+        return this.repository.createQueryBuilder(alias)
+            .leftJoinAndSelect(`${alias}.artwork`, "artwork")
+
+            .loadRelationCountAndMap(`${alias}.songsCount`, `${alias}.songs`)
+            .loadRelationCountAndMap(`${alias}.albumsCount`, `${alias}.albums`)
     }
 
 }

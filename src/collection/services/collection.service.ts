@@ -1,11 +1,15 @@
 import { Injectable } from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
 import { Collection } from "../entities/collection.entity";
-import { LikeRepository } from "../repositories/like.repository";
+import { Like } from "../entities/like.entity";
 
 @Injectable()
 export class CollectionService {
 
-    constructor(private likeRepository: LikeRepository) {}
+    constructor(
+        @InjectRepository(Like) private readonly likeRepository: Repository<Like>
+    ) {}
 
     public async findByUserId(userId: string): Promise<Collection> {
         const result = await this.likeRepository.createQueryBuilder("like")

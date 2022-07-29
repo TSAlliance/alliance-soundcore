@@ -1,40 +1,102 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
-import { ILike } from 'typeorm';
-import { ArtworkService } from '../artwork/artwork.service';
+import { ILike, Repository } from 'typeorm';
 import { OIDCUser } from '../authentication/entities/oidc-user.entity';
+import { SyncFlag } from '../meilisearch/interfaces/syncable.interface';
+import { MeiliUserService } from '../meilisearch/services/meili-user.service';
 import { User } from './entities/user.entity';
-import { UserRepository } from './repositories/user.repository';
 
 @Injectable()
 export class UserService {
-    private logger: Logger = new Logger(UserService.name);
+    private readonly _logger: Logger = new Logger(UserService.name);
 
     constructor(
-        private artworkService: ArtworkService,
-        public userRepository: UserRepository
+        private readonly meiliClient: MeiliUserService,
+        @InjectRepository(User) public readonly repository: Repository<User>
     ) {}
+
+    public async findById(userId: string): Promise<User> {
+        return this.repository.createQueryBuilder("user")
+            .leftJoinAndSelect("user.artwork", "artwork")
+            .where("user.id = :userId", { userId })
+            .getOne();
+    }
 
     public async findOrCreateByKeycloakUserInstance(userInstance: OIDCUser): Promise<User> {
         if(!userInstance) return null;
 
         // Find in database and return if found
-        const user = await this.userRepository.findOne({ where: { id: userInstance?.sub }});
-        if(user) return user;
+        const existingUser = await this.findById(userInstance.sub);
+        if(existingUser) {
+            if(this.hasUpdated(userInstance, existingUser)) {
+                // Update username (currently the only thing that can change which is important)
+                existingUser.name = userInstance.preferred_username;
+                return this.repository.save(existingUser).then((result) => {
+                    // Sync with meilisearch if user was updated.
+                    return this.syncWithMeili(result);
+                }).catch((error) => {
+                    this._logger.error(`Could not update user object, using old account data: ${error.message}`, error.stack);
+                    return existingUser;
+                })
+            }
+
+            // Update user in meilisearch
+            if(this.meiliClient.isSyncRecommended(existingUser)) {
+                this.syncWithMeili(existingUser);
+            }
+            
+            return existingUser
+        }
 
         // Build new database entry
-        const result = new User();
-        result.id = userInstance.sub;
-        result.name = userInstance.preferred_username;
+        const user = new User();
+        user.id = userInstance.sub;
+        user.name = userInstance.preferred_username;
 
-        // Save entry and return it
-        return this.userRepository.save(result).then((entry) => {
-            this.logger.debug(`Registered user ${entry.name}-${entry.id} in database.`);
-            return entry;
-        }).catch((error) => {
-            if(error?.message.startsWith("Duplicate entry")) {
-                return this.userRepository.findOne({ where: { id: userInstance?.sub }})
-            }
+        return this.repository.save(user).then((result) => {
+            return this.syncWithMeili(result);
+        });
+    }
+
+    /**
+     * Update the sync flag of an user.
+     * @param idOrObject Id or object of the user
+     * @param flag Updated sync flag
+     * @returns User
+     */
+    public async setSyncFlag(idOrObject: string | User, flag: SyncFlag): Promise<User> {
+        const user = await this.resolveUser(idOrObject);
+        if(!user) return null;
+
+        user.lastSyncedAt = new Date();
+        user.lastSyncFlag = flag;
+        return this.repository.save(user);
+    }
+
+    /**
+     * Resolve an id or object to an user object.
+     * @param idOrObject User id or object
+     * @returns User
+     */
+     protected async resolveUser(idOrObject: string | User): Promise<User> {
+        if(typeof idOrObject == "string") {
+            return this.findById(idOrObject);
+        }
+
+        return idOrObject;
+    }
+
+    /**
+     * Synchronize the corresponding document on meilisearch.
+     * @param user User data
+     * @returns User
+     */
+    private async syncWithMeili(user: User) {
+        return this.meiliClient.setUser(user).then(() => {
+            return this.setSyncFlag(user, SyncFlag.OK);
+        }).catch(() => {
+            return this.setSyncFlag(user, SyncFlag.ERROR);
         });
     }
 
@@ -45,7 +107,13 @@ export class UserService {
             query = `%${query.replace(/\s/g, '%')}%`;
         }
 
-        return this.userRepository.findAll(pageable, { where: { username: ILike(query) }})
+        const result = await this.repository.findAndCount({ where: { name: ILike(query) }, skip: pageable.page * pageable.size, take: pageable.size});
+        return Page.of(result[0], result[1], pageable.page);
+    }
+
+    private hasUpdated(userInstance: OIDCUser, existingUser: User): boolean {
+        if(userInstance.sub != existingUser.id) return false;
+        return userInstance.preferred_username !== existingUser.name;
     }
 
 }
