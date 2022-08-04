@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
 import { Page, Pageable } from "nestjs-pager";
 import { ArtistService } from "../../artist/artist.service";
+import { Artist } from "../../artist/entities/artist.entity";
 import { SyncFlag } from "../../meilisearch/interfaces/syncable.interface";
 
 @Injectable()
@@ -32,8 +33,14 @@ export class MeiliSyncer {
         // doing larger requests. This is compensated of the frequency of the cron job.
         const affectedArtists = await this.artistService.findBySyncFlag(SyncFlag.ERROR, new Pageable(0, 50)).catch(() => Page.of([]));
     
-        if(affectedArtists.size > 0) {
-            await this.artistService.sync(affectedArtists.elements).catch((error) => this.logger.error(`Failed resolving sync issues for ${affectedArtists.size} artists`, error.stack))
-        }
+        // Resolve errors
+        this.resolveSyncErrorsForArtists(affectedArtists.elements);
+    }
+
+    private async resolveSyncErrorsForArtists(resources: Artist[]) {
+        if(resources.length <= 0) return;
+        return this.artistService.sync(resources).catch((error) => {
+            this.logger.error(`Failed resolving sync issues for ${resources.length} artists`, error.stack);
+        });
     }
 }
