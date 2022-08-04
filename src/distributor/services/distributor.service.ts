@@ -1,5 +1,6 @@
 import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Page, Pageable } from 'nestjs-pager';
 import { In, Repository } from 'typeorm';
 import { Artwork } from '../../artwork/entities/artwork.entity';
 import { RedlockError } from '../../exceptions/redlock.exception';
@@ -46,6 +47,23 @@ export class DistributorService extends RedisLockableService {
             .addSelect(["artwork.id"])
             .where("distributor.name = :name", { name })
             .getOne();
+    }
+
+    /**
+     * Find a page of distributors by a specific sync flag.
+     * @param flag Sync Flag
+     * @param pageable Page settings
+     * @returns Page<Distributor>
+     */
+     public async findBySyncFlag(flag: SyncFlag, pageable: Pageable): Promise<Page<Distributor>> {
+        const result = await this.repository.createQueryBuilder("distributor")
+            .leftJoin("distributor.artwork", "artwork").addSelect(["artwork.id"])
+            .where("distributor.lastSyncFlag = :flag", { flag })
+            .offset(pageable.page * pageable.size)
+            .limit(pageable.size)
+            .getManyAndCount();
+
+        return Page.of(result[0], result[1], pageable.page);
     }
 
     /**
@@ -173,7 +191,7 @@ export class DistributorService extends RedisLockableService {
      * @param resources Distributor data
      * @returns UpdateResult
      */
-    private async sync(resources: Distributor[]) {
+    public async sync(resources: Distributor[]) {
         return this.meiliClient.setDistributors(resources).then(() => {
             return this.setSyncFlags(resources, SyncFlag.OK);
         }).catch(() => {

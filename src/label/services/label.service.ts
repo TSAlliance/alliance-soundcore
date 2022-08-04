@@ -1,5 +1,6 @@
 import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { Page, Pageable } from 'nestjs-pager';
 import { In, Repository } from 'typeorm';
 import { Artwork } from '../../artwork/entities/artwork.entity';
 import { RedlockError } from '../../exceptions/redlock.exception';
@@ -46,6 +47,23 @@ export class LabelService extends RedisLockableService {
             .addSelect(["artwork.id"])
             .where("label.name = :name", { name })
             .getOne();
+    }
+
+    /**
+     * Find a page of labels by a specific sync flag.
+     * @param flag Sync Flag
+     * @param pageable Page settings
+     * @returns Page<Publisher>
+     */
+    public async findBySyncFlag(flag: SyncFlag, pageable: Pageable): Promise<Page<Label>> {
+        const result = await this.repository.createQueryBuilder("label")
+            .leftJoin("label.artwork", "artwork").addSelect(["artwork.id"])
+            .where("label.lastSyncFlag = :flag", { flag })
+            .offset(pageable.page * pageable.size)
+            .limit(pageable.size)
+            .getManyAndCount();
+
+        return Page.of(result[0], result[1], pageable.page);
     }
 
     /**
@@ -173,7 +191,7 @@ export class LabelService extends RedisLockableService {
      * @param resources Label data
      * @returns Label
      */
-    private async sync(resources: Label[]) {
+    public async sync(resources: Label[]) {
         return this.meiliClient.setLabels(resources).then(() => {
             return this.setSyncFlags(resources, SyncFlag.OK);
         }).catch(() => {

@@ -221,6 +221,29 @@ export class SongService extends RedisLockableService {
     }
 
     /**
+     * Find a page of artists by a specific sync flag.
+     * @param flag Sync Flag
+     * @param pageable Page settings
+     * @returns Page<Artist>
+     */
+    public async findBySyncFlag(flag: SyncFlag, pageable: Pageable): Promise<Page<Song>> {
+        const result = await this.repository.createQueryBuilder("song")
+            .leftJoin("song.artwork", "artwork").addSelect(["artwork.id"])
+            .leftJoin("song.album", "album").addSelect(["album.id", "album.slug", "album.name"])
+            .leftJoin("song.primaryArtist", "primaryArtist").addSelect(["primaryArtist.id", "primaryArtist.slug", "primaryArtist.name"])
+            .leftJoin("song.featuredArtists", "featuredArtists").addSelect(["featuredArtists.id", "featuredArtists.slug", "featuredArtists.name"])
+            .leftJoin("song.genres", "genre").addSelect(["genre.id","genre.slug","genre.name"])
+
+            .where("song.lastSyncFlag = :flag", { flag })
+            
+            .skip(pageable.page * pageable.size)
+            .take(pageable.size)
+            .getManyAndCount();
+
+        return Page.of(result[0], result[1], pageable.page);
+    }
+
+    /**
      * Save an song entity.
      * @param song Entity data to be saved
      * @returns Song
