@@ -1,4 +1,5 @@
 import { DynamicModule, Logger, Module } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import MeiliSearch, { Config } from 'meilisearch';
 import { MeiliAlbumService } from './services/meili-album.service';
 import { MeiliArtistService } from './services/meili-artist.service';
@@ -26,6 +27,9 @@ export class MeilisearchModule {
         return {
             module: MeilisearchModule,
             global: true,
+            imports: [
+                ScheduleModule
+            ],
             providers: [
                 {
                     provide: MeiliSearch,

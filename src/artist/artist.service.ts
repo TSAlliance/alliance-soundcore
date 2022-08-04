@@ -1,7 +1,8 @@
 import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder } from 'typeorm';
+import { Page, Pageable } from 'nestjs-pager';
+import { In, Repository, SelectQueryBuilder } from 'typeorm';
 import { EVENT_ARTIST_CHANGED } from '../constants';
 import { ArtistChangedEvent } from '../events/artist-changed.event';
 import { RedlockError } from '../exceptions/redlock.exception';
@@ -74,13 +75,42 @@ export class ArtistService extends RedisLockableService {
     }
 
     /**
+     * Count how many entities have a specific
+     * flag set while syncing with meilisearch.
+     * @param flag SyncFlag
+     * @returns number
+     */
+    public async countBySyncFlag(flag: SyncFlag): Promise<number> {
+        return this.repository.count({ where: { lastSyncFlag: flag } });
+    }
+
+    /**
+     * Find a page of artists by a specific sync flag.
+     * @param flag Sync Flag
+     * @param pageable Page settings
+     * @returns Page<Artist>
+     */
+    public async findBySyncFlag(flag: SyncFlag, pageable: Pageable): Promise<Page<Artist>> {
+        const result = await this.repository.createQueryBuilder("artist")
+            .leftJoinAndSelect("artist.artwork", "artwork")
+            .where("artist.lastSyncFlag = :flag", { flag })
+            // Here we can safely use offset/limit, because artwork is no array
+            // and therefor no extra rows are returned in the selection table.
+            .offset(pageable.page * pageable.size)
+            .limit(pageable.size)
+            .getManyAndCount();
+
+        return Page.of(result[0], result[1], pageable.page);
+    }
+
+    /**
      * Save an artist entity.
      * @param artist Entity data to be saved
      * @returns Artist
      */
     public async save(artist: Artist): Promise<Artist> {
         return this.repository.save(artist).then((result) => {
-            this.sync(result);
+            this.sync([result]);
             return result;
         });
     }
@@ -206,13 +236,16 @@ export class ArtistService extends RedisLockableService {
      * @param flag Updated sync flag
      * @returns Artist
      */
-    private async setSyncFlag(idOrObject: string | Artist, flag: SyncFlag): Promise<Artist> {
-        const resource = await this.resolveArtist(idOrObject);
-        if(!resource) return null;
+    private async setSyncFlags(artists: Artist[], flag: SyncFlag) {
+        const ids = artists.map((artist) => artist.id);
 
-        resource.lastSyncedAt = new Date();
-        resource.lastSyncFlag = flag;
-        return this.repository.save(resource);
+        return this.repository.createQueryBuilder("artist")
+            .update({
+                lastSyncedAt: new Date(),
+                lastSyncFlag: flag
+            })
+            .where({ id: In(ids) })
+            .execute()
     }
 
     /**
@@ -220,11 +253,11 @@ export class ArtistService extends RedisLockableService {
      * @param resource Artist data
      * @returns Artist
      */
-    private async sync(resource: Artist) {
-        return this.meiliClient.setArtist(resource).then(() => {
-            return this.setSyncFlag(resource, SyncFlag.OK);
+    public async sync(resources: Artist[]) {
+        return this.meiliClient.setArtists(resources).then(() => {
+            return this.setSyncFlags(resources, SyncFlag.OK);
         }).catch(() => {
-            return this.setSyncFlag(resource, SyncFlag.ERROR);
+            return this.setSyncFlags(resources, SyncFlag.ERROR);
         });
     }
 

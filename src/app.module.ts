@@ -32,6 +32,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PipesModule } from '@tsalliance/utilities';
 import { HostnameModule } from './hostname/hostname.module';
+import { CronModule } from './cron/cron.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { HostnameModule } from './hostname/hostname.module';
       }
     }),
     PipesModule,
+    CronModule,
     BullModule.forRoot({
       redis: {
         host: process.env.REDIS_HOST,

@@ -22,14 +22,14 @@ export class MeiliArtistService extends MeiliService<MeiliArtist> {
      * @param {number} timeOutMs (Optional) Timeout for checking task completion
      * @returns {Task} Task
      */
-    public async setArtist(artist: Artist, timeOutMs?: number): Promise<Task> {
-        return this.sync({
+    public async setArtists(artists: Artist[], timeOutMs?: number): Promise<Task> {
+        return this.sync(artists.map((artist) => ({
             id: artist.id,
             name: artist.name,
             slug: artist.slug,
             resourceType: artist.resourceType,
             artwork: artist.artwork ? new MeiliArtwork(artist.artwork?.id) : null
-        }, timeOutMs);
+        })), timeOutMs);
     }
 
     /**
