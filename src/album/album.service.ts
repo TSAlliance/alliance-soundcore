@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, InternalServerErrorException, Logger, 
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
-import { Repository, SelectQueryBuilder } from 'typeorm';
+import { In, Repository, SelectQueryBuilder } from 'typeorm';
 import { Artist } from '../artist/entities/artist.entity';
 import { EVENT_ALBUM_CHANGED } from '../constants';
 import { AlbumChangedEvent } from '../events/album-changed.event';
@@ -157,13 +157,33 @@ export class AlbumService extends RedisLockableService {
     }
 
     /**
+     * Find a page of albums by a specific sync flag.
+     * @param flag Sync Flag
+     * @param pageable Page settings
+     * @returns Page<Album>
+     */
+    public async findBySyncFlag(flag: SyncFlag, pageable: Pageable): Promise<Page<Album>> {
+        const result = await this.repository.createQueryBuilder("album")
+            .leftJoinAndSelect("album.artwork", "artwork")
+            .leftJoinAndSelect("album.primaryArtist", "primaryArtist")
+            .where("album.lastSyncFlag = :flag", { flag })
+            // Here we can safely use offset/limit, because artwork is no array
+            // and therefor no extra rows are returned in the selection table.
+            .offset(pageable.page * pageable.size)
+            .limit(pageable.size)
+            .getManyAndCount();
+
+        return Page.of(result[0], result[1], pageable.page);
+    }
+
+    /**
      * Save an album entity.
      * @param album Entity data to be saved
      * @returns Album
      */
     public async save(album: Album): Promise<Album> {
         return this.repository.save(album).then((result) => {
-            this.sync(result);
+            this.sync([result]);
             return result;
         });
     }
@@ -271,17 +291,19 @@ export class AlbumService extends RedisLockableService {
 
     /**
      * Update the sync flag of an album.
-     * @param idOrObject Id or object of the album
      * @param flag Updated sync flag
-     * @returns Album
+     * @returns UpdateResult
      */
-    private async setSyncFlag(idOrObject: string | Album, flag: SyncFlag): Promise<Album> {
-        const resource = await this.resolveAlbum(idOrObject);
-        if(!resource) return null;
+    private async setSyncFlags(albums: Album[], flag: SyncFlag) {
+        const ids = albums.map((album) => album.id);
 
-        resource.lastSyncedAt = new Date();
-        resource.lastSyncFlag = flag;
-        return this.repository.save(resource);
+        return this.repository.createQueryBuilder("album")
+            .update({
+                lastSyncedAt: new Date(),
+                lastSyncFlag: flag
+            })
+            .where({ id: In(ids) })
+            .execute();
     }
 
     /**
@@ -289,11 +311,11 @@ export class AlbumService extends RedisLockableService {
      * @param resource Album data
      * @returns Album
      */
-    private async sync(resource: Album) {
-        return this.meiliClient.setAlbum(resource).then(() => {
-            return this.setSyncFlag(resource, SyncFlag.OK);
+    public async sync(resources: Album[]) {
+        return this.meiliClient.setAlbums(resources).then(() => {
+            return this.setSyncFlags(resources, SyncFlag.OK);
         }).catch(() => {
-            return this.setSyncFlag(resource, SyncFlag.ERROR);
+            return this.setSyncFlags(resources, SyncFlag.ERROR);
         });
     }
 

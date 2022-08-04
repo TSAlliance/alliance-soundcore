@@ -234,7 +234,7 @@ export class ArtistService extends RedisLockableService {
      * Update the sync flag of an artist.
      * @param idOrObject Id or object of the artist
      * @param flag Updated sync flag
-     * @returns Artist
+     * @returns UpdateResult
      */
     private async setSyncFlags(artists: Artist[], flag: SyncFlag) {
         const ids = artists.map((artist) => artist.id);
