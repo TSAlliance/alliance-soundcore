@@ -15,14 +15,15 @@ export class PlaylistItem {
     @Column({ nullable: true, default: 0 })
     public order: number;
 
-    @ManyToOne(() => User, { onDelete: "SET NULL", nullable: true })
+    @ManyToOne(() => User, (u) => u.itemsAddedToPlaylists, { onDelete: "SET NULL", nullable: true })
+    @JoinColumn()
     public addedBy: User;
 
-    @ManyToOne(() => Song, s => s.playlists, { onDelete: "CASCADE" })
+    @ManyToOne(() => Song, (s) => s.playlists, { onDelete: "CASCADE" })
     @JoinColumn()
     public song: Song;
 
-    @ManyToOne(() => Playlist, p => p.items, { onDelete: "CASCADE" })
+    @ManyToOne(() => Playlist, (p) => p.items, { onDelete: "CASCADE" })
     @JoinColumn()
     public playlist: Playlist;
 

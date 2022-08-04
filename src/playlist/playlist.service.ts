@@ -1,7 +1,7 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
-import { In, Not, Repository, SelectQueryBuilder } from 'typeorm';
+import { Not, Repository, SelectQueryBuilder } from 'typeorm';
 import { MeiliPlaylistService } from '../meilisearch/services/meili-playlist.service';
 import { Song } from '../song/entities/song.entity';
 import { SongService } from '../song/song.service';
@@ -279,7 +279,7 @@ export class PlaylistService {
      * @param requester The user requesting the operation. Used to check if the user is allowed to add songs
      * @returns 
      */
-    public async addSong(playlistId: string, addSongDto: AddSongDTO, authentication: User): Promise<PlaylistItemAddResult> {
+    public async addSong(playlistId: string, addSongDto: AddSongDTO, authentication: User): Promise<PlaylistItemAddResult> {       
         // Check if user could theoretically access the playlist.
         if(!await this.hasUserAccessToPlaylist(playlistId, authentication)) {
             throw new NotFoundException("Playlist not found")

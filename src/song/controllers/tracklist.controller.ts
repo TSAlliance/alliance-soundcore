@@ -2,6 +2,7 @@ import { Controller, Get, Param } from '@nestjs/common';
 import { Page, Pageable, Pagination } from 'nestjs-pager';
 import { Authentication } from '../../authentication/decorators/authentication.decorator';
 import { Hostname } from '../../hostname/decorator/hostname.decorator';
+import { PlaylistItem } from '../../playlist/entities/playlist-item.entity';
 import { User } from '../../user/entities/user.entity';
 import { Song } from '../entities/song.entity';
 import { Tracklist } from '../entities/tracklist.entity';
@@ -106,7 +107,7 @@ export class TracklistController {
      * @returns Page<Song>
      */
     @Get("/playlist/:playlistId/meta")
-    public async findMetaByPlaylist(@Param("playlistId") playlistId: string, @Pagination() pageable: Pageable, @Authentication() authentication: User): Promise<Page<Song>> {
+    public async findMetaByPlaylist(@Param("playlistId") playlistId: string, @Pagination() pageable: Pageable, @Authentication() authentication: User): Promise<Page<PlaylistItem>> {
         return this.service.findMetaByPlaylist(playlistId, pageable, authentication);
     }
 

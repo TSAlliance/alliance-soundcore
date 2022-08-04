@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
-import { SelectQueryBuilder } from 'typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
+import { PlaylistItem } from '../../playlist/entities/playlist-item.entity';
 import { User } from '../../user/entities/user.entity';
 import { Song } from '../entities/song.entity';
 import { Tracklist, TracklistType } from '../entities/tracklist.entity';
@@ -10,7 +12,8 @@ import { SongService } from '../song.service';
 export class TracklistService {
 
     constructor(
-        private readonly songService: SongService
+        private readonly songService: SongService,
+        @InjectRepository(PlaylistItem)  private tracklistRepository: Repository<PlaylistItem>
     ) {}
 
     /**
@@ -112,7 +115,16 @@ export class TracklistService {
      * @returns Tracklist
      */
     public async findListByPlaylist(playlistId: string, hostname: string, authentication?: User): Promise<Tracklist> {
-        const result = await this.buildFindByPlaylistQuery(playlistId, "song", null, authentication).select(["song.id"]).getMany();
+        // TODO: Check if user has access to playlist
+        const result = await this.tracklistRepository.createQueryBuilder("item")
+            .leftJoin("item.playlist", "playlist")
+            .where("playlist.id = :playlistId OR playlist.slug = :playlistId", { playlistId })
+            .select(["item.id", "item.createdAt", "item.order"])
+            // Playlist order
+            .orderBy("item.order", "ASC")
+            .addOrderBy("item.createdAt", "ASC")
+            .getMany();
+
         const metadataUrl = `${hostname}/v1/tracklist/playlist/${playlistId}/meta`;
         return new Tracklist(result.length, TracklistType.PLAYLIST, result, metadataUrl);    
     }
@@ -124,18 +136,28 @@ export class TracklistService {
      * @param authentication User authentication object
      * @returns Page<Song>
      */
-    public async findMetaByPlaylist(playlistId: string, pageable: Pageable, authentication?: User): Promise<Page<Song>> {
-        const baseQuery = await this.buildFindByPlaylistQuery(playlistId, "song", pageable, authentication)
-            
-        const result = await baseQuery.getRawAndEntities();
-        const totalElements = await baseQuery.getCount();
-        return Page.of(result.entities.map((song, index) => {
-            song.streamCount = result.raw[index]?.streamCount || 0
-            return song;
-        }), totalElements, pageable.page);    
+    public async findMetaByPlaylist(playlistId: string, pageable: Pageable, authentication?: User): Promise<Page<PlaylistItem>> {
+        // TODO: Check if user has access to playlist
+        const result = await this.tracklistRepository.createQueryBuilder("item")
+            .leftJoin("item.song", "song").addSelect(["song.id", "song.slug", "song.name"])
+            .leftJoin("song.album", "album").addSelect(["album.id", "album.slug", "album.name"])
+            .leftJoin("song.primaryArtist", "primaryArtist").addSelect(["primaryArtist.id", "primaryArtist.slug", "primaryArtist.name"])
+            .leftJoin("song.featuredArtists", "featuredArtists").addSelect(["featuredArtists.id", "featuredArtists.slug", "featuredArtists.name"])
+            .leftJoin("item.addedBy", "addedBy").addSelect(["addedBy.id", "addedBy.slug", "addedBy.name"])
+            .leftJoin("item.playlist", "playlist")
+            // Has user liked song?
+            .loadRelationCountAndMap("song.liked", "song.likes", "likes", (qb) => qb.where("likes.userId = :userId", { userId: authentication?.id }))
+            .where("playlist.id = :playlistId OR playlist.slug = :playlistId", { playlistId })
+            // Order
+            .orderBy("item.order", "ASC")
+            .addOrderBy("item.createdAt", "ASC")
+            // Pagination
+            .skip(pageable.page * pageable.size)
+            .take(pageable.size)
+            .getManyAndCount();
+
+        return Page.of(result[0], result[1], pageable.page);
     }
-
-
 
     /**
      * Build the general sql query for findListByArtist()
@@ -240,11 +262,15 @@ export class TracklistService {
             // TODO: To be optimised using selectAndMap in next TypeORM release
             // If this has landed, this row can actually be moved to buildGeneralQuery()
             .leftJoin('song.streams', 'streams').addSelect(["SUM(IFNULL(streams.streamCount, 0)) AS streamCount"])
-            .leftJoin("song.playlists", "item")
+            .leftJoin("song.playlists", "item").addSelect(["item.order", "item.createdAt"])
             .leftJoin("item.playlist", "playlist")
 
             .orderBy("item.order", "ASC")
             .addOrderBy("item.createdAt", "ASC")
+
+            .groupBy("song.id")
+            .addGroupBy("item.order")
+            .addGroupBy("item.createdAt")
 
             .where("playlist.id = :playlistId OR playlist.slug = :playlistId", { playlistId })
 

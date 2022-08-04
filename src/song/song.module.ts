@@ -11,6 +11,7 @@ import { ArtworkModule } from '../artwork/artwork.module';
 import { TracklistController } from './controllers/tracklist.controller';
 import { TracklistService } from './services/tracklist.service';
 import { Song } from './entities/song.entity';
+import { PlaylistItem } from '../playlist/entities/playlist-item.entity';
 
 @Module({
   controllers: [SongController, TracklistController],
@@ -22,7 +23,7 @@ import { Song } from './entities/song.entity';
     LabelModule,
     AlbumModule,
     ArtworkModule,
-    TypeOrmModule.forFeature([ Song ])
+    TypeOrmModule.forFeature([ Song, PlaylistItem ])
   ],
   exports: [
     SongService

@@ -1,3 +1,4 @@
+import { PlaylistItem } from "../../playlist/entities/playlist-item.entity";
 
 /**
  * Enum to handle different
@@ -44,7 +45,7 @@ export class Tracklist {
         /**
          * Items array
          */
-        public readonly items: TracklistItem[],
+        public readonly items: (PlaylistItem | TracklistItem)[],
         /**
          * Returns a relative url that points
          * to the metadata endpoint for that list.

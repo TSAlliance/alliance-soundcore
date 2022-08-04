@@ -7,6 +7,7 @@ import { Resource, ResourceFlag, ResourceType } from "../../utils/entities/resou
 import { Slug } from "@tsalliance/utilities";
 import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Syncable, SyncFlag } from "../../meilisearch/interfaces/syncable.interface";
+import { PlaylistItem } from "../../playlist/entities/playlist-item.entity";
 
 // TODO: Remove attributes from Syncable object when they get sent as response
 // TODO: Split profile and users logic
@@ -53,7 +54,8 @@ export class User implements Resource, Syncable {
     @UpdateDateColumn()
     public updatedAt?: Date;
 
-
+    @OneToMany(() => PlaylistItem, (item) => item.addedBy)
+    public itemsAddedToPlaylists?: PlaylistItem[];
 
     public friendsCount? = 0;
     public playlistCount? = 0;
