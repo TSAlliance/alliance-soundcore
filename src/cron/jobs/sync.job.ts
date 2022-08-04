@@ -15,6 +15,8 @@ import { PublisherService } from "../../publisher/services/publisher.service";
 import { Song } from "../../song/entities/song.entity";
 import { SongService } from "../../song/song.service";
 
+const SYNC_ITEMS_LIMIT = 100;
+
 @Injectable()
 export class MeiliSyncer {
     private readonly logger = new Logger(MeiliSyncer.name);
@@ -51,12 +53,12 @@ export class MeiliSyncer {
         // doing larger requests. This is compensated of the frequency of the cron job.
 
         const affectedEntities = await Promise.all([
-            this.artistService.findBySyncFlag(SyncFlag.ERROR, new Pageable(0, 50)).catch(() => Page.of<Artist>([])),
-            this.albumService.findBySyncFlag(SyncFlag.ERROR, new Pageable(0, 50)).catch(() => Page.of<Album>([])),
-            this.songService.findBySyncFlag(SyncFlag.ERROR, new Pageable(0, 50)).catch(() => Page.of<Song>([])),
-            this.labelService.findBySyncFlag(SyncFlag.ERROR, new Pageable(0, 50)).catch(() => Page.of<Label>([])),
-            this.publisherService.findBySyncFlag(SyncFlag.ERROR, new Pageable(0, 50)).catch(() => Page.of<Publisher>([])),
-            this.distributorService.findBySyncFlag(SyncFlag.ERROR, new Pageable(0, 50)).catch(() => Page.of<Distributor>([]))
+            this.artistService.findBySyncFlag(SyncFlag.ERROR, new Pageable(0, SYNC_ITEMS_LIMIT)).catch(() => Page.of<Artist>([])),
+            this.albumService.findBySyncFlag(SyncFlag.ERROR, new Pageable(0, SYNC_ITEMS_LIMIT)).catch(() => Page.of<Album>([])),
+            this.songService.findBySyncFlag(SyncFlag.ERROR, new Pageable(0, SYNC_ITEMS_LIMIT)).catch(() => Page.of<Song>([])),
+            this.labelService.findBySyncFlag(SyncFlag.ERROR, new Pageable(0, SYNC_ITEMS_LIMIT)).catch(() => Page.of<Label>([])),
+            this.publisherService.findBySyncFlag(SyncFlag.ERROR, new Pageable(0, SYNC_ITEMS_LIMIT)).catch(() => Page.of<Publisher>([])),
+            this.distributorService.findBySyncFlag(SyncFlag.ERROR, new Pageable(0, SYNC_ITEMS_LIMIT)).catch(() => Page.of<Distributor>([]))
         ]).catch(() => [])
 
         const affectedArtists = affectedEntities[0];
