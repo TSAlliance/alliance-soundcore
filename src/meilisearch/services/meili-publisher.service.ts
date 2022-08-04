@@ -18,18 +18,18 @@ export class MeiliPublisherService extends MeiliService<MeiliPublisher> {
 
     /**
      * Add or update publisher document in meilisearch instance.
-     * @param {Publisher} publisher Publisher data
+     * @param {Publisher} publishers Publisher data
      * @param {number} timeOutMs (Optional) Timeout for checking task completion
      * @returns {Task} Task
      */
-    public async setPublisher(publisher: Publisher, timeOutMs?: number): Promise<Task> {
-        return this.sync({
+    public async setPublishers(publishers: Publisher[], timeOutMs?: number): Promise<Task> {
+        return this.sync(publishers.map((publisher) => ({
             id: publisher.id,
             name: publisher.name,
             slug: publisher.slug,
             resourceType: publisher.resourceType,
             artwork: publisher.artwork ? new MeiliArtwork(publisher.artwork?.id) : null
-        }, timeOutMs);
+        })), timeOutMs);
     }
 
     /**

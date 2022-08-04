@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
-import { ILike, Repository } from 'typeorm';
+import { ILike, In, Repository } from 'typeorm';
 import { OIDCUser } from '../authentication/entities/oidc-user.entity';
 import { SyncFlag } from '../meilisearch/interfaces/syncable.interface';
 import { MeiliUserService } from '../meilisearch/services/meili-user.service';
@@ -32,10 +32,7 @@ export class UserService {
             if(this.hasUpdated(userInstance, existingUser)) {
                 // Update username (currently the only thing that can change which is important)
                 existingUser.name = userInstance.preferred_username;
-                return this.repository.save(existingUser).then((result) => {
-                    // Sync with meilisearch if user was updated.
-                    return this.syncWithMeili(result);
-                }).catch((error) => {
+                return this.save(existingUser).catch((error) => {
                     this._logger.error(`Could not update user object, using old account data: ${error.message}`, error.stack);
                     return existingUser;
                 })
@@ -43,7 +40,7 @@ export class UserService {
 
             // Update user in meilisearch
             if(this.meiliClient.isSyncRecommended(existingUser)) {
-                this.syncWithMeili(existingUser);
+                this.sync([existingUser]);
             }
             
             return existingUser
@@ -54,8 +51,18 @@ export class UserService {
         user.id = userInstance.sub;
         user.name = userInstance.preferred_username;
 
+        return this.save(user);
+    }
+
+    /**
+     * Save an user entity.
+     * @param user Entity data to be saved
+     * @returns User
+     */
+    public async save(user: User): Promise<User> {
         return this.repository.save(user).then((result) => {
-            return this.syncWithMeili(result);
+            this.sync([result]);
+            return result;
         });
     }
 
@@ -65,13 +72,16 @@ export class UserService {
      * @param flag Updated sync flag
      * @returns User
      */
-    public async setSyncFlag(idOrObject: string | User, flag: SyncFlag): Promise<User> {
-        const user = await this.resolveUser(idOrObject);
-        if(!user) return null;
+    public async setSyncFlags(resources: User[], flag: SyncFlag) {
+        const ids = resources.map((user) => user.id);
 
-        user.lastSyncedAt = new Date();
-        user.lastSyncFlag = flag;
-        return this.repository.save(user);
+        return this.repository.createQueryBuilder()
+            .update({
+                lastSyncedAt: new Date(),
+                lastSyncFlag: flag
+            })
+            .where({ id: In(ids) })
+            .execute();
     }
 
     /**
@@ -89,14 +99,14 @@ export class UserService {
 
     /**
      * Synchronize the corresponding document on meilisearch.
-     * @param user User data
+     * @param resources User data
      * @returns User
      */
-    private async syncWithMeili(user: User) {
-        return this.meiliClient.setUser(user).then(() => {
-            return this.setSyncFlag(user, SyncFlag.OK);
+    public async sync(resources: User[]) {
+        return this.meiliClient.setUsers(resources).then(() => {
+            return this.setSyncFlags(resources, SyncFlag.OK);
         }).catch(() => {
-            return this.setSyncFlag(user, SyncFlag.ERROR);
+            return this.setSyncFlags(resources, SyncFlag.ERROR);
         });
     }
 

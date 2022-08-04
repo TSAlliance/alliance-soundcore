@@ -37,15 +37,13 @@ export abstract class MeiliService<T = any> {
     /**
      * Sync a document or multiple documents with meilisearch
      * search engine.
-     * @param {T} document Document(s) to sync. 
+     * @param {T} documents Documents to sync. 
      * @param {number} timeOutMs (Optional) Timeout when waiting for task to finish
      * @returns {Task} Task
      */
-    public async sync(document: T | T[], timeOutMs: number = MEILI_DEFAULT_TIMEOUT_MS): Promise<Task> {
-        const docs = Array.isArray(document) ? document : [ document ];
-
+    protected async sync(documents: T[], timeOutMs: number = MEILI_DEFAULT_TIMEOUT_MS): Promise<Task> {
         return this.index().then((index) => {
-            return index.addDocuments(docs).then((enqueuedTask) => {
+            return index.addDocuments(documents).then((enqueuedTask) => {
                 return this.client().waitForTask(enqueuedTask.taskUid, {
                     timeOutMs,
                     intervalMs: MEILI_DEFAULT_INTERVAL_MS

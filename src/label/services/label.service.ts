@@ -1,6 +1,6 @@
 import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Artwork } from '../../artwork/entities/artwork.entity';
 import { RedlockError } from '../../exceptions/redlock.exception';
 import { SyncFlag } from '../../meilisearch/interfaces/syncable.interface';
@@ -55,7 +55,7 @@ export class LabelService extends RedisLockableService {
      */
     public async save(label: Label): Promise<Label> {
         return this.repository.save(label).then((result) => {
-            this.sync(result);
+            this.sync([result]);
             return result;
         });
     }
@@ -156,25 +156,28 @@ export class LabelService extends RedisLockableService {
      * @param flag Updated sync flag
      * @returns Label
      */
-    private async setSyncFlag(idOrObject: string | Label, flag: SyncFlag): Promise<Label> {
-        const resource = await this.resolveLabel(idOrObject);
-        if(!resource) return null;
+    private async setSyncFlags(resources: Label[], flag: SyncFlag) {
+        const ids = resources.map((user) => user.id);
 
-        resource.lastSyncedAt = new Date();
-        resource.lastSyncFlag = flag;
-        return this.repository.save(resource);
+        return this.repository.createQueryBuilder()
+            .update({
+                lastSyncedAt: new Date(),
+                lastSyncFlag: flag
+            })
+            .where({ id: In(ids) })
+            .execute();
     }
 
     /**
      * Synchronize the corresponding document on meilisearch.
-     * @param resource Label data
+     * @param resources Label data
      * @returns Label
      */
-    private async sync(resource: Label) {
-        return this.meiliClient.setLabel(resource).then(() => {
-            return this.setSyncFlag(resource, SyncFlag.OK);
+    private async sync(resources: Label[]) {
+        return this.meiliClient.setLabels(resources).then(() => {
+            return this.setSyncFlags(resources, SyncFlag.OK);
         }).catch(() => {
-            return this.setSyncFlag(resource, SyncFlag.ERROR);
+            return this.setSyncFlags(resources, SyncFlag.ERROR);
         });
     }
 

@@ -17,13 +17,13 @@ export class MeiliAlbumService extends MeiliService<MeiliAlbum> {
     }
 
     /**
-     * Add or update artist document in meilisearch instance.
-     * @param {Album} artist Artist data
+     * Add or update album document in meilisearch instance.
+     * @param {Album} albums Album data
      * @param {number} timeOutMs (Optional) Timeout for checking task completion
      * @returns {Task} Task
      */
-    public async setAlbum(album: Album, timeOutMs?: number): Promise<Task> {
-        return this.sync({
+    public async setAlbums(albums: Album[], timeOutMs?: number): Promise<Task> {
+        return this.sync(albums.map((album) => ({
             id: album.id,
             name: album.name,
             slug: album.slug,
@@ -38,7 +38,7 @@ export class MeiliAlbumService extends MeiliService<MeiliAlbum> {
                 resourceType: album.primaryArtist.resourceType,
                 slug: album.primaryArtist.slug
             }
-        }, timeOutMs);
+        })), timeOutMs);
     }
 
     /**

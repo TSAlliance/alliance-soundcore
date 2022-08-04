@@ -297,7 +297,7 @@ export class AlbumService extends RedisLockableService {
     private async setSyncFlags(albums: Album[], flag: SyncFlag) {
         const ids = albums.map((album) => album.id);
 
-        return this.repository.createQueryBuilder("album")
+        return this.repository.createQueryBuilder()
             .update({
                 lastSyncedAt: new Date(),
                 lastSyncFlag: flag

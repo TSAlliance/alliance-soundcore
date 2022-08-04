@@ -18,19 +18,19 @@ export class MeiliUserService extends MeiliService<MeiliUser> {
 
     /**
      * Add or update user document in meilisearch instance.
-     * @param {User} user User data
+     * @param {User} users User data
      * @param {number} timeOutMs (Optional) Timeout for checking task completion
      * @returns {Task} Task
      */
-    public async setUser(user: User, timeOutMs?: number): Promise<Task> {
-        return this.sync({
+    public async setUsers(users: User[], timeOutMs?: number): Promise<Task> {
+        return this.sync(users.map((user) => ({
             id: user.id,
             name: user.name,
             slug: user.slug,
             resourceType: user.resourceType,
             artwork: user.artwork ? new MeiliArtwork(user.artwork.id) : null,
             accentColor: user.accentColor
-        }, timeOutMs);
+        })), timeOutMs);
     }
 
     /**

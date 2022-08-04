@@ -21,12 +21,12 @@ export class MeiliPlaylistService extends MeiliService<MeiliPlaylist> {
 
     /**
      * Add or update playlist document in meilisearch instance.
-     * @param {Playlist} playlist Playlist data
+     * @param {Playlist} playlists Playlist data
      * @param {number} timeOutMs (Optional) Timeout for checking task completion
      * @returns {Task} Task
      */
-    public async setPlaylist(playlist: Playlist, timeOutMs?: number): Promise<Task> {
-        return this.sync({
+    public async setPlaylists(playlists: Playlist[], timeOutMs?: number): Promise<Task> {
+        return this.sync(playlists.map((playlist) => ({
             id: playlist.id,
             name: playlist.name,
             slug: playlist.slug,
@@ -44,7 +44,7 @@ export class MeiliPlaylistService extends MeiliService<MeiliPlaylist> {
                 resourceType: playlist.author.resourceType,
                 artwork: playlist.author.artwork ? new MeiliArtwork(playlist.author.artwork?.id) : null
             }
-        }, timeOutMs);
+        })), timeOutMs);
     }
 
     /**

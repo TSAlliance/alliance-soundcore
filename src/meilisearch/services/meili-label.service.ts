@@ -18,18 +18,18 @@ export class MeiliLabelService extends MeiliService<MeiliLabel> {
 
     /**
      * Add or update label document in meilisearch instance.
-     * @param {Label} label Label data
+     * @param {Label[]} labels Label data
      * @param {number} timeOutMs (Optional) Timeout for checking task completion
      * @returns {Task} Task
      */
-    public async setLabel(label: Label, timeOutMs?: number): Promise<Task> {
-        return this.sync({
+    public async setLabels(labels: Label[], timeOutMs?: number): Promise<Task> {
+        return this.sync(labels.map((label) => ({
             id: label.id,
             name: label.name,
             slug: label.slug,
             resourceType: label.resourceType,
             artwork: label.artwork ? new MeiliArtwork(label.artwork?.id) : null
-        }, timeOutMs);
+        })), timeOutMs);
     }
 
     /**

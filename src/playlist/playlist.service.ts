@@ -1,7 +1,8 @@
 import { BadRequestException, ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
-import { Not, Repository, SelectQueryBuilder } from 'typeorm';
+import { In, Not, Repository, SelectQueryBuilder } from 'typeorm';
+import { SyncFlag } from '../meilisearch/interfaces/syncable.interface';
 import { MeiliPlaylistService } from '../meilisearch/services/meili-playlist.service';
 import { Song } from '../song/entities/song.entity';
 import { SongService } from '../song/song.service';
@@ -206,6 +207,18 @@ export class PlaylistService {
     }
 
     /**
+     * Save a playlist entity.
+     * @param playlist Entity data to be saved
+     * @returns Playlist
+     */
+    public async save(playlist: Playlist): Promise<Playlist> {
+        return this.playlistRepository.save(playlist).then((result) => {
+            this.sync([result]);
+            return result;
+        });
+    }
+
+    /**
      * Create new playlist. This fails with 
      * @param createPlaylistDto Playlist metadata
      * @param author Author entity (User)
@@ -221,24 +234,7 @@ export class PlaylistService {
         playlist.description = createPlaylistDto.description;
         playlist.privacy = createPlaylistDto.privacy;
 
-        // Create queryrunner and start transaction
-        const queryrunner = this.playlistRepository.manager.connection.createQueryRunner();
-        await queryrunner.startTransaction();
-
-        try {
-            // Save playlist to database
-            const result = await queryrunner.manager.save(playlist);
-            // Sync database entry with meilisearch
-            await this.meiliClient.setPlaylist(result);
-            // Commit transaction
-            await queryrunner.commitTransaction();
-            return result;
-        } catch (error) {
-            // Failed synching with meilisearch or db entry
-            // creation failed. Rollback to previous state
-            await queryrunner.rollbackTransaction();
-            throw new InternalServerErrorException("Failed creating playlist.");
-        }
+        return this.save(playlist);
     }
 
     public async update(playlistId: string, updatePlaylistDto: UpdatePlaylistDTO, authentication: User): Promise<Playlist> {
@@ -252,24 +248,7 @@ export class PlaylistService {
         playlist.privacy = updatePlaylistDto.privacy || playlist.privacy;
         playlist.description = updatePlaylistDto.description || playlist.description;
 
-        // Create queryrunner and start transaction
-        const queryrunner = this.playlistRepository.manager.connection.createQueryRunner();
-        await queryrunner.startTransaction();
-
-        try {
-            // Save playlist to database
-            const result = await queryrunner.manager.save(playlist);
-            // Sync database entry with meilisearch
-            await this.meiliClient.setPlaylist(result).then(() => result);
-            // Commit transaction
-            await queryrunner.commitTransaction();
-            return result;
-        } catch (error) {
-            // Failed synching with meilisearch or db entry
-            // creation failed. Rollback to previous state
-            await queryrunner.rollbackTransaction();
-            throw new InternalServerErrorException("Failed creating playlist.");
-        }
+        return this.save(playlist);
     }
 
     /**
@@ -365,41 +344,34 @@ export class PlaylistService {
     }
 
     /**
-     * Execute search query for a song. This looks up songs that match the query.
-     * The search includes looking for songs with a specific artist's name.
-     * @param query Query string
-     * @param pageable Page settings
-     * @returns Page<Song>
+     * Update the sync flag of a playlist.
+     * @param resources Id or object of the playlist
+     * @param flag Updated sync flag
+     * @returns Playlist
      */
-     public async findBySearchQuery(query: string, pageable: Pageable, authentication?: User): Promise<Page<Playlist>> {
-        if(!query || query == "") {
-            query = "%"
-        } else {
-            query = `%${query.replace(/\s/g, '%')}%`;
-        }
+     private async setSyncFlags(resources: Playlist[], flag: SyncFlag) {
+        const ids = resources.map((user) => user.id);
 
-        // Find song by title or if the artist has similar name
-        let qb = await this.playlistRepository.createQueryBuilder("playlist")
-            .leftJoin("playlist.author", "author")
-            .leftJoin("playlist.artwork", "artwork")
-            .leftJoin("playlist.collaborators", "collaborator")
+        return this.playlistRepository.createQueryBuilder()
+            .update({
+                lastSyncedAt: new Date(),
+                lastSyncFlag: flag
+            })
+            .where({ id: In(ids) })
+            .execute();
+    }
 
-            // Pagination
-            .limit(pageable?.size || 10)
-            .offset((pageable?.size || 10) * (pageable?.page || 0))
-
-            // Count how many likes. This takes user's id in count
-            .loadRelationCountAndMap("playlist.liked", "playlist.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication.id }))
-
-            .addSelect(["author.id", "author.name", "author.slug", "artwork.id", "artwork.accentColor"])
-            .where("playlist.title LIKE :query AND (author.id = :userId OR collaborator.id = :userId OR playlist.privacy = :privacy)", { query, privacy: PlaylistPrivacy.PUBLIC, userId: authentication.id })
-
-        if(query == "%") {
-            qb = qb.orderBy("rand()");
-        }
-
-        const result = await qb.getManyAndCount();
-        return Page.of(result[0], result[1], pageable.page);
+    /**
+     * Synchronize the corresponding document on meilisearch.
+     * @param resource Playlist data
+     * @returns Playlist
+     */
+    public async sync(resources: Playlist[]) {
+        return this.meiliClient.setPlaylists(resources).then(() => {
+            return this.setSyncFlags(resources, SyncFlag.OK);
+        }).catch(() => {
+            return this.setSyncFlags(resources, SyncFlag.ERROR);
+        });
     }
 
     /**

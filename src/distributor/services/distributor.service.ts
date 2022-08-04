@@ -1,6 +1,6 @@
 import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Artwork } from '../../artwork/entities/artwork.entity';
 import { RedlockError } from '../../exceptions/redlock.exception';
 import { SyncFlag } from '../../meilisearch/interfaces/syncable.interface';
@@ -55,7 +55,7 @@ export class DistributorService extends RedisLockableService {
      */
     public async save(distributor: Distributor): Promise<Distributor> {
         return this.repository.save(distributor).then((result) => {
-            this.sync(result);
+            this.sync([result]);
             return result;
         });
     }
@@ -152,29 +152,32 @@ export class DistributorService extends RedisLockableService {
 
     /**
      * Update the sync flag of a distributor.
-     * @param idOrObject Id or object of the distributor
+     * @param resources Id or object of the distributor
      * @param flag Updated sync flag
-     * @returns Distributor
+     * @returns UpdateResult
      */
-    private async setSyncFlag(idOrObject: string | Distributor, flag: SyncFlag): Promise<Distributor> {
-        const resource = await this.resolveDistributor(idOrObject);
-        if(!resource) return null;
+    private async setSyncFlags(resources: Distributor[], flag: SyncFlag) {
+        const ids = resources.map((user) => user.id);
 
-        resource.lastSyncedAt = new Date();
-        resource.lastSyncFlag = flag;
-        return this.repository.save(resource);
+        return this.repository.createQueryBuilder()
+            .update({
+                lastSyncedAt: new Date(),
+                lastSyncFlag: flag
+            })
+            .where({ id: In(ids) })
+            .execute();
     }
 
     /**
      * Synchronize the corresponding document on meilisearch.
-     * @param resource Distributor data
-     * @returns Distributor
+     * @param resources Distributor data
+     * @returns UpdateResult
      */
-    private async sync(resource: Distributor) {
-        return this.meiliClient.setDistributor(resource).then(() => {
-            return this.setSyncFlag(resource, SyncFlag.OK);
+    private async sync(resources: Distributor[]) {
+        return this.meiliClient.setDistributors(resources).then(() => {
+            return this.setSyncFlags(resources, SyncFlag.OK);
         }).catch(() => {
-            return this.setSyncFlag(resource, SyncFlag.ERROR);
+            return this.setSyncFlags(resources, SyncFlag.ERROR);
         });
     }
 

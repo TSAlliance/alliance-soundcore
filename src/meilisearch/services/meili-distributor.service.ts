@@ -18,18 +18,18 @@ export class MeiliDistributorService extends MeiliService<MeiliDistributor> {
 
     /**
      * Add or update distributor document in meilisearch instance.
-     * @param {Distributor} distributor Distributor data
+     * @param {Distributor} distributors Distributor data
      * @param {number} timeOutMs (Optional) Timeout for checking task completion
      * @returns {Task} Task
      */
-    public async setDistributor(distributor: Distributor, timeOutMs?: number): Promise<Task> {
-        return this.sync({
+    public async setDistributors(distributors: Distributor[], timeOutMs?: number): Promise<Task> {
+        return this.sync(distributors.map((distributor) => ({
             id: distributor.id,
             name: distributor.name,
             slug: distributor.slug,
             resourceType: distributor.resourceType,
             artwork: distributor.artwork ? new MeiliArtwork(distributor.artwork?.id) : null
-        }, timeOutMs);
+        })), timeOutMs);
     }
 
     /**

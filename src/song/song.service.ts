@@ -18,7 +18,7 @@ import path from "path";
 
 import { FileFlag } from "../file/entities/file.entity";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { In, Repository } from "typeorm";
 import { MeiliSongService } from "../meilisearch/services/meili-song.service";
 import { SyncFlag } from "../meilisearch/interfaces/syncable.interface";
 import { CreateResult } from "../utils/results/creation.result";
@@ -227,7 +227,7 @@ export class SongService extends RedisLockableService {
      */
     public async save(song: Song): Promise<Song> {
         return this.repository.save(song).then((result) => {
-            this.sync(result);
+            this.sync([result]);
             return result;
         });
     }
@@ -330,13 +330,16 @@ export class SongService extends RedisLockableService {
      * @param flag Updated sync flag
      * @returns Song
      */
-     private async setSyncFlag(idOrObject: string | Song, flag: SyncFlag): Promise<Song> {
-        const resource = await this.resolveSong(idOrObject);
-        if(!resource) return null;
+     private async setSyncFlags(resources: Song[], flag: SyncFlag) {
+        const ids = resources.map((user) => user.id);
 
-        resource.lastSyncedAt = new Date();
-        resource.lastSyncFlag = flag;
-        return this.repository.save(resource);
+        return this.repository.createQueryBuilder()
+            .update({
+                lastSyncedAt: new Date(),
+                lastSyncFlag: flag
+            })
+            .where({ id: In(ids) })
+            .execute();
     }
 
     /**
@@ -344,11 +347,11 @@ export class SongService extends RedisLockableService {
      * @param resource Song data
      * @returns Song
      */
-    private async sync(resource: Song) {
-        return this.meiliSong.setSong(resource).then(() => {
-            return this.setSyncFlag(resource, SyncFlag.OK);
+    public async sync(resources: Song[]) {
+        return this.meiliSong.setSongs(resources).then(() => {
+            return this.setSyncFlags(resources, SyncFlag.OK);
         }).catch(() => {
-            return this.setSyncFlag(resource, SyncFlag.ERROR);
+            return this.setSyncFlags(resources, SyncFlag.ERROR);
         });
     }
 

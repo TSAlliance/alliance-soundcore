@@ -239,7 +239,7 @@ export class ArtistService extends RedisLockableService {
     private async setSyncFlags(artists: Artist[], flag: SyncFlag) {
         const ids = artists.map((artist) => artist.id);
 
-        return this.repository.createQueryBuilder("artist")
+        return this.repository.createQueryBuilder()
             .update({
                 lastSyncedAt: new Date(),
                 lastSyncFlag: flag

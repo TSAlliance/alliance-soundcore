@@ -1,6 +1,6 @@
 import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Artwork } from '../../artwork/entities/artwork.entity';
 import { RedlockError } from '../../exceptions/redlock.exception';
 import { SyncFlag } from '../../meilisearch/interfaces/syncable.interface';
@@ -55,7 +55,7 @@ export class PublisherService extends RedisLockableService {
      */
     public async save(publisher: Publisher): Promise<Publisher> {
         return this.repository.save(publisher).then((result) => {
-            this.sync(result);
+            this.sync([result]);
             return result;
         });
     }
@@ -152,17 +152,20 @@ export class PublisherService extends RedisLockableService {
 
     /**
      * Update the sync flag of a publisher.
-     * @param idOrObject Id or object of the publisher
+     * @param resources Id or object of the publisher
      * @param flag Updated sync flag
      * @returns Publisher
      */
-     private async setSyncFlag(idOrObject: string | Publisher, flag: SyncFlag): Promise<Publisher> {
-        const resource = await this.resolvePublisher(idOrObject);
-        if(!resource) return null;
+    private async setSyncFlags(resources: Publisher[], flag: SyncFlag) {
+        const ids = resources.map((user) => user.id);
 
-        resource.lastSyncedAt = new Date();
-        resource.lastSyncFlag = flag;
-        return this.repository.save(resource);
+        return this.repository.createQueryBuilder()
+            .update({
+                lastSyncedAt: new Date(),
+                lastSyncFlag: flag
+            })
+            .where({ id: In(ids) })
+            .execute();
     }
 
     /**
@@ -170,11 +173,11 @@ export class PublisherService extends RedisLockableService {
      * @param resource Publisher data
      * @returns Publisher
      */
-    private async sync(resource: Publisher) {
-        return this.meiliClient.setPublisher(resource).then(() => {
-            return this.setSyncFlag(resource, SyncFlag.OK);
+    public async sync(resources: Publisher[]) {
+        return this.meiliClient.setPublishers(resources).then(() => {
+            return this.setSyncFlags(resources, SyncFlag.OK);
         }).catch(() => {
-            return this.setSyncFlag(resource, SyncFlag.ERROR);
+            return this.setSyncFlags(resources, SyncFlag.ERROR);
         });
     }
 
