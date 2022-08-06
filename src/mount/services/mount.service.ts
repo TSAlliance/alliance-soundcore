@@ -16,6 +16,7 @@ import { CreateResult } from '../../utils/results/creation.result';
 import { RedisLockableService } from '../../utils/services/redis-lockable.service';
 import { RedlockError } from '../../exceptions/redlock.exception';
 import { FileSystemService } from '../../filesystem/services/filesystem.service';
+import { escape } from 'sqlstring';
 
 @Injectable()
 export class MountService extends RedisLockableService {
@@ -167,6 +168,7 @@ export class MountService extends RedisLockableService {
      * @returns Mount
      */
     public async createIfNotExists(createMountDto: CreateMountDTO): Promise<CreateResult<Mount>> {
+        createMountDto.name = escape(createMountDto.name?.trim());
         createMountDto.directory = this.fileSystem.resolveMountDirectory(createMountDto.directory);
         const directory = createMountDto.directory
 
@@ -196,6 +198,7 @@ export class MountService extends RedisLockableService {
      * @returns Mount
      */
     public async update(mountId: string, updateMountDto: UpdateMountDTO): Promise<Mount> {
+        updateMountDto.name = escape(updateMountDto.name?.trim());
         const mount = await this.findById(mountId);
 
         if(!mount || !mount.bucket) {

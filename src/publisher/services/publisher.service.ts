@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
+import { escape } from 'sqlstring';
 import { In, Repository } from 'typeorm';
 import { Artwork } from '../../artwork/entities/artwork.entity';
 import { SyncFlag } from '../../meilisearch/interfaces/syncable.interface';
@@ -80,8 +81,8 @@ export class PublisherService {
      * @returns Publisher
      */
     public async createIfNotExists(createPublisherDto: CreatePublisherDTO): Promise<CreateResult<Publisher>> {
-        createPublisherDto.name = createPublisherDto.name?.replace(/^[ ]+|[ ]+$/g,'')?.trim();
-        createPublisherDto.description = createPublisherDto.description?.trim();
+        createPublisherDto.name = escape(createPublisherDto.name?.trim());
+        createPublisherDto.description = escape(createPublisherDto.description?.trim());
 
         const existingPublisher = await this.findByName(createPublisherDto.name);
         if(existingPublisher) return new CreateResult(existingPublisher, true); 
@@ -113,8 +114,8 @@ export class PublisherService {
      * @returns Publisher
      */
     public async update(publisherId: string, updatePublisherDto: UpdatePublisherDTO): Promise<Publisher> {
-        updatePublisherDto.name = updatePublisherDto.name?.replace(/^[ ]+|[ ]+$/g,'')?.trim();
-        updatePublisherDto.description = updatePublisherDto.description?.trim();
+        updatePublisherDto.name = escape(updatePublisherDto.name?.trim());
+        updatePublisherDto.description = escape(updatePublisherDto.description?.trim());
 
         const publisher = await this.findById(publisherId);
         if(!publisher) throw new NotFoundException("Publisher not found.");

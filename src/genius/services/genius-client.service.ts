@@ -365,7 +365,7 @@ export class GeniusClientService {
             const genreResult: Genre = await this.genreService.createIfNotExists({
                 name: resource.name,
                 description: null
-            }, true).then((result) => {
+            }).then((result) => {
                 return result.data;
             }).catch((error) => {
                 // In case of error just skip this publisher

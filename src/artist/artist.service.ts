@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
+import { escape } from 'sqlstring';
 import { In, Repository, SelectQueryBuilder } from 'typeorm';
 import { SyncFlag } from '../meilisearch/interfaces/syncable.interface';
 import { MeiliArtistService } from '../meilisearch/services/meili-artist.service';
@@ -115,8 +116,8 @@ export class ArtistService {
      * @returns Artist
      */
     public async createIfNotExists(createArtistDto: CreateArtistDTO): Promise<CreateResult<Artist>> {
-        createArtistDto.name = createArtistDto.name?.trim();
-        createArtistDto.description = createArtistDto.description?.trim();
+        createArtistDto.name = escape(createArtistDto.name?.trim());
+        createArtistDto.description = escape(createArtistDto.description?.trim());
 
         const existingArtist = await this.findByName(createArtistDto.name);
         if(existingArtist) return new CreateResult(existingArtist, true); 
@@ -148,8 +149,8 @@ export class ArtistService {
      * @returns Artist
      */
     public async updateArtist(artistId: string, updateArtistDto: UpdateArtistDTO): Promise<Artist> {
-        updateArtistDto.name = updateArtistDto.name?.trim();
-        updateArtistDto.description = updateArtistDto.description?.trim();
+        updateArtistDto.name = escape(updateArtistDto.name?.trim());
+        updateArtistDto.description = escape(updateArtistDto.description?.trim());
 
         const artist = await this.findById(artistId);
         if(!artist) throw new NotFoundException("Artist not found.");

@@ -1,23 +1,20 @@
-import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
+import { escape } from 'sqlstring';
 import { Repository, SelectQueryBuilder } from 'typeorm';
-import { RedlockError } from '../../exceptions/redlock.exception';
 import { CreateResult } from '../../utils/results/creation.result';
-import { RedisLockableService } from '../../utils/services/redis-lockable.service';
 import { CreateGenreDTO } from '../dtos/create-genre.dto';
 import { UpdateGenreDTO } from '../dtos/update-genre.dto';
 import { Genre } from '../entities/genre.entity';
 
 @Injectable()
-export class GenreService extends RedisLockableService {
+export class GenreService {
     private readonly logger: Logger = new Logger(GenreService.name)
 
     constructor(
         @InjectRepository(Genre) private readonly repository: Repository<Genre>
-    ) {
-        super();
-    }
+    ) {}
 
     /**
      * Find a page of genres
@@ -83,29 +80,31 @@ export class GenreService extends RedisLockableService {
      * @param createGenreDto Genre data to create
      * @returns Genre
      */
-     public async createIfNotExists(createGenreDto: CreateGenreDTO, waitForLock = false): Promise<CreateResult<Genre>> {
-        createGenreDto.name = createGenreDto.name.trim();
-        createGenreDto.description = createGenreDto.description?.trim();
+     public async createIfNotExists(createGenreDto: CreateGenreDTO): Promise<CreateResult<Genre>> {
+        createGenreDto.name = escape(createGenreDto.name.trim());
+        createGenreDto.description = escape(createGenreDto.description?.trim());
 
-        // Acquire lock
-        return this.lock(createGenreDto.name, (signal) => {
-            // Check if genre with name already exists
-            return this.findByName(createGenreDto.name).then((existingGenre) => {
-                if(existingGenre) return { data: existingGenre, existed: true };
-                if(signal.aborted) throw new RedlockError();
+        const existingGenre = await this.findByName(createGenreDto.name);
+        if(existingGenre) return new CreateResult(existingGenre, true); 
 
-                // Update genre
-                const genre = new Genre();
-                genre.name = createGenreDto.name;
-                genre.geniusId = createGenreDto.geniusId;
-                genre.description = createGenreDto.description;
-                
-                return this.repository.save(genre).then((result) => ({ data: result, existed: false }));
-            });
-        }, waitForLock).catch((error: Error) => {
-            this.logger.error(`Failed creating genre: ${error.message}`, error.stack);
-            throw new InternalServerErrorException();
-        });
+        const genre = this.repository.create();
+        genre.name = createGenreDto.name;
+        genre.geniusId = createGenreDto.geniusId;
+        genre.description = createGenreDto.description;
+
+        return this.repository.createQueryBuilder()
+            .insert()
+            .values(genre)
+            .orIgnore()
+            .execute().then((result) => {
+                if(result.identifiers.length > 0) {
+                    return new CreateResult(genre, false);
+                }
+                return this.findByName(createGenreDto.name).then((genre) => new CreateResult(genre, true));
+            }).catch((error) => {
+                this.logger.error(`Could not create database entry for genre: ${error.message}`, error.stack);
+                return null
+            })
     }
 
     /**
@@ -115,19 +114,16 @@ export class GenreService extends RedisLockableService {
      * @returns Genre
      */
     public async update(genreId: string, updateGenreDto: UpdateGenreDTO): Promise<Genre> {
-        updateGenreDto.name = updateGenreDto.name.trim();
-        updateGenreDto.description = updateGenreDto.description?.trim();
+        updateGenreDto.name = escape(updateGenreDto.name.trim());
+        updateGenreDto.description = escape(updateGenreDto.description?.trim());
 
         const genre = await this.findById(genreId);
         if(!genre) throw new NotFoundException("Genre not found.");
 
-        return this.lock(genre.name, () => {
-            genre.name = updateGenreDto.name;
-            genre.geniusId = updateGenreDto.geniusId;
-            genre.description = updateGenreDto.description;
-
-            return this.repository.save(genre);
-        });
+        genre.name = updateGenreDto.name;
+        genre.geniusId = updateGenreDto.geniusId;
+        genre.description = updateGenreDto.description;
+        return this.repository.save(genre);
     }
 
     private buildGeneralQuery(alias: string): SelectQueryBuilder<Genre> {

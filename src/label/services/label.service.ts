@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
+import { escape } from 'sqlstring';
 import { In, Repository } from 'typeorm';
 import { Artwork } from '../../artwork/entities/artwork.entity';
 import { SyncFlag } from '../../meilisearch/interfaces/syncable.interface';
@@ -80,8 +81,8 @@ export class LabelService {
      * @returns Label
      */
     public async createIfNotExists(createLabelDto: CreateLabelDTO): Promise<CreateResult<Label>> {
-        createLabelDto.name = createLabelDto.name?.trim();
-        createLabelDto.description = createLabelDto.description?.trim();
+        createLabelDto.name = escape(createLabelDto.name?.trim());
+        createLabelDto.description = escape(createLabelDto.description?.trim());
 
         const existingLabel = await this.findByName(createLabelDto.name);
         if(existingLabel) return new CreateResult(existingLabel, true); 
@@ -113,8 +114,8 @@ export class LabelService {
      * @returns Label
      */
     public async update(labelId: string, updateLabelDto: UpdateLabelDTO): Promise<Label> {
-        updateLabelDto.name = updateLabelDto.name?.trim();
-        updateLabelDto.description = updateLabelDto.description?.trim();
+        updateLabelDto.name = escape(updateLabelDto.name?.trim());
+        updateLabelDto.description = escape(updateLabelDto.description?.trim());
 
         const label = await this.findById(labelId);
         if(!label) throw new NotFoundException("Label not found.");

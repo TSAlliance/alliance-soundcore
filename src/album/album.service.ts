@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
+import { escape } from 'sqlstring';
 import { In, Repository, SelectQueryBuilder } from 'typeorm';
 import { Artist } from '../artist/entities/artist.entity';
 import { EVENT_ALBUM_CHANGED } from '../constants';
@@ -190,8 +191,8 @@ export class AlbumService {
      * @returns Album
      */
     public async createIfNotExists(createAlbumDto: CreateAlbumDTO): Promise<CreateResult<Album>> {
-        createAlbumDto.name = createAlbumDto.name?.trim();
-        createAlbumDto.description = createAlbumDto.description?.trim();
+        createAlbumDto.name = escape(createAlbumDto.name?.trim());
+        createAlbumDto.description = escape(createAlbumDto.description?.trim());
         if(!createAlbumDto.primaryArtist) throw new BadRequestException("Creating album without primary artist is not allowed.");
 
         const existingAlbum = await this.findByNameAndArtist(createAlbumDto.name, createAlbumDto.primaryArtist);
@@ -225,8 +226,8 @@ export class AlbumService {
      * @returns Album
      */
     public async update(albumId: string, updateAlbumDto: UpdateAlbumDTO): Promise<Album> {
-        updateAlbumDto.name = updateAlbumDto.name.trim();
-        updateAlbumDto.description = updateAlbumDto.description?.trim();
+        updateAlbumDto.name = escape(updateAlbumDto.name?.trim());
+        updateAlbumDto.description = escape(updateAlbumDto.description?.trim());
         if(!updateAlbumDto.primaryArtist) throw new BadRequestException("Creating album without primary artist is not allowed.");
 
         const album = await this.resolveAlbum(albumId);
