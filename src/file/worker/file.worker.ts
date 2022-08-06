@@ -29,20 +29,18 @@ export default function (job: Job<FileProcessDTO>, cb: DoneCallback) {
             logger.warn(`Could not get filesystem information for file '${filepath}': ${err.message}`);
         }
 
-        logger.verbose(`Started processing file '${filepath}'`);
-
         DBWorker.instance().then((worker) => {
             worker.establishConnection().then((dataSource) => {
                 const service = new FileService(dataSource.getRepository(File), new EventEmitter2(), null);
 
                 // TODO: Use ffprobe to check file codec_type = "audio" and codec_name = "mp3"
-        
                 service.findOrCreateFile(file).then((result) => {
                     if(result.existed && mode == FileProcessMode.SCAN) {
-                        logger.warn(`Worker received file that was scanned already and is now tried to be rescanned using a wrong processing mode (${mode} (SCAN), expected: ${FileProcessMode.RESCAN} (RESCAN)). This usually means, the previous step on scanning the directory did not filter out all existing files. A reason for this can be unusual file path names, that are incorrectly escaped by the underlying glob library. There is no fix available besides renaming the file's path and filtering out possible illegal characters.`)
+                        // logger.warn(`Worker received file that was scanned already and is now tried to be rescanned using a wrong processing mode (${mode} (SCAN), expected: ${FileProcessMode.RESCAN} (RESCAN)). This usually means, the previous step on scanning the directory did not filter out all existing files. A reason for this can be unusual file path names, that are incorrectly escaped by the underlying glob library. There is no fix available besides renaming the file's path and filtering out possible illegal characters.`)
                         reportError(job, null, cb);
                         return;
                     }
+                    logger.verbose(`Started processing file '${filepath}'`);
     
                     reportSuccess(startTime, job, result.data, cb);
                 }).catch((error) => {

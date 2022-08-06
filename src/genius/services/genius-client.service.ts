@@ -220,7 +220,7 @@ export class GeniusClientService {
                 name: resource.name,
                 description: resource.description_preview,
                 geniusId: resource.id
-            }, true).then((result) => {
+            }).then((result) => {
                 const label = result.data;
 
                 // Download image url to buffer
@@ -270,7 +270,7 @@ export class GeniusClientService {
                 name: resource.name,
                 description: resource.description_preview,
                 geniusId: resource.id
-            }, true).then((result) => {
+            }).then((result) => {
                 const distributor = result.data;
 
                 // Download image url to buffer
@@ -320,7 +320,7 @@ export class GeniusClientService {
                 name: resource.name,
                 description: resource.description_preview,
                 geniusId: resource.id
-            }, true).then((result) => {
+            }).then((result) => {
                 const publisher = result.data;
 
                 // Download image url to buffer

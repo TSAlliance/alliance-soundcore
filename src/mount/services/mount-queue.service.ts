@@ -38,7 +38,7 @@ export class MountQueueService extends BullQueueService<MountScanProcessDTO, Mou
             this.events.emit(EVENT_FILE_FOUND, file);
         }
 
-        this.logger.verbose(`Scanned mount ${job.data.mount.name}. Found ${result.report.totalFiles} files in total, of which ${result.report.newFiles} need to be processed.`);
+        this.logger.verbose(`Scanned mount ${job.data.mount.name}. Took ${result.timeMs}ms.`);
     }
 
     protected async onJobStalled(job: Job<MountScanProcessDTO>) {

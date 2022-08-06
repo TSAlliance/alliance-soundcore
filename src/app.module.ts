@@ -71,6 +71,8 @@ import { CronModule } from './cron/cron.module';
         host: process.env.REDIS_HOST,
         port: parseInt(process.env.REDIS_PORT),
         password: process.env.REDIS_AUTH_PASS,
+        maxRetriesPerRequest: null,
+        enableReadyCheck: false
       },
       defaultJobOptions: {
         removeOnFail: true,

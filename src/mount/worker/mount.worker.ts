@@ -8,7 +8,6 @@ import { FileDTO } from "../dtos/file.dto";
 import { MountScanProcessDTO } from "../dtos/mount-scan.dto";
 import { MountScanResultDTO } from "../dtos/scan-result.dto";
 import { File } from "../../file/entities/file.entity";
-import { MountScanReportDTO } from "../dtos/scan-report.dto";
 import { ProgressInfoDTO } from "./progress-info.dto";
 import { DBWorker } from "../../utils/workers/worker.util";
 
@@ -21,7 +20,6 @@ export const MOUNT_STEP_SCAN = "SCANNING";
 const MAX_STEPS = 3;
 
 export default function (job: Job<MountScanProcessDTO>, dc: DoneCallback) {
-    const startTime = new Date().getTime();
     const scan = job.data;
     const mount = scan?.mount;
     const pid = process.pid;    
@@ -49,7 +47,7 @@ export default function (job: Job<MountScanProcessDTO>, dc: DoneCallback) {
     
                         // Execute scan
                         scanMount(pid, job, existingFiles).then((result) => {
-                            reportSuccess(startTime, job, result, dc);
+                            reportSuccess(result, dc);
                         }).catch((error) => {
                             reportError(mount, error, dc);
                         })
@@ -121,7 +119,7 @@ function scanMount(pid: number, job: Job<MountScanProcessDTO>, exclude: File[]):
         // This will be triggered when matching process is done.
         globs.on("end", () => { 
             clearInterval(interval);                   
-            resolve(new MountScanResultDTO(files, new MountScanReportDTO(excludeList.length + files.length, files.length)));
+            resolve(new MountScanResultDTO(files, Date.now() - startTime));
         })
 
         // Listen for error event
@@ -154,14 +152,13 @@ async function preventStall(job: Job<MountScanProcessDTO>, progress?: ProgressIn
     return job.update(job.data);
 }
 
-function reportSuccess(startTime: number, job: Job<MountScanProcessDTO>, result: MountScanResultDTO, dc: DoneCallback) {
-    logger.log(`Scanned mount '${job.data.mount.name}'. Found ${result.report.totalFiles} files in total. ${result.report.newFiles} Files need to be processed. Took ${Date.now()-startTime}ms`);
+function reportSuccess(result: MountScanResultDTO, dc: DoneCallback) {
+    // logger.log(`Scanned mount '${job.data.mount.name}'. Found ${result.report.totalFiles} files in total. ${result.report.newFiles} Files need to be processed. Took ${Date.now()-startTime}ms`);
     dc(null, result);
 }
 
 function reportError(context: Mount, error: Error, dc: DoneCallback) {
-    logger.error(error.message, error.stack);
-    logger.error(`Failed scanning mount '${context.name}': ${error.message}`);
+    logger.error(`Failed scanning mount '${context.name}': ${error.message}`, error.stack);
     dc(error, []);
 }
   
