@@ -6,8 +6,6 @@ import sharp from "sharp";
 import path from "path";
 import Vibrant from "node-vibrant";
 import { Random, Slug } from "@tsalliance/utilities";
-import { RedisLockableService } from "../../utils/services/redis-lockable.service";
-import { RedlockError } from "../../exceptions/redlock.exception";
 import axios from "axios";
 import { DeleteResult, Repository } from "typeorm";
 import { Artist } from "../../artist/entities/artist.entity";
@@ -21,15 +19,13 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { FileSystemService } from "../../filesystem/services/filesystem.service";
 
 @Injectable()
-export class ArtworkService extends RedisLockableService {
+export class ArtworkService {
     private logger: Logger = new Logger(ArtworkService.name);
 
     constructor(
         @InjectRepository(Artwork) private readonly repository: Repository<Artwork>,
         private readonly fileSystem: FileSystemService
-    ) {
-        super()
-    }
+    ) { }
 
     /**
      * Find an artwork by its id.
@@ -62,31 +58,34 @@ export class ArtworkService extends RedisLockableService {
      * @param createArtworkDto Creation and Find options
      * @returns Artwork
      */
-    public async createIfNotExists(createArtworkDto: CreateArtworkDTO, waitForLock = false): Promise<Artwork> {
+    public async createIfNotExists(createArtworkDto: CreateArtworkDTO): Promise<Artwork> {
         createArtworkDto.name = `${Slug.format(createArtworkDto.name)}`;
 
-        return this.lock(createArtworkDto.name, async (signal) => {
-            const existingArtwork = await this.findByNameAndType(createArtworkDto.name, createArtworkDto.type);
-            if(existingArtwork) return existingArtwork;
-            if(signal.aborted) throw new RedlockError();
+        const existingArtwork = await this.findByNameAndType(createArtworkDto.name, createArtworkDto.type);
+        if(existingArtwork) return existingArtwork;
 
-            const artwork = new Artwork();
-            artwork.flag = ArtworkFlag.OK;
-            artwork.name = createArtworkDto.name;
-            artwork.type = createArtworkDto.type;
+        const artwork = this.repository.create();
+        artwork.flag = ArtworkFlag.OK;
+        artwork.name = createArtworkDto.name;
+        artwork.type = createArtworkDto.type;
 
-            return this.repository.save(artwork).then((result) => {
-                // If process has not specified a source to write from,
-                // then just return created artwork entity.
-                if(!createArtworkDto.fromSource) return result;
-
-                // Otherwise write to artwork
-                return this.writeFromBufferOrFile(createArtworkDto.fromSource, result);
+        return this.repository.createQueryBuilder()
+            .insert()
+            .values(artwork)
+            .orIgnore()
+            .execute().then((result) => {
+                if(result.identifiers.length > 0) {
+                    // If process has not specified a source to write from,
+                    // then just return created artwork entity.
+                    if(!createArtworkDto.fromSource) return artwork;
+                    // Otherwise write to artwork
+                    return this.writeFromBufferOrFile(createArtworkDto.fromSource, artwork);
+                }
+                return this.findByNameAndType(createArtworkDto.name, createArtworkDto.type).then((artwork) => artwork);
+            }).catch((error) => {
+                this.logger.error(`Could not create database entry for artwork: ${error.message}`, error.stack);
+                return null
             })
-        }, waitForLock).catch((error: Error) => {
-            this.logger.error(`Failed creating artwork: ${error.message}`, error.stack);
-            throw new InternalServerErrorException();
-        });
     }
 
     /**
@@ -98,7 +97,7 @@ export class ArtworkService extends RedisLockableService {
      * @returns Artwork
      */
     public async createForArtistIfNotExists(artist: Artist, waitForLock = false, fromSource?: string | Buffer): Promise<Artwork> {
-        return this.createIfNotExists({ name: artist.name, type: ArtworkType.ARTIST, fromSource }, waitForLock);
+        return this.createIfNotExists({ name: artist.name, type: ArtworkType.ARTIST, fromSource });
     }
 
     /**
@@ -110,7 +109,7 @@ export class ArtworkService extends RedisLockableService {
      * @returns Artwork
      */
     public async createForAlbumIfNotExists(album: Album, waitForLock = false, fromSource?: string | Buffer): Promise<Artwork> {
-        return this.createIfNotExists({ name: `${album.name} ${album.primaryArtist?.name || Random.randomString(8)}`, type: ArtworkType.ALBUM, fromSource }, waitForLock)
+        return this.createIfNotExists({ name: `${album.name} ${album.primaryArtist?.name || Random.randomString(8)}`, type: ArtworkType.ALBUM, fromSource })
     }
 
     /**
@@ -122,7 +121,7 @@ export class ArtworkService extends RedisLockableService {
      * @returns Artwork
      */
     public async createForLabelIfNotExists(label: Label, waitForLock = false, fromSource?: string | Buffer): Promise<Artwork> {
-        return this.createIfNotExists({ name: `${label.name}`, type: ArtworkType.LABEL, fromSource }, waitForLock)
+        return this.createIfNotExists({ name: `${label.name}`, type: ArtworkType.LABEL, fromSource })
     }
 
     /**
@@ -134,7 +133,7 @@ export class ArtworkService extends RedisLockableService {
      * @returns Artwork
      */
     public async createForDistributorIfNotExists(distributor: Distributor, waitForLock = false, fromSource?: string | Buffer): Promise<Artwork> {
-        return this.createIfNotExists({ name: `${distributor.name}`, type: ArtworkType.DISTRIBUTOR, fromSource }, waitForLock)
+        return this.createIfNotExists({ name: `${distributor.name}`, type: ArtworkType.DISTRIBUTOR, fromSource })
     }
 
     /**
@@ -146,7 +145,7 @@ export class ArtworkService extends RedisLockableService {
      * @returns Artwork
      */
      public async createForPublisherIfNotExists(publisher: Publisher, waitForLock = false, fromSource?: string | Buffer): Promise<Artwork> {
-        return this.createIfNotExists({ name: `${publisher.name}`, type: ArtworkType.PUBLISHER, fromSource }, waitForLock)
+        return this.createIfNotExists({ name: `${publisher.name}`, type: ArtworkType.PUBLISHER, fromSource })
     }
 
     /**
@@ -160,7 +159,7 @@ export class ArtworkService extends RedisLockableService {
      public async createForSongIfNotExists(song: Song, waitForLock = false, fromSource?: string | Buffer): Promise<Artwork> {
         const primaryArtistName = song.primaryArtist?.name || Random.randomString(8);      
         const featuredArtistNames = song.featuredArtists.map((artist) => artist.name).join(" ") || "";
-        return this.createIfNotExists({ name: `${song.name} ${primaryArtistName} ${featuredArtistNames}`, type: ArtworkType.SONG, fromSource }, waitForLock)
+        return this.createIfNotExists({ name: `${song.name} ${primaryArtistName} ${featuredArtistNames}`, type: ArtworkType.SONG, fromSource })
     }
 
     /**

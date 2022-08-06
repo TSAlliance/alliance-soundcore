@@ -32,7 +32,6 @@ export class ArtworkColors {
 }
 
 @Entity()
-@Index(["name", "type"], { unique: true })
 export class Artwork {
     
     @PrimaryGeneratedColumn("uuid")
