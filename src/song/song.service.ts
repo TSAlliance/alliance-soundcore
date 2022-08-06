@@ -3,7 +3,7 @@ import NodeID3 from "node-id3";
 import ffprobe from 'ffprobe';
 import ffprobeStatic from "ffprobe-static";
 
-import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { CreateSongDTO } from './dtos/create-song.dto';
 import { Song } from './entities/song.entity';
 import { Page, Pageable } from 'nestjs-pager';
@@ -12,8 +12,6 @@ import { Artwork } from '../artwork/entities/artwork.entity';
 import { SongUniqueFindDTO } from "./dtos/unique-find.dto";
 import { GeniusFlag, ResourceFlag } from "../utils/entities/resource";
 import { ID3TagsDTO } from "./dtos/id3-tags.dto";
-import { RedisLockableService } from "../utils/services/redis-lockable.service";
-import { RedlockError } from "../exceptions/redlock.exception";
 import path from "path";
 
 import { FileFlag } from "../file/entities/file.entity";
@@ -24,15 +22,13 @@ import { SyncFlag } from "../meilisearch/interfaces/syncable.interface";
 import { CreateResult } from "../utils/results/creation.result";
 
 @Injectable()
-export class SongService extends RedisLockableService {
+export class SongService {
     private readonly logger: Logger = new Logger(SongService.name)
 
     constructor(
         @InjectRepository(Song) private readonly repository: Repository<Song>,
         private readonly meiliSong: MeiliSongService
-    ){
-        super();
-    }
+    ){}
 
     /**
      * Find page with the 20 latest indexed songs.
@@ -262,7 +258,7 @@ export class SongService extends RedisLockableService {
      * @param createSongDto Song data to be saved
      * @returns [Song, hasExistedBefore]
      */
-    public async createIfNotExists(createSongDto: CreateSongDTO, waitForLock = false): Promise<CreateResult<Song>> {
+    public async createIfNotExists(createSongDto: CreateSongDTO): Promise<CreateResult<Song>> {
         // Do some validation to be sure there is an existing value
         createSongDto.name = createSongDto.name.trim();
         createSongDto.duration = createSongDto.duration || 0;
@@ -277,32 +273,33 @@ export class SongService extends RedisLockableService {
             featuredArtists: createSongDto.featuredArtists
         }
 
-        const lockName = `${uniqueDto.name}_${uniqueDto.album?.name}_${uniqueDto.duration}_${uniqueDto.primaryArtist?.name}_${uniqueDto.featuredArtists.map((artist) => artist.name).join("-")}`;
+        // Execute find query.
+        const existingSong = await this.findUniqueSong(uniqueDto)
+        if(existingSong) return new CreateResult(existingSong, true);
 
-        return this.lock(lockName, async (signal) => {
-            // Execute find query.
-            const existingSong = await this.findUniqueSong(uniqueDto)
-            // If song already exists
-            if(existingSong) return new CreateResult(existingSong, true);
-            if(signal.aborted) throw new RedlockError();
+        const song = this.repository.create();
+        song.name = createSongDto.name;
+        song.primaryArtist = createSongDto.primaryArtist;
+        song.featuredArtists = createSongDto.featuredArtists;
+        song.album = createSongDto.album;
+        song.order = createSongDto.order;
+        song.duration = createSongDto.duration;
+        song.file = createSongDto.file;
+        song.artwork = createSongDto.artwork;
 
-            const song = new Song();
-            song.name = createSongDto.name;
-            song.primaryArtist = createSongDto.primaryArtist;
-            song.featuredArtists = createSongDto.featuredArtists;
-            song.album = createSongDto.album;
-            song.order = createSongDto.order;
-            song.duration = createSongDto.duration;
-            song.file = createSongDto.file;
-            song.artwork = createSongDto.artwork;
-
-            return this.save(song).then((result) => {
-                return new CreateResult(result, false);
-            });
-        }, waitForLock).catch((error: Error) => {
-            this.logger.error(`Failed creating song: ${error.message}`, error.stack);
-            throw new InternalServerErrorException();
-        });
+        return this.repository.createQueryBuilder()
+            .insert()
+            .values(song)
+            .orIgnore()
+            .execute().then((result) => {
+                if(result.identifiers.length > 0) {
+                    return new CreateResult(song, false);
+                }
+                return this.findUniqueSong(uniqueDto).then((song) => new CreateResult(song, true));
+            }).catch((error) => {
+                this.logger.error(`Could not create database entry for song: ${error.message}`, error.stack);
+                return null
+            })
     }
 
     /**

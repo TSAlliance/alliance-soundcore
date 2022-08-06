@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
@@ -6,28 +6,24 @@ import { In, Repository, SelectQueryBuilder } from 'typeorm';
 import { Artist } from '../artist/entities/artist.entity';
 import { EVENT_ALBUM_CHANGED } from '../constants';
 import { AlbumChangedEvent } from '../events/album-changed.event';
-import { RedlockError } from '../exceptions/redlock.exception';
 import { SyncFlag } from '../meilisearch/interfaces/syncable.interface';
 import { MeiliAlbumService } from '../meilisearch/services/meili-album.service';
 import { User } from '../user/entities/user.entity';
 import { GeniusFlag, ResourceFlag } from '../utils/entities/resource';
 import { CreateResult } from '../utils/results/creation.result';
-import { RedisLockableService } from '../utils/services/redis-lockable.service';
 import { CreateAlbumDTO } from './dto/create-album.dto';
 import { UpdateAlbumDTO } from './dto/update-album.dto';
 import { Album } from './entities/album.entity';
 
 @Injectable()
-export class AlbumService extends RedisLockableService {
+export class AlbumService {
     private readonly logger: Logger = new Logger(AlbumService.name);
 
     constructor(
         @InjectRepository(Album) private readonly repository: Repository<Album>,
         private readonly eventEmitter: EventEmitter2,
         private readonly meiliClient: MeiliAlbumService
-    ) {
-        super()
-    }
+    ) { }
 
     /**
      * Find album by its id including all information required to display the album
@@ -193,32 +189,33 @@ export class AlbumService extends RedisLockableService {
      * @param createAlbumDto Data to create album from
      * @returns Album
      */
-    public async createIfNotExists(createAlbumDto: CreateAlbumDTO, waitForLock = false): Promise<CreateResult<Album>> {
+    public async createIfNotExists(createAlbumDto: CreateAlbumDTO): Promise<CreateResult<Album>> {
         createAlbumDto.name = createAlbumDto.name?.trim();
         createAlbumDto.description = createAlbumDto.description?.trim();
         if(!createAlbumDto.primaryArtist) throw new BadRequestException("Creating album without primary artist is not allowed.");
 
-        // Acquire lock
-        return this.lock(`${createAlbumDto.name}_${createAlbumDto.primaryArtist.name}`, async (signal) => {
-            const existingAlbum = await this.findByNameAndArtist(createAlbumDto.name, createAlbumDto.primaryArtist);
-            if(existingAlbum) return new CreateResult(existingAlbum, true); 
-            if(signal.aborted) throw new RedlockError();
+        const existingAlbum = await this.findByNameAndArtist(createAlbumDto.name, createAlbumDto.primaryArtist);
+        if(existingAlbum) return new CreateResult(existingAlbum, true); 
 
-            const album = new Album();
-            album.name = createAlbumDto.name;
-            album.description = createAlbumDto.description;
-            album.releasedAt = createAlbumDto.releasedAt;
-            album.primaryArtist = createAlbumDto.primaryArtist;
+        const album = this.repository.create();
+        album.name = createAlbumDto.name;
+        album.description = createAlbumDto.description;
+        album.releasedAt = createAlbumDto.releasedAt;
+        album.primaryArtist = createAlbumDto.primaryArtist;
 
-            return this.save(album).then((result) => {
-                // Emit changed event to proceed with automatic genius lookup
-                if(createAlbumDto.lookupGenius) this.eventEmitter.emit(EVENT_ALBUM_CHANGED, new AlbumChangedEvent(result));
-                return new CreateResult(result, false);
+        return this.repository.createQueryBuilder()
+            .insert()
+            .values(album)
+            .orIgnore()
+            .execute().then((result) => {
+                if(result.identifiers.length > 0) {
+                    return new CreateResult(album, false);
+                }
+                return this.findByNameAndArtist(createAlbumDto.name, createAlbumDto.primaryArtist).then((album) => new CreateResult(album, true));
+            }).catch((error) => {
+                this.logger.error(`Could not create database entry for album: ${error.message}`, error.stack);
+                return null
             })
-        }, waitForLock).catch((error: Error) => {
-            this.logger.error(`Failed creating album: ${error.message}`, error.stack);
-            throw new InternalServerErrorException();
-        })
     }
 
     /**

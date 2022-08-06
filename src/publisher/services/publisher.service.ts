@@ -1,27 +1,23 @@
-import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
 import { In, Repository } from 'typeorm';
 import { Artwork } from '../../artwork/entities/artwork.entity';
-import { RedlockError } from '../../exceptions/redlock.exception';
 import { SyncFlag } from '../../meilisearch/interfaces/syncable.interface';
 import { MeiliPublisherService } from '../../meilisearch/services/meili-publisher.service';
 import { CreateResult } from '../../utils/results/creation.result';
-import { RedisLockableService } from '../../utils/services/redis-lockable.service';
 import { CreatePublisherDTO } from '../dtos/create-publisher.dto';
 import { UpdatePublisherDTO } from '../dtos/update-publisher.dto';
 import { Publisher } from '../entities/publisher.entity';
 
 @Injectable()
-export class PublisherService extends RedisLockableService {
+export class PublisherService {
     private readonly logger: Logger = new Logger(PublisherService.name)
 
     constructor(
         @InjectRepository(Publisher) private readonly repository: Repository<Publisher>,
         private readonly meiliClient: MeiliPublisherService
-    ){
-        super();
-    }
+    ){}
 
     /**
      * Find a publisher by its id.
@@ -83,29 +79,31 @@ export class PublisherService extends RedisLockableService {
      * @param createPublisherDto Publisher data to create
      * @returns Publisher
      */
-    public async createIfNotExists(createPublisherDto: CreatePublisherDTO, waitForLock = false): Promise<CreateResult<Publisher>> {
+    public async createIfNotExists(createPublisherDto: CreatePublisherDTO): Promise<CreateResult<Publisher>> {
         createPublisherDto.name = createPublisherDto.name?.replace(/^[ ]+|[ ]+$/g,'')?.trim();
         createPublisherDto.description = createPublisherDto.description?.trim();
 
-        // Acquire lock
-        return this.lock(createPublisherDto.name, async (signal) => {
-            // Check if publisher exists
-            const existingPublisher = await this.findByName(createPublisherDto.name);
-            if(existingPublisher) return new CreateResult(existingPublisher, true); 
-            if(signal.aborted) throw new RedlockError();
+        const existingPublisher = await this.findByName(createPublisherDto.name);
+        if(existingPublisher) return new CreateResult(existingPublisher, true); 
 
-            const publisher = new Publisher();
-            publisher.name = createPublisherDto.name;
-            publisher.geniusId = createPublisherDto.geniusId;
-            publisher.description = createPublisherDto.description;
+        const publisher = this.repository.create();
+        publisher.name = createPublisherDto.name;
+        publisher.geniusId = createPublisherDto.geniusId;
+        publisher.description = createPublisherDto.description;
 
-            return this.save(publisher).then((result) => {
-                return new CreateResult(result, false);
-            });
-        }, waitForLock).catch((error: Error) => {
-            this.logger.error(`Failed creating publisher: ${error.message}`, error.stack);
-            throw new InternalServerErrorException();
-        });
+        return this.repository.createQueryBuilder()
+            .insert()
+            .values(publisher)
+            .orIgnore()
+            .execute().then((result) => {
+                if(result.identifiers.length > 0) {
+                    return new CreateResult(publisher, false);
+                }
+                return this.findByName(createPublisherDto.name).then((publisher) => new CreateResult(publisher, true));
+            }).catch((error) => {
+                this.logger.error(`Could not create database entry for publisher: ${error.message}`, error.stack);
+                return null
+            })
     }
 
     /**

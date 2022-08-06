@@ -1,27 +1,23 @@
-import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
 import { In, Repository } from 'typeorm';
 import { Artwork } from '../../artwork/entities/artwork.entity';
-import { RedlockError } from '../../exceptions/redlock.exception';
 import { SyncFlag } from '../../meilisearch/interfaces/syncable.interface';
 import { MeiliDistributorService } from '../../meilisearch/services/meili-distributor.service';
 import { CreateResult } from '../../utils/results/creation.result';
-import { RedisLockableService } from '../../utils/services/redis-lockable.service';
 import { CreateDistributorDTO } from '../dtos/create-distributor.dto';
 import { UpdateDistributorDTO } from '../dtos/update-distributor.dto';
 import { Distributor } from '../entities/distributor.entity';
 
 @Injectable()
-export class DistributorService extends RedisLockableService {
+export class DistributorService {
     private logger: Logger = new Logger(DistributorService.name)
 
     constructor(
         @InjectRepository(Distributor) private readonly repository: Repository<Distributor>,
         private readonly meiliClient: MeiliDistributorService
-    ){
-        super()
-    }
+    ){ }
 
     /**
      * Find a distributor by its id.
@@ -83,29 +79,31 @@ export class DistributorService extends RedisLockableService {
      * @param createDistributorDto Distributor data to create
      * @returns CreateResult<Distributor>
      */
-    public async createIfNotExists(createDistributorDto: CreateDistributorDTO, waitForLock = false): Promise<CreateResult<Distributor>> {
+    public async createIfNotExists(createDistributorDto: CreateDistributorDTO): Promise<CreateResult<Distributor>> {
         createDistributorDto.name = createDistributorDto.name.trim();
         createDistributorDto.description = createDistributorDto.description?.trim();
 
-        // Acquire lock
-        return this.lock(createDistributorDto.name, async (signal) => {
-            // Check if distributor exists
-            const existingDistributor = await this.findByName(createDistributorDto.name);
-            if(existingDistributor) return new CreateResult(existingDistributor, true); 
-            if(signal.aborted) throw new RedlockError();
+        const existingDistributor = await this.findByName(createDistributorDto.name);
+        if(existingDistributor) return new CreateResult(existingDistributor, true); 
 
-            const distributor = new Distributor();
-            distributor.name = createDistributorDto.name;
-            distributor.geniusId = createDistributorDto.geniusId;
-            distributor.description = createDistributorDto.description;
+        const distributor = this.repository.create();
+        distributor.name = createDistributorDto.name;
+        distributor.geniusId = createDistributorDto.geniusId;
+        distributor.description = createDistributorDto.description;
 
-            return this.save(distributor).then((result) => {
-                return new CreateResult(result, false)
+        return this.repository.createQueryBuilder()
+            .insert()
+            .values(distributor)
+            .orIgnore()
+            .execute().then((result) => {
+                if(result.identifiers.length > 0) {
+                    return new CreateResult(distributor, false);
+                }
+                return this.findByName(createDistributorDto.name).then((distributor) => new CreateResult(distributor, true));
+            }).catch((error) => {
+                this.logger.error(`Could not create database entry for distributor: ${error.message}`, error.stack);
+                return null
             })
-        }, waitForLock).catch((error: Error) => {
-            this.logger.error(`Failed creating distributor: ${error.message}`, error.stack);
-            throw new InternalServerErrorException();
-        });
     }
 
     /**

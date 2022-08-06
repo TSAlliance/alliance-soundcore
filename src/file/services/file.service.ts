@@ -7,7 +7,6 @@ import { Page, Pageable } from 'nestjs-pager';
 import path from 'path';
 import { Repository } from 'typeorm';
 import { EVENT_FILE_FOUND, EVENT_FILE_PROCESSED, QUEUE_FILE_NAME } from '../../constants';
-import { RedlockError } from '../../exceptions/redlock.exception';
 import { FileDTO } from '../../mount/dtos/file.dto';
 import { Mount } from '../../mount/entities/mount.entity';
 import { Song } from '../../song/entities/song.entity';
@@ -122,22 +121,29 @@ export class FileService extends RedisLockableService {
      * @returns [File, boolean]
      */
     public async findOrCreateFile(fileDto: FileDTO): Promise<CreateResult<File>> {
-        const absolutePath = path.join(fileDto.mount.directory, fileDto.directory, fileDto.filename);
+        const existingFile = await this.findByNameAndDirectory(fileDto.filename, fileDto.mount, fileDto.directory);
+        if(existingFile) return new CreateResult(existingFile, true);
 
-        return this.lock(absolutePath, async (signal) => {
-            const existingFile = await this.findByNameAndDirectory(fileDto.filename, fileDto.mount, fileDto.directory);
-            if(existingFile) return new CreateResult(existingFile, true);
-            if(signal.aborted) throw new RedlockError();
+        const file = this.repository.create();
+        file.flag = FileFlag.OK;
+        file.mount = fileDto.mount;
+        file.directory = fileDto.directory;
+        file.name = fileDto.filename;
+        file.size = fileDto.size || 0;
 
-            const file = new File();
-            file.flag = FileFlag.OK;
-            file.mount = fileDto.mount;
-            file.directory = fileDto.directory;
-            file.name = fileDto.filename;
-            file.size = fileDto.size || 0;
-
-            return this.repository.save(file).then((result) => new CreateResult(result, false));
-        });
+        return this.repository.createQueryBuilder()
+            .insert()
+            .values(file)
+            .orIgnore()
+            .execute().then((result) => {
+                if(result.identifiers.length > 0) {
+                    return new CreateResult(file, false);
+                }
+                return this.findByNameAndDirectory(fileDto.filename, fileDto.mount, fileDto.directory).then((file) => new CreateResult(file, true));
+            }).catch((error) => {
+                this.logger.error(`Could not create database entry for file: ${error.message}`, error.stack);
+                return null
+            })
     }
 
     /**

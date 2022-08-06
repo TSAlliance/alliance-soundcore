@@ -1,27 +1,23 @@
-import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
 import { In, Repository } from 'typeorm';
 import { Artwork } from '../../artwork/entities/artwork.entity';
-import { RedlockError } from '../../exceptions/redlock.exception';
 import { SyncFlag } from '../../meilisearch/interfaces/syncable.interface';
 import { MeiliLabelService } from '../../meilisearch/services/meili-label.service';
 import { CreateResult } from '../../utils/results/creation.result';
-import { RedisLockableService } from '../../utils/services/redis-lockable.service';
 import { CreateLabelDTO } from '../dtos/create-label.dto';
 import { UpdateLabelDTO } from '../dtos/update-label.dto';
 import { Label } from '../entities/label.entity';
 
 @Injectable()
-export class LabelService extends RedisLockableService {
+export class LabelService {
     private readonly logger: Logger = new Logger(LabelService.name);
 
     constructor(
         @InjectRepository(Label) private readonly repository: Repository<Label>,
         private readonly meiliClient: MeiliLabelService
-    ){
-        super()
-    }
+    ){ }
 
     /**
      * Find a label by its id.
@@ -83,29 +79,31 @@ export class LabelService extends RedisLockableService {
      * @param createLabelDto Label data to create
      * @returns Label
      */
-    public async createIfNotExists(createLabelDto: CreateLabelDTO, waitForLock = false): Promise<CreateResult<Label>> {
+    public async createIfNotExists(createLabelDto: CreateLabelDTO): Promise<CreateResult<Label>> {
         createLabelDto.name = createLabelDto.name?.trim();
         createLabelDto.description = createLabelDto.description?.trim();
 
-        // Acquire lock
-        return this.lock(createLabelDto.name, async (signal) => {
-            // Check if label exists
-            const existingLabel = await this.findByName(createLabelDto.name);
-            if(existingLabel) return new CreateResult(existingLabel, true); 
-            if(signal.aborted) throw new RedlockError();
+        const existingLabel = await this.findByName(createLabelDto.name);
+        if(existingLabel) return new CreateResult(existingLabel, true); 
 
-            const label = new Label();
-            label.name = createLabelDto.name;
-            label.geniusId = createLabelDto.geniusId;
-            label.description = createLabelDto.description;
+        const label = this.repository.create();
+        label.name = createLabelDto.name;
+        label.geniusId = createLabelDto.geniusId;
+        label.description = createLabelDto.description;
 
-            return this.save(label).then((result) => {
-                return new CreateResult(result, false)
+        return this.repository.createQueryBuilder()
+            .insert()
+            .values(label)
+            .orIgnore()
+            .execute().then((result) => {
+                if(result.identifiers.length > 0) {
+                    return new CreateResult(label, false);
+                }
+                return this.findByName(createLabelDto.name).then((label) => new CreateResult(label, true));
+            }).catch((error) => {
+                this.logger.error(`Could not create database entry for label: ${error.message}`, error.stack);
+                return null
             })
-        }, waitForLock).catch((error: Error) => {
-            this.logger.error(`Failed creating label: ${error.message}`, error.stack);
-            throw new InternalServerErrorException();
-        });
     }
 
     /**

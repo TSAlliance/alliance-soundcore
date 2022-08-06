@@ -1,31 +1,25 @@
-import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
 import { In, Repository, SelectQueryBuilder } from 'typeorm';
-import { EVENT_ARTIST_CHANGED } from '../constants';
-import { ArtistChangedEvent } from '../events/artist-changed.event';
-import { RedlockError } from '../exceptions/redlock.exception';
 import { SyncFlag } from '../meilisearch/interfaces/syncable.interface';
 import { MeiliArtistService } from '../meilisearch/services/meili-artist.service';
 import { GeniusFlag, ResourceFlag } from '../utils/entities/resource';
 import { CreateResult } from '../utils/results/creation.result';
-import { RedisLockableService } from '../utils/services/redis-lockable.service';
 import { CreateArtistDTO } from './dtos/create-artist.dto';
 import { UpdateArtistDTO } from './dtos/update-artist.dto';
 import { Artist } from './entities/artist.entity';
 
 @Injectable()
-export class ArtistService extends RedisLockableService {
+export class ArtistService {
     private readonly logger: Logger = new Logger(ArtistService.name);
 
     constructor(
         private readonly meiliClient: MeiliArtistService,
         private readonly events: EventEmitter2,
         @InjectRepository(Artist) private readonly repository: Repository<Artist>,
-    ){
-        super();
-    }
+    ){ }
 
     /**
      * Find an artist by its id.
@@ -120,31 +114,31 @@ export class ArtistService extends RedisLockableService {
      * @param createArtistDto Data to create artist from
      * @returns Artist
      */
-    public async createIfNotExists(createArtistDto: CreateArtistDTO, waitForLock = false): Promise<CreateResult<Artist>> {
+    public async createIfNotExists(createArtistDto: CreateArtistDTO): Promise<CreateResult<Artist>> {
         createArtistDto.name = createArtistDto.name?.trim();
         createArtistDto.description = createArtistDto.description?.trim();
 
-        // Acquire lock
-        return this.lock(createArtistDto.name, async (signal) => {
-            const existingArtist = await this.findByName(createArtistDto.name);
-            if(existingArtist) return new CreateResult(existingArtist, true); 
-            if(signal.aborted) throw new RedlockError();
+        const existingArtist = await this.findByName(createArtistDto.name);
+        if(existingArtist) return new CreateResult(existingArtist, true); 
 
-            const artist = new Artist();
-            artist.name = createArtistDto.name;
-            artist.description = createArtistDto.description;
-            artist.geniusId = createArtistDto.geniusId;
+        const artist = this.repository.create();
+        artist.name = createArtistDto.name;
+        artist.description = createArtistDto.description;
+        artist.geniusId = createArtistDto.geniusId;
 
-            return this.save(artist).then((result) => {
-                // Emit event, so that the genius service can
-                // catch it and do a lookup on the artist.
-                if(createArtistDto.doGeniusLookup) this.events.emitAsync(EVENT_ARTIST_CHANGED, new ArtistChangedEvent(result));
-                return new CreateResult(result, false);
+        return this.repository.createQueryBuilder()
+            .insert()
+            .values(artist)
+            .orIgnore()
+            .execute().then((result) => {
+                if(result.identifiers.length > 0) {
+                    return new CreateResult(artist, false);
+                }
+                return this.findByName(createArtistDto.name).then((artist) => new CreateResult(artist, true));
+            }).catch((error) => {
+                this.logger.error(`Could not create database entry for artist: ${error.message}`, error.stack);
+                return null
             })
-        }, waitForLock).catch((error: Error) => {
-            this.logger.error(`Failed creating artist: ${error.message}`, error.stack);
-            throw new InternalServerErrorException();
-        });
     }
 
     /**
@@ -157,23 +151,14 @@ export class ArtistService extends RedisLockableService {
         updateArtistDto.name = updateArtistDto.name?.trim();
         updateArtistDto.description = updateArtistDto.description?.trim();
 
-        // Acquire lock
-        return this.lock(updateArtistDto.name, async (signal) => {
-            const artist = await this.findById(artistId);
-            // Check if artist exists
-            if(!artist) throw new NotFoundException("Artist not found.");
-            // Check if name already exists
-            if(await this.findByName(updateArtistDto.name)) throw new BadRequestException("Artist with that name already exists.");
-            // Check if redlock is valid
-            if(signal.aborted) throw new RedlockError();
+        const artist = await this.findById(artistId);
+        if(!artist) throw new NotFoundException("Artist not found.");
+        if(await this.findByName(updateArtistDto.name)) throw new BadRequestException("Artist with that name already exists.");
 
-            // Update data
-            artist.name = updateArtistDto.name;
-            artist.description = updateArtistDto.description;
+        artist.name = updateArtistDto.name;
+        artist.description = updateArtistDto.description;
 
-            // Save to database
-            return this.save(artist);
-        });
+        return this.save(artist);
     }
 
     /**
