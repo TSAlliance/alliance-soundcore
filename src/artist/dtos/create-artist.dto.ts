@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsUrl, Length } from "class-validator";
+import { IsBoolean, IsNotEmpty, IsOptional, Length } from "class-validator";
 
 export class CreateArtistDTO {
 
@@ -14,13 +14,7 @@ export class CreateArtistDTO {
     public geniusId?: string;
 
     @IsOptional()
-    @IsUrl()
-    public geniusUrl?: string;
-
-    @IsOptional()
-    public mountForArtworkId?: string;
-
-
-    
+    @IsBoolean()
+    public doGeniusLookup?: boolean;
 
 }

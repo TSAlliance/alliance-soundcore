@@ -1,16 +1,17 @@
 import { BeforeInsert, BeforeUpdate, Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
-import { Resource, ResourceType } from "../../utils/entities/resource";
-import { Slug } from "../../utils/slugGenerator";
-import { Mount } from "./mount.entity";
+import { Mount } from "../../mount/entities/mount.entity";
+import { Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
+import { Slug } from "@tsalliance/utilities";
 
 @Entity()
 export class Bucket implements Resource {
+    public resourceType: ResourceType = "bucket";
 
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
-    @Column({ default: "bucket" as ResourceType, update: false })
-    public resourceType: ResourceType;
+    @Column({ type: "tinyint", default: 0 })
+    public flag: ResourceFlag;
 
     @Column({ nullable: true, unique: true, length: 120 })
     public slug: string;
@@ -22,6 +23,7 @@ export class Bucket implements Resource {
     public mounts: Mount[];
 
     public mountsCount?: number;
+    public usedSpace?: number;
 
     @BeforeInsert()
     public onBeforeInsert() {
@@ -30,7 +32,7 @@ export class Bucket implements Resource {
 
     @BeforeUpdate() 
     public onBeforeUpdate() {
-        this.slug = Slug.create(this.name);
+        if(!this.slug) Slug.create(this.name);
     }
 
 }

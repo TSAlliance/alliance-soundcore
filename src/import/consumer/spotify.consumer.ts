@@ -1,6 +1,6 @@
 import { OnQueueActive, OnQueueCompleted, OnQueueFailed, OnQueueProgress, Process, Processor } from "@nestjs/bull";
 import { Logger } from "@nestjs/common";
-import { RandomUtil } from "@tsalliance/rest";
+import { Random } from "@tsalliance/utilities";
 import { Job } from "bull";
 import { PlaylistPrivacy } from "../../playlist/enums/playlist-privacy.enum";
 import { PlaylistService } from "../../playlist/playlist.service";
@@ -30,7 +30,7 @@ export class SpotifyConsumer {
         const importer = job.data.importer;
 
         if(await this.playlistService.existsByTitleInUser(spotifyPlaylist.name, importer.id)) {
-            spotifyPlaylist.name = spotifyPlaylist.name + "-" + RandomUtil.randomString(4);
+            spotifyPlaylist.name = spotifyPlaylist.name + "-" + Random.randomString(4);
         }
 
         const playlist = await this.playlistService.create({ title: spotifyPlaylist.name, privacy: PlaylistPrivacy.PUBLIC }, importer);
@@ -63,7 +63,7 @@ export class SpotifyConsumer {
             }
 
             // Add songs to playlist
-            await this.playlistService.addSongs(playlist.id, songIds, importer);
+            // await this.playlistService.addSongs(playlist.id, songIds, importer);
 
             // Update job so it does not get into stalled state
             job.update(job.data);

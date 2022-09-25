@@ -1,7 +1,8 @@
 import { Body, Controller, Delete, Get, Param, Post, Put } from '@nestjs/common';
-import { Pageable } from 'nestjs-pager';
+import { Pageable, Pagination } from 'nestjs-pager';
 import { Authentication } from '../authentication/decorators/authentication.decorator';
 import { User } from '../user/entities/user.entity';
+import { AddSongDTO } from './dtos/add-song.dto';
 import { CreatePlaylistDTO } from './dtos/create-playlist.dto';
 import { UpdatePlaylistDTO } from './dtos/update-playlist.dto';
 import { PlaylistService } from './playlist.service';
@@ -25,9 +26,9 @@ export class PlaylistController {
     return this.playlistService.deleteById(playlistId, authentication);
   }
 
-  @Put(":playlistId/songs/add") 
-  public async addSongs(@Param("playlistId") playlistId: string, @Body() songIds: string[], @Authentication() authentication: User) {
-    return this.playlistService.addSongs(playlistId, songIds, authentication)
+  @Put(":playlistId/addSong") 
+  public async addSongs(@Param("playlistId") playlistId: string, @Body() addSongDto: AddSongDTO, @Authentication() authentication: User) {
+    return this.playlistService.addSong(playlistId, addSongDto, authentication)
   }
 
   @Put(":playlistId/songs/remove") 
@@ -35,28 +36,18 @@ export class PlaylistController {
     return this.playlistService.removeSongs(playlistId, songIds, authentication)
   }
 
-  @Put(":playlistId/collaborators/add") 
-  public async addCollaborators(@Param("playlistId") playlistId: string, @Body() collaboratorIds: string[], @Authentication() authentication: User) {
-    return this.playlistService.addCollaborators(playlistId, collaboratorIds, authentication)
-  }
-
-  @Put(":playlistId/collaborators/remove") 
-  public async removeCollaborators(@Param("playlistId") playlistId: string, @Body() collaboratorIds: string[], @Authentication() authentication: User) {
-    return this.playlistService.removeCollaborators(playlistId, collaboratorIds, authentication)
-  }
-
   @Get("/byAuthor/:authorId") 
-  public async findPlaylistsOfUser(@Param("authorId") authorId: string, @Pageable() pageable: Pageable, @Authentication() authentication: User) {
+  public async findPlaylistsOfUser(@Param("authorId") authorId: string, @Pagination() pageable: Pageable, @Authentication() authentication: User) {
     return this.playlistService.findByAuthor(authorId, pageable, authentication);
   }
 
   @Get("/byArtist/:artistId") 
-  public async findByArtist(@Param("artistId") artistId: string, @Pageable() pageable: Pageable, @Authentication() authentication: User) {
+  public async findByArtist(@Param("artistId") artistId: string, @Pagination() pageable: Pageable, @Authentication() authentication: User) {
     return this.playlistService.findByArtist(artistId, pageable, authentication);
   }
 
   @Get("/byGenre/:genreId") 
-  public async findByGenre(@Param("genreId") genreId: string, @Pageable() pageable: Pageable, @Authentication() authentication: User) {
+  public async findByGenre(@Param("genreId") genreId: string, @Pagination() pageable: Pageable, @Authentication() authentication: User) {
     return this.playlistService.findByGenre(genreId, pageable, authentication);
   }
 

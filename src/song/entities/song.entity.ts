@@ -1,29 +1,38 @@
 
-import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn, Index as IndexDec } from "typeorm";
+import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Album } from "../../album/entities/album.entity";
 import { Artist } from "../../artist/entities/artist.entity";
-import { Artwork } from "../../artwork/entities/artwork.entity";
 import { Distributor } from "../../distributor/entities/distributor.entity";
 import { Genre } from "../../genre/entities/genre.entity";
-import { Index } from "../../index/entities/index.entity";
 import { Label } from "../../label/entities/label.entity";
-import { Liked } from "../../collection/entities/like.entity";
-import { LikedSong } from "../../collection/entities/liked-song.entity";
 import { PlaylistItem } from "../../playlist/entities/playlist-item.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
 import { Stream } from "../../stream/entities/stream.entity";
-import { SongAlbumOrder } from "./song-order.entity";
-import { Slug } from "../../utils/slugGenerator";
-import { Resource, ResourceType } from "../../utils/entities/resource";
+import { Slug } from "@tsalliance/utilities";
+import { GeniusFlag, Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
+import { Like } from "../../collection/entities/like.entity";
+import { File } from "../../file/entities/file.entity";
+import { Artwork } from "../../artwork/entities/artwork.entity";
+import { Syncable, SyncFlag } from "../../meilisearch/interfaces/syncable.interface";
 
 @Entity()
-export class Song implements Resource {
+export class Song implements Resource, Syncable {
+    public resourceType: ResourceType = "song";
+
+    @Column({ nullable: true, default: null})
+    public lastSyncedAt: Date;
+
+    @Column({ default: 0 })
+    public lastSyncFlag: SyncFlag;
 
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
-    @Column({ default: "song" as ResourceType, update: false })
-    public resourceType: ResourceType;
+    @Column({ type: "tinyint", default: 0 })
+    public flag: ResourceFlag;
+
+    @Column({ type: "tinyint", default: 0 })
+    public geniusFlag: GeniusFlag;
 
     @Column({ nullable: true, length: 120 })
     public slug: string;
@@ -31,8 +40,7 @@ export class Song implements Resource {
     @Column({ nullable: true })
     public geniusId: string;
 
-    @IndexDec()
-    @Column({ nullable: true, name: "title" })
+    @Column({ nullable: true })
     public name: string;
 
     @Column({ nullable: false, default: 0 })
@@ -45,7 +53,7 @@ export class Song implements Resource {
     public youtubeUrl: string;
 
     @Column({ nullable: true, type: "date" })
-    public released: Date;
+    public releasedAt: Date;
 
     @CreateDateColumn()
     public createdAt: Date;
@@ -59,46 +67,39 @@ export class Song implements Resource {
     @Column({ nullable: true, default: '0' })
     public youtubeUrlStart: string;
 
-    @Column({ nullable: true })
-    public geniusUrl: string;
-
-    @Column({ nullable: false, default: false})
-    public hasGeniusLookupFailed: boolean;
-
-    @OneToOne(() => Index, { onDelete: "CASCADE" })
+    @OneToOne(() => File, { onDelete: "CASCADE" })
     @JoinColumn()
-    public index: Index;
+    public file: File;
 
-    @OneToOne(() => Artwork, { onDelete: "SET NULL" })
-    @JoinColumn()
-    public banner: Artwork;
-
-    @OneToOne(() => Artwork, { onDelete: "SET NULL" })
+    @ManyToOne(() => Artwork, { onDelete: "SET NULL" })
     @JoinColumn()
     public artwork: Artwork;
 
+    @ManyToOne(() => Artist)
+    public primaryArtist: Artist;
+
     @ManyToMany(() => Artist)
-    @JoinTable({ name: "artist2song" })
-    public artists: Artist[];
+    @JoinTable({ name: "featuring2song" })
+    public featuredArtists: Artist[];
 
-    @ManyToOne(() => Publisher, { onDelete: "SET NULL" })
+    @ManyToMany(() => Publisher)
+    @JoinTable({ name: "song2publisher" })
+    public publishers: Publisher[];
+
+    @ManyToMany(() => Distributor)
+    @JoinTable({ name: "song2distributor" })
+    public distributors: Distributor[];
+
+    @ManyToMany(() => Label)
+    @JoinTable({ name: "song2label" })
+    public labels: Label[];
+
+    @ManyToOne(() => Album)
     @JoinColumn()
-    public publisher: Publisher;
+    public album: Album;
 
-    @ManyToOne(() => Distributor, { onDelete: "SET NULL" })
-    @JoinColumn()
-    public distributor: Distributor;
-
-    @ManyToOne(() => Label, { onDelete: "SET NULL" })
-    @JoinColumn()
-    public label: Label;
-
-    @ManyToMany(() => Album)
-    @JoinTable({ name: "song2album" })
-    public albums: Album[];
-
-    @OneToMany(() => SongAlbumOrder, (order) => order.song, { cascade: ["insert", "update", "remove"] })
-    public albumOrders: SongAlbumOrder[];
+    @Column({ nullable: true, default: null })
+    public order: number;
 
     @ManyToMany(() => Genre)
     @JoinTable({ name: "song2genre" })
@@ -110,16 +111,15 @@ export class Song implements Resource {
     @OneToMany(() => Stream, stream => stream.song)
     public streams: Stream[];
 
-    @OneToMany(() => Liked, (l) => l["song"])
-    public likedBy: LikedSong[];
+    @OneToMany(() => Like, (l) => l.song)
+    public likes: Like[];
 
     // Value that will be set if the songs of a playlist
     // are fetched
-    public playlistAdded: Date;
-    public streamCount?: number;
-    public liked?: boolean;
-    public likedAt?: Date;
-    public order?: number;
+    public playlistAdded?: Date;
+    public streamCount = 0;
+    public liked = false;
+    public available = true;
 
     @BeforeInsert()
     public onBeforeInsert() {
@@ -128,7 +128,7 @@ export class Song implements Resource {
 
     @BeforeUpdate() 
     public onBeforeUpdate() {
-        this.slug = Slug.create(this.name);
+        if(!this.slug) Slug.create(this.name);
     }
 
 }

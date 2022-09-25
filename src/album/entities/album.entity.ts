@@ -1,24 +1,35 @@
 
-import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, Index, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, Index, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { Artist } from "../../artist/entities/artist.entity";
 import { Artwork } from "../../artwork/entities/artwork.entity";
-import { Liked } from "../../collection/entities/like.entity";
-import { LikedAlbum } from "../../collection/entities/liked-album.entity";
+import { Like } from "../../collection/entities/like.entity";
 import { Distributor } from "../../distributor/entities/distributor.entity";
 import { Label } from "../../label/entities/label.entity";
 import { Publisher } from "../../publisher/entities/publisher.entity";
 import { Song } from "../../song/entities/song.entity";
-import { Resource, ResourceType } from "../../utils/entities/resource";
-import { Slug } from "../../utils/slugGenerator";
+import { GeniusFlag, Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
+import { Slug } from "@tsalliance/utilities";
+import { Syncable, SyncFlag } from "../../meilisearch/interfaces/syncable.interface";
 
 @Entity()
-export class Album implements Resource {
+@Index(["name", "primaryArtist"], { unique: true })
+export class Album implements Resource, Syncable {
+    public resourceType: ResourceType = "album";
+
+    @Column({ nullable: true, default: null})
+    public lastSyncedAt: Date;
+
+    @Column({ default: 0 })
+    public lastSyncFlag: SyncFlag;
 
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
-    @Column({ default: "album" as ResourceType, update: false })
-    public resourceType: ResourceType;
+    @Column({ type: "tinyint", default: 0 })
+    public flag: ResourceFlag;
+
+    @Column({ type: "tinyint", default: 0 })
+    public geniusFlag: GeniusFlag;
 
     @Column({ nullable: true, unique: true, length: 120 })
     public slug: string;
@@ -30,11 +41,8 @@ export class Album implements Resource {
     @Column({ nullable: false, name: "title" })
     public name: string;
 
-    @Column({ nullable: true, default: false })
-    public hasGeniusLookupFailed: boolean;
-
     @Column({ nullable: true })
-    public released: Date;
+    public releasedAt: Date;
 
     @CreateDateColumn()
     public createdAt: Date;
@@ -44,38 +52,33 @@ export class Album implements Resource {
 
     @ManyToOne(() => Artist)
     @JoinColumn()
-    public artist: Artist;
+    public primaryArtist: Artist;
 
     @ManyToMany(() => Song)
     @JoinTable({ name: "song2album" })
     public songs: Song[];
 
-    @OneToOne(() => Artwork, { onDelete: "SET NULL" })
+    @ManyToOne(() => Artwork, { onDelete: "SET NULL" })
     @JoinColumn()
-    public artwork: Artwork;
+    public artwork?: Artwork;
 
-    @OneToOne(() => Artwork, { onDelete: "SET NULL" })
-    @JoinColumn()
-    public banner: Artwork;
+    @ManyToMany(() => Distributor)
+    @JoinTable({ name: "album2distributor" })
+    public distributors: Distributor[];
 
-    @ManyToOne(() => Distributor, { onDelete: "SET NULL" })
-    @JoinColumn()
-    public distributor: Distributor;
+    @ManyToMany(() => Label)
+    @JoinTable({ name: "album2label" })
+    public labels: Label[];
 
-    @ManyToOne(() => Label, { onDelete: "SET NULL" })
-    @JoinColumn()
-    public label: Label;
+    @ManyToMany(() => Publisher)
+    @JoinTable({ name: "album2publisher" })
+    public publishers: Publisher[];
 
-    @ManyToOne(() => Publisher, { onDelete: "SET NULL" })
-    @JoinColumn()
-    public publisher: Publisher;
-
-    @OneToMany(() => Liked, (l) => l["album"])
-    public likedBy: LikedAlbum[];
+    @OneToMany(() => Like, (l) => l.album)
+    public likedBy: Like[];
 
     public songsCount?: number;
     public totalDuration?: number;
-    public featuredArtists?: Artist[];
 
     @BeforeInsert()
     public onBeforeInsert() {
@@ -84,6 +87,6 @@ export class Album implements Resource {
 
     @BeforeUpdate() 
     public onBeforeUpdate() {
-        this.slug = Slug.create(this.name);
+        if(!this.slug) Slug.create(this.name);
     }
 }

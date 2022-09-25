@@ -7,6 +7,10 @@ export class CreateGenreDTO {
     public name: string;
 
     @IsOptional()
+    @Length(0, 254)
+    public description?: string;
+
+    @IsOptional()
     public geniusId?: string;
     
 }

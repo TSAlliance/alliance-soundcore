@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsUrl, Length } from "class-validator";
+import { IsNotEmpty, IsOptional, Length } from "class-validator";
 
 export class CreateLabelDTO {
 
@@ -7,13 +7,9 @@ export class CreateLabelDTO {
     public name: string;
 
     @IsOptional()
-    public geniusId: string;
+    public geniusId?: string;
 
     @IsOptional()
-    @IsUrl()
-    public externalImgUrl: string;
-
-    @IsOptional()
-    public artworkMountId?: string;
+    public description?: string;
 
 }

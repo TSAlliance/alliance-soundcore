@@ -1,5 +1,5 @@
-import { OnGatewayConnection, OnGatewayDisconnect } from "@nestjs/websockets";
-import { Socket } from "socket.io";
+import { OnGatewayConnection, OnGatewayDisconnect, WebSocketServer } from "@nestjs/websockets";
+import { Server, Socket } from "socket.io";
 import { OIDCUser } from "../../authentication/entities/oidc-user.entity";
 import { OIDCService } from "../../authentication/services/oidc.service";
 import { User } from "../../user/entities/user.entity";
@@ -12,6 +12,9 @@ export class AuthGatewayRegistry {
 }
 export abstract class AuthGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
+    @WebSocketServer()
+    protected server: Server;
+
     /**
      * Object that stores the socket's id 
      * as key for the user data object.
@@ -22,7 +25,7 @@ export abstract class AuthGateway implements OnGatewayConnection, OnGatewayDisco
      * Object that stores the socket's id
      * as key for the socket itself.
      */
-    private readonly sockets: Map<string, Socket> = new Map();
+    protected readonly sockets: Map<string, Socket> = new Map();
 
     /**
      * Object that stores user's id as key
@@ -48,6 +51,7 @@ export abstract class AuthGateway implements OnGatewayConnection, OnGatewayDisco
                 this.sockets.set(socket.id, socket);
                 this.userToSocket.set(user.id, socket.id);
                 this.authenticatedSockets.set(socket.id, user);
+                this.onConnect(socket, user);
             }).catch((error) => {
                 console.error(error)
                 socket.disconnect();
@@ -66,6 +70,7 @@ export abstract class AuthGateway implements OnGatewayConnection, OnGatewayDisco
         this.userToSocket.delete(user.id);
         this.authenticatedSockets.delete(socketId);
         this.sockets.delete(socketId);
+        this.onDisconnect(socket, user);
     }
 
     private getSocketById(socketId: string) {
@@ -87,4 +92,6 @@ export abstract class AuthGateway implements OnGatewayConnection, OnGatewayDisco
         return this.sockets.get(socketId);
     }
 
+    protected onConnect(socket: Socket, user: User) {/** */}
+    protected onDisconnect(socket: Socket, user: User) {/** */}
 }

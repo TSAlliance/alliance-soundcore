@@ -1,14 +1,14 @@
 import { Module } from '@nestjs/common';
-import { GenreService } from './genre.service';
-import { GenreController } from './genre.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { GenreRepository } from './repositories/genre.repository';
+import { GenreController } from './controllers/genre.controller';
+import { Genre } from './entities/genre.entity';
+import { GenreService } from './services/genre.service';
 
 @Module({
   controllers: [GenreController],
   providers: [GenreService],
   imports: [
-    TypeOrmModule.forFeature([ GenreRepository ])
+    TypeOrmModule.forFeature([ Genre ])
   ],
   exports: [
     GenreService

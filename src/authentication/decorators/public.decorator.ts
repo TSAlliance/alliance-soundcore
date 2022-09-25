@@ -6,7 +6,7 @@ import { OIDC_AUTH_OPTIONAL, OIDC_AUTH_SKIP } from "../oidc.constants";
  * if the authentication should be skipped entirely.
  * @param skipAuth Skip authentication entirely or try to authenticate request. (Can result in @Authentication to be null)
  */
-export const Public = ((skipAuth: boolean) => {
+export const Public = ((skipAuth = false) => {
     return applyDecorators(
         SetMetadata(OIDC_AUTH_OPTIONAL, true),
         SetMetadata(OIDC_AUTH_SKIP, skipAuth)

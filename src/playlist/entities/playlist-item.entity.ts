@@ -1,18 +1,13 @@
-import { Column, CreateDateColumn, Entity, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Song } from "../../song/entities/song.entity";
+import { User } from "../../user/entities/user.entity";
 import { Playlist } from "./playlist.entity";
 
 @Entity({ name: "song2playlist" })
 export class PlaylistItem {
 
     @PrimaryGeneratedColumn({ unsigned: true, type: "bigint" })
-    public id!: number;
-
-    @Column()
-    public songId!: string;
-
-    @Column()
-    public playlistId!: string;
+    public id: number;
 
     @CreateDateColumn()
     public createdAt: Date;
@@ -20,10 +15,16 @@ export class PlaylistItem {
     @Column({ nullable: true, default: 0 })
     public order: number;
 
-    @ManyToOne(() => Song, s => s.playlists, { onDelete: "CASCADE" })
-    public song!: Song;
+    @ManyToOne(() => User, (u) => u.itemsAddedToPlaylists, { onDelete: "SET NULL", nullable: true })
+    @JoinColumn()
+    public addedBy: User;
 
-    @ManyToOne(() => Playlist, p => p.items, { onDelete: "CASCADE" })
-    public playlist!: Playlist;
+    @ManyToOne(() => Song, (s) => s.playlists, { onDelete: "CASCADE" })
+    @JoinColumn()
+    public song: Song;
+
+    @ManyToOne(() => Playlist, (p) => p.items, { onDelete: "CASCADE" })
+    @JoinColumn()
+    public playlist: Playlist;
 
 }

@@ -16,6 +16,11 @@ is my largest so far!
 
 Other prerequisites will be installed and configured by running `install.sh`.
 
+## Architecture
+The overall service consists of two types of applications. One is the ``REST-API`` (API) and the other one is the ``indexing-service`` (Indexer).
+The API is used for the front end to communicate with the service. Whereas the Indexer's responsibility is to scan mounted directories for new files
+to be added to the library.
+
 ## Meilisearch installation
 ```
 bash -c "$(curl -sL https://raw.githubusercontent.com/TSAlliance/alliance-soundcore/main/setups/meilisearch.sh)"

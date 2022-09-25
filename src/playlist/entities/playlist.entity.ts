@@ -1,21 +1,28 @@
-import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, Index, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
+import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { Artwork } from "../../artwork/entities/artwork.entity";
-import { Liked } from "../../collection/entities/like.entity";
-import { LikedPlaylist } from "../../collection/entities/liked-playlist.entity";
+import { Like } from "../../collection/entities/like.entity";
 import { User } from "../../user/entities/user.entity";
-import { Resource, ResourceType } from "../../utils/entities/resource";
-import { Slug } from "../../utils/slugGenerator";
+import { Resource, ResourceFlag, ResourceType } from "../../utils/entities/resource";
+import { Slug } from "@tsalliance/utilities";
 import { PlaylistPrivacy } from "../enums/playlist-privacy.enum";
 import { PlaylistItem } from "./playlist-item.entity";
+import { Syncable, SyncFlag } from "../../meilisearch/interfaces/syncable.interface";
 
 @Entity()
-export class Playlist implements Resource {
+export class Playlist implements Resource, Syncable {
+    public resourceType: ResourceType = "playlist";
+
+    @Column({ nullable: true, default: null})
+    public lastSyncedAt: Date;
+
+    @Column({ default: 0 })
+    public lastSyncFlag: SyncFlag;
 
     @PrimaryGeneratedColumn("uuid")
     public id: string;
 
-    @Column({ default: "playlist" as ResourceType, update: false })
-    public resourceType: ResourceType;
+    @Column({ type: "tinyint", default: 0 })
+    public flag: ResourceFlag;
 
     @Column({ nullable: true, unique: true, length: 120 })
     public slug: string;
@@ -24,21 +31,14 @@ export class Playlist implements Resource {
     @Column({ nullable: false, name: "title" })
     public name: string;
 
-    @Column({ nullable: true })
+    @Column({ nullable: true, length: 254 })
     public description: string;
 
     @Column({ nullable: false, default: "public" })
     public privacy: PlaylistPrivacy;
 
-    @Column({ nullable: false, default: false })
-    public collaborative: boolean;
-
     @CreateDateColumn()
     public createdAt: Date;
-
-    @ManyToMany(() => User)
-    @JoinTable({ name: "collaborators2playlist" })
-    public collaborators: User[];
 
     @ManyToOne(() => User)
     @JoinColumn()
@@ -47,18 +47,26 @@ export class Playlist implements Resource {
     @OneToMany(() => PlaylistItem, pi => pi.playlist)
     public items: PlaylistItem[];
 
-    @OneToOne(() => Artwork, { onDelete: "SET NULL", nullable: true })
+    @ManyToOne(() => Artwork, { onDelete: "SET NULL", nullable: true })
     @JoinColumn()
-    public artwork: Artwork;
+    public artwork?: Artwork;
 
-    @OneToMany(() => Liked, (l) => l["playlist"])
-    public likedBy: LikedPlaylist[];
+    @OneToMany(() => Like, (l) => l.playlist)
+    public likedBy: Like[];
 
+    public songsCount?: number = 0;
 
-    public songsCount?: number = undefined;
-    public collaboratorsCount?: number = undefined;
-    public totalDuration?: number = undefined;
-    public likesCount?: number = undefined;
+    /**
+     * Total Duration of the Playlist
+     */
+    @Column({ select: false } )
+    public totalDuration?: number = 0;
+    public likesCount?: number = 0;
+
+    /**
+     * Indicates whether the user 
+     * has liked the playlist or not
+     */
     public liked?: boolean = false;
 
     @BeforeInsert()
@@ -68,7 +76,7 @@ export class Playlist implements Resource {
 
     @BeforeUpdate() 
     public onBeforeUpdate() {
-        this.slug = Slug.create(this.name);
+        if(!this.slug) Slug.create(this.name);
     }
 
 }

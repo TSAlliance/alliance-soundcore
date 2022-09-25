@@ -1,26 +1,35 @@
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
-import { DeleteResult, In, Not } from 'typeorm';
-import { IndexStatus } from '../index/enum/index-status.enum';
+import { In, Not, Repository, SelectQueryBuilder } from 'typeorm';
+import { SyncFlag } from '../meilisearch/interfaces/syncable.interface';
+import { MeiliPlaylistService } from '../meilisearch/services/meili-playlist.service';
+import { Song } from '../song/entities/song.entity';
 import { SongService } from '../song/song.service';
 import { User } from '../user/entities/user.entity';
+import { AddSongDTO } from './dtos/add-song.dto';
 import { CreatePlaylistDTO } from './dtos/create-playlist.dto';
 import { UpdatePlaylistDTO } from './dtos/update-playlist.dto';
+import { PlaylistAddSongFailReason, PlaylistItemAddResult } from './entities/playlist-item-added.entity';
 import { PlaylistItem } from './entities/playlist-item.entity';
 import { Playlist } from './entities/playlist.entity';
 import { PlaylistPrivacy } from './enums/playlist-privacy.enum';
-import { PlaylistRepository } from './repositories/playlist.repository';
-import { Song2PlaylistRepository } from './repositories/song2playlist.repository';
 
 @Injectable()
 export class PlaylistService {
     
     constructor(
-        private songService: SongService,
-        private playlistRepository: PlaylistRepository,
-        private song2playlistRepository: Song2PlaylistRepository
+        private readonly meiliClient: MeiliPlaylistService,
+        private readonly songService: SongService,
+        @InjectRepository(Playlist) private playlistRepository: Repository<Playlist>,
+        @InjectRepository(PlaylistItem)  private song2playlistRepository: Repository<PlaylistItem>
     ) {}
 
+    /**
+     * Find a playlist by its id.
+     * @param {string} playlistId Playlist's id.
+     * @returns {Playlist} Playlist
+     */
     public async findById(playlistId: string): Promise<Playlist> {
         const result = await this.playlistRepository.createQueryBuilder("playlist")
             .leftJoinAndSelect("playlist.author", "author")
@@ -39,47 +48,36 @@ export class PlaylistService {
      */
     public async findPlaylistProfileById(playlistId: string, authentication: User): Promise<Playlist> {
         if(!await this.hasUserAccessToPlaylist(playlistId, authentication)) {
-            console.log("user has no access")
-            return null;
+            throw new ForbiddenException("Cannot access this playlist.");
         }
 
-        const result = await this.playlistRepository.createQueryBuilder("playlist")
+        const result = await this.buildGeneralQuery("playlist", authentication)
+            .where("playlist.id = :playlistId OR playlist.slug = :playlistId", { playlistId })
+            .getOneOrFail();
 
-                // This is for relations
-                .leftJoin("playlist.items", "item")
-                .leftJoin("item.song", "song")
-                .leftJoin("song.index", "index", "index.status = :status", { status: IndexStatus.OK })
-
-                .leftJoinAndSelect("playlist.artwork", "artwork")
-                .leftJoinAndSelect("playlist.author", "author")
-
-                // Count how many likes. This takes user's id in count
-                .loadRelationCountAndMap("playlist.liked", "playlist.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication?.id }))
-
-                // Counting the songs
-                .addSelect('COUNT(index.id)', 'songsCount')
-                
-                // SUM up the duration of every song to get total duration of the playlist
-                .addSelect('SUM(song.duration)', 'totalDuration')
-
-                .groupBy("playlist.id")
-                .where("playlist.id = :playlistId OR playlist.slug = :playlistId", { status: IndexStatus.OK, playlistId })
-                .getRawAndEntities()
-
-        const playlist = result.entities[0];
-        if(!playlist) throw new NotFoundException("Playlist not found.")
-        playlist.totalDuration = parseInt(result.raw[0].totalDuration);
-        playlist.songsCount = parseInt(result.raw[0].songsCount)
-
-        return playlist
+        return result;
     }
 
     public async findPlaylistByIdWithInfo(playlistId: string): Promise<Playlist> {
         return this.playlistRepository.findOne({ where: { id: playlistId }, relations: ["artwork", "author", "collaborators"]})
     }
 
-    public async findPlaylistByIdWithSongs(playlistId: string): Promise<Playlist> {
-        return this.playlistRepository.findOne({ where: { id: playlistId }, relations: ["items", "items.song", "author", "artwork"]})
+    /**
+     * Check if a playlist already contains a song.
+     * @param playlistId Playlist's id
+     * @param songId Song's id
+     * @returns True or False
+     */
+    public async containsSong(playlistId: string, songId: string): Promise<boolean> {
+        const result = await this.playlistRepository.createQueryBuilder("playlist")
+            .leftJoin("playlist.items", "item")
+            .leftJoin("item.song", "song")
+
+            .where("song.id = :songId AND (playlist.id = :playlistId OR playlist.slug = :playlistId)", { songId, playlistId })
+            .select(["playlist.id"])
+            .getOne();
+
+        return !!result;
     }
 
     public async findPlaylistByIdWithCollaborators(playlistId: string): Promise<Playlist> {
@@ -91,26 +89,33 @@ export class PlaylistService {
     }
 
     /**
+     * Find playlists by a set of given ids.
+     * @param ids Set of playlist ids
+     * @param authentication Authentication object
+     * @returns Page<Playlist>
+     */
+    public async findByIds(ids: string[], authentication: User): Promise<Page<Playlist>> {
+        const result = await this.buildGeneralQuery("playlist", authentication)
+            .where("playlist.id IN(:ids)", { ids })
+            .getManyAndCount();
+
+        return Page.of(result[0], result[1], 0);
+    }
+
+    /**
      * Find all playlists that belong to an authenticated user.
      * This includes all authored playlists as well as liked and
      * collaborative playlists of others.
-     * @param authentication KeycloakUser instance
-     * @returns Page<Playlist>
+     * @param {User} authentication Authentication object
+     * @returns {Page} Page<Playlist>
      */
     public async findAllByAuthenticatedUser(authentication: User): Promise<Page<Playlist>> {
-        const result = await this.buildDefaultQuery("playlist")
-            .leftJoin("playlist.author", "author")
-            .leftJoin("playlist.artwork", "artwork")
-            .leftJoin("playlist.collaborators", "collaborator")
+        const result = await this.buildGeneralQuery("playlist", authentication)
             .leftJoin("playlist.likedBy", "likedBy")
             .leftJoin("likedBy.user", "likedByUser")
 
-            // Count how many likes. This takes user's id in count
-            .loadRelationCountAndMap("playlist.liked", "playlist.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication.id }))
-
-            .addSelect(["author.id", "author.name", "author.slug", "artwork.id", "artwork.accentColor"])
             .where("author.id = :authorId", { authorId: authentication.id })
-            .orWhere("collaborator.id = :userId", { userId: authentication.id })
+            // .orWhere("collaborator.id = :userId", { userId: authentication.id })
             .orWhere("likedByUser.id = :userId", { userId: authentication.id })
             .andWhere("playlist.privacy != :privacy", { privacy: PlaylistPrivacy.PRIVATE })
             .getManyAndCount();
@@ -153,7 +158,9 @@ export class PlaylistService {
         const result = await this.playlistRepository.createQueryBuilder("playlist")
             .leftJoin("playlist.items", "item")
             .leftJoin("item.song", "song")
-            .leftJoin("song.artists", "artist")
+            .leftJoin("song.primaryArtist", "primaryArtist")
+
+            // TODO: Include featured artists
 
             .leftJoinAndSelect("playlist.author", "author")
             .leftJoinAndSelect("playlist.artwork", "artwork")
@@ -167,7 +174,7 @@ export class PlaylistService {
             // Count how many likes. This takes user's id in count
             .loadRelationCountAndMap("playlist.liked", "playlist.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication.id }))
 
-            .where("(artist.id = :artistId OR artist.slug = :artistId) AND (playlist.privacy = :privacy OR author.id = :authorId OR collaborator.id = :authorId OR (likedByUser.userId = :authorId AND playlist.privacy != 'private'))", { artistId: artistId, privacy: PlaylistPrivacy.PUBLIC.toString(), authorId: authentication.id })
+            .where("(primaryArtist.id = :primaryArtistId OR primaryArtist.slug = :primaryArtistId) AND (playlist.privacy = :privacy OR author.id = :authorId OR collaborator.id = :authorId OR (likedByUser.userId = :authorId AND playlist.privacy != 'private'))", { artistId: artistId, privacy: PlaylistPrivacy.PUBLIC.toString(), authorId: authentication.id })
             .getManyAndCount();
 
         return Page.of(result[0], result[1], pageable.page);
@@ -200,20 +207,34 @@ export class PlaylistService {
     }
 
     /**
+     * Save a playlist entity.
+     * @param playlist Entity data to be saved
+     * @returns Playlist
+     */
+    public async save(playlist: Playlist): Promise<Playlist> {
+        return this.playlistRepository.save(playlist).then((result) => {
+            this.sync([result]);
+            return result;
+        });
+    }
+
+    /**
      * Create new playlist. This fails with 
      * @param createPlaylistDto Playlist metadata
      * @param author Author entity (User)
      * @throws BadRequestException if a playlist by its title already exists in user scope.
-     * @returns 
+     * @returns Playlist
      */
     public async create(createPlaylistDto: CreatePlaylistDTO, authentication: User): Promise<Playlist> {
         if(await this.existsByTitleInUser(createPlaylistDto.title, authentication.id)) throw new BadRequestException("Playlist already exists.");
+
         const playlist = new Playlist();
         playlist.author = authentication;
         playlist.name = createPlaylistDto.title;
+        playlist.description = createPlaylistDto.description;
         playlist.privacy = createPlaylistDto.privacy;
 
-        return this.playlistRepository.save(playlist)
+        return this.save(playlist);
     }
 
     public async update(playlistId: string, updatePlaylistDto: UpdatePlaylistDTO, authentication: User): Promise<Playlist> {
@@ -225,62 +246,47 @@ export class PlaylistService {
         
         playlist.name = updatePlaylistDto.title || playlist.name;
         playlist.privacy = updatePlaylistDto.privacy || playlist.privacy;
+        playlist.description = updatePlaylistDto.description || playlist.description;
 
-        return this.playlistRepository.save(playlist)
+        return this.save(playlist);
     }
 
     /**
      * Add a song to a playlist
      * @param playlistId Playlist's id
-     * @param songId Song's id
+     * @param addSongDto Body of the request. Contains the song and if duplicates should be ignored
      * @param requester The user requesting the operation. Used to check if the user is allowed to add songs
      * @returns 
      */
-    public async addSongs(playlistId: string, songIds: string[], authentication: User): Promise<Playlist> {
+    public async addSong(playlistId: string, addSongDto: AddSongDTO, authentication: User): Promise<PlaylistItemAddResult> {       
         // Check if user could theoretically access the playlist.
         if(!await this.hasUserAccessToPlaylist(playlistId, authentication)) {
-            throw new NotFoundException("Playlist not found.")
+            throw new NotFoundException("Playlist not found")
         }
 
-        const playlist: Playlist = await this.findPlaylistByIdWithSongs(playlistId);
-        if(!playlist) throw new NotFoundException("Playlist does not exist.");    
-        if(!playlist.items) playlist.items = [];
+        // Check if the playlist object
+        // exists in the database
+        const playlist: Playlist = await this.findById(playlistId);
+        if(!playlist) throw new NotFoundException("Playlist not found");    
 
-        // Check if user can edit the playlist
-        if(!await this.canEditSongs(playlist, authentication)) {
-            throw new ForbiddenException("Not allowed to add songs to that playlist.")
+        const targetId = addSongDto.targetSongId;
+
+        // Check if the playlist already contains the same song.
+        // If the force flag was set, this will be ignored.
+        if(!addSongDto.force && !!await this.containsSong(playlistId, targetId)) {
+            return new PlaylistItemAddResult(targetId, true, PlaylistAddSongFailReason.DUPLICATE);
         }
 
-        let hadDuplicates = false;
-        for(const key of songIds) {
-            // TODO: Optimize, as this would perform bad on large playlists (Remember this solution would be O(n2))
-            if(!!playlist.items.find((v) => v.songId == key)) {
-                // A song would be duplicate
-                hadDuplicates = true;
-                continue;
-            }
+        // Create new item object
+        const item = new PlaylistItem();
+        item.song = { id: targetId } as Song;
+        item.playlist = { id: playlist.id } as Playlist;
+        item.addedBy = { id: authentication.id } as User;
 
-            // Check if the songs exist in databse to prevent
-            // errors.
-            const song = await this.songService.findByIdWithArtwork(key);
-            if(!song) continue;
-
-            const relation = new PlaylistItem()
-            relation.song = song;
-            relation.playlist = playlist;
-
-            await this.song2playlistRepository.save(relation).then(async () => {
-                // TODO: Generate artwork
-            })
-        }
-
-        if(hadDuplicates) {
-            throw new ConflictException("Some songs were not added as they already exists in playlist.")
-        }
-
-        // Return updated playlist
-        delete playlist.items;
-        return playlist;
+        // Save the relation
+        return this.song2playlistRepository.save(item).then(() => {
+            return new PlaylistItemAddResult(targetId, false);
+        })
     }
 
     /**
@@ -291,100 +297,37 @@ export class PlaylistService {
      * @returns 
      */
     public async removeSongs(playlistId: string, songIds: string[], authentication: User): Promise<Playlist> {
-        if(!await this.hasUserAccessToPlaylist(playlistId, authentication)) {
+        /*if(!await this.hasUserAccessToPlaylist(playlistId, authentication)) {
             throw new NotFoundException("Playlist not found.")
         }
 
         const playlist: Playlist = await this.findPlaylistByIdWithSongs(playlistId);
         if(!playlist) throw new NotFoundException("Playlist does not exist.");
-
-        // Check if user can edit the playlist
-        if(!await this.canEditSongs(playlist, authentication)) {
-            throw new ForbiddenException("Not allowed to remove songs from that playlist.")
-        }
 
         if(!playlist.items) playlist.items = [];
         return this.song2playlistRepository.delete({ songId: In(songIds), playlistId }).then(() => {
             return playlist;
         }).catch(() => {
             return playlist;
-        });
+        });*/
+        throw new InternalServerErrorException();
     }
 
-    /**
-     * Add a song to a playlist
-     * @param playlistId Playlist's id
-     * @param songId Song's id
-     * @param requester The user requesting the operation. Used to check if the user is allowed to add songs
-     * @returns 
-     */
-    public async addCollaborators(playlistId: string, collaboratorIds: string[], authentication: User): Promise<void> {
-        if(!await this.hasUserAccessToPlaylist(playlistId, authentication)) {
-            throw new NotFoundException("Playlist not found.")
-        }
-
-        const playlist: Playlist = await this.findPlaylistByIdWithSongs(playlistId);
-        if(!playlist) throw new NotFoundException("Playlist does not exist.");
-
-        // Check if user can edit the playlist
-        if(!await this.canEditPlaylist(playlist, authentication)) {
-            throw new ForbiddenException("Not allowed to edit that playlist.")
-        }
-
-        if(!playlist.collaborators) playlist.collaborators = [];
-        playlist.collaborators.push(...collaboratorIds.map((id) => ({ id } as User)))
-        playlist.collaborative = playlist.collaborators?.length > 0;
-        return this.playlistRepository.save(playlist).then(() => {
-            return;
-        }).catch(() => {
-            return;
-        });
-    }
-
-    /**
-     * Add a song to a playlist
-     * @param playlistId Playlist's id
-     * @param songId Song's id
-     * @param requester The user requesting the operation. Used to check if the user is allowed to add songs
-     * @returns 
-     */
-     public async removeCollaborators(playlistId: string, collaboratorIds: string[], authentication: User): Promise<void> {
-        if(!await this.hasUserAccessToPlaylist(playlistId, authentication)) {
-            throw new NotFoundException("Playlist not found.")
-        }
-
-        const playlist: Playlist = await this.findPlaylistByIdWithSongs(playlistId);
-        if(!playlist) throw new NotFoundException("Playlist does not exist.");
-
-        // Check if user can edit the playlist
-        if(!await this.canEditPlaylist(playlist, authentication)) {
-            throw new ForbiddenException("Not allowed to edit that playlist.")
-        }
-
-        if(!playlist.collaborators) playlist.collaborators = [];
-        playlist.collaborators = playlist.collaborators.filter((u) => collaboratorIds.includes(u.id));
-        playlist.collaborative = playlist.collaborators?.length > 0;
-
-        return this.playlistRepository.save(playlist).then(() => {
-            return;
-        }).catch(() => {
-            return;
-        });
-    }
-
-    public async deleteById(playlistId: string, authentication?: User): Promise<DeleteResult> {
+    public async deleteById(playlistId: string, authentication?: User): Promise<boolean> {
         const playlist = await this.findById(playlistId);
 
         if(playlist.author?.id != authentication?.id) throw new ForbiddenException("Not allowed.");
-        return this.playlistRepository.delete({ id: playlist?.id });
+
+        return this.meiliClient.deletePlaylist(playlist.id).then(() => {
+            return this.playlistRepository.delete({ id: playlist?.id }).then(() => true);
+        })
     }
 
     private async hasUserAccessToPlaylist(playlistId: string, authentication: User): Promise<boolean> {
         const result = await this.playlistRepository.createQueryBuilder("playlist")
             .leftJoin("playlist.author", "author")
-            .leftJoin("playlist.collaborators", "collaborator")
 
-            .select(["playlist.id", "playlist.privacy", "author.id", "collaborator.id"])
+            .select(["playlist.id", "playlist.privacy", "author.id"])
             .where("playlist.id = :playlistId", { playlistId })
             .orWhere("playlist.slug = :playlistId", { playlistId })
 
@@ -393,7 +336,6 @@ export class PlaylistService {
         if(!result) return false;
         if(result.privacy != PlaylistPrivacy.PRIVATE) return true;
         if(result.author?.id == authentication.id) return true;
-        if(result.collaborators.find((u) => u.id == authentication.id)) return true;
         return false;
     }
 
@@ -401,51 +343,56 @@ export class PlaylistService {
         return playlist?.author?.id == authentication?.id;
     }
 
-    private async canEditSongs(playlist: Playlist, authentication: User): Promise<boolean> {
-        return playlist?.author?.id == authentication?.id || !!playlist?.collaborators?.find((u) => u?.id == authentication?.id);
-    }
+    /**
+     * Update the sync flag of a playlist.
+     * @param resources Id or object of the playlist
+     * @param flag Updated sync flag
+     * @returns Playlist
+     */
+     private async setSyncFlags(resources: Playlist[], flag: SyncFlag) {
+        const ids = resources.map((user) => user.id);
 
-    private buildDefaultQuery(alias: string, authentication?: User) {
-        return this.playlistRepository.createQueryBuilder(alias)
-            .loadRelationCountAndMap("playlist.liked", "playlist.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication?.id }))
+        return this.playlistRepository.createQueryBuilder()
+            .update({
+                lastSyncedAt: new Date(),
+                lastSyncFlag: flag
+            })
+            .where({ id: In(ids) })
+            .execute();
     }
 
     /**
-     * Execute search query for a song. This looks up songs that match the query.
-     * The search includes looking for songs with a specific artist's name.
-     * @param query Query string
-     * @param pageable Page settings
-     * @returns Page<Song>
+     * Synchronize the corresponding document on meilisearch.
+     * @param resource Playlist data
+     * @returns Playlist
      */
-     public async findBySearchQuery(query: string, pageable: Pageable, authentication?: User): Promise<Page<Playlist>> {
-        if(!query || query == "") {
-            query = "%"
-        } else {
-            query = `%${query.replace(/\s/g, '%')}%`;
-        }
+    public async sync(resources: Playlist[]) {
+        return this.meiliClient.setPlaylists(resources).then(() => {
+            return this.setSyncFlags(resources, SyncFlag.OK);
+        }).catch(() => {
+            return this.setSyncFlags(resources, SyncFlag.ERROR);
+        });
+    }
 
-        // Find song by title or if the artist has similar name
-        let qb = await this.playlistRepository.createQueryBuilder("playlist")
-            .leftJoin("playlist.author", "author")
-            .leftJoin("playlist.artwork", "artwork")
-            .leftJoin("playlist.collaborators", "collaborator")
+    /**
+     * Build a general query for finding playlists.
+     * This will include stats like has the user liked the playlist,
+     * how many songs are included and the total duration.
+     * @param {string} alias Alias
+     * @param {User} authentication Authentication object
+     * @returns {SelectQueryBuilder} Query Builder
+     */
+    private buildGeneralQuery(alias: string, authentication?: User): SelectQueryBuilder<Playlist> {
+        return this.playlistRepository.createQueryBuilder(alias)
+            .leftJoinAndSelect("playlist.artwork", "artwork")
+            .leftJoin("playlist.author", "author").addSelect(["author.id", "author.slug", "author.name"])
+            .leftJoin("author.artwork", "authorArtwork").addSelect(["authorArtwork.id"])
+            .leftJoin("playlist.items", "items").leftJoin("items.song", "itemSong").addSelect("SUM(itemSong.duration)", "playlist_totalDuration")
 
-            // Pagination
-            .limit(pageable?.size || 10)
-            .offset((pageable?.size || 10) * (pageable?.page || 0))
-
-            // Count how many likes. This takes user's id in count
-            .loadRelationCountAndMap("playlist.liked", "playlist.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication.id }))
-
-            .addSelect(["author.id", "author.name", "author.slug", "artwork.id", "artwork.accentColor"])
-            .where("playlist.title LIKE :query AND (author.id = :userId OR collaborator.id = :userId OR playlist.privacy = :privacy)", { query, privacy: PlaylistPrivacy.PUBLIC, userId: authentication.id })
-
-        if(query == "%") {
-            qb = qb.orderBy("rand()");
-        }
-
-        const result = await qb.getManyAndCount();
-        return Page.of(result[0], result[1], pageable.page);
+            .loadRelationCountAndMap("playlist.liked", "playlist.likedBy", "likedBy", (qb) => qb.where("likedBy.userId = :userId", { userId: authentication?.id }))
+            .loadRelationCountAndMap("playlist.songsCount", "playlist.items", "item")
+            
+            .groupBy("playlist.id");
     }
 
 }

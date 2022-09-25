@@ -1,5 +1,4 @@
 import { v4 as uuidv4 } from "uuid"
-import { Index } from "../../index/entities/index.entity";
 import { User } from "../../user/entities/user.entity";
 
 export type ImportStatus = "preparing" | "downloading" | "upgradeIndex" | "errored" | "duplicate"
@@ -17,7 +16,6 @@ export class ImportEntity {
     public downloadProgress: number;
     public downloadableUrl: string;
 
-    public upgradeIndex: Index;
     public metadata: {
         title?: string,
         duration?: number,
