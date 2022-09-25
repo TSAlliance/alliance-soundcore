@@ -11,12 +11,11 @@ import { FileDTO } from '../../mount/dtos/file.dto';
 import { Mount } from '../../mount/entities/mount.entity';
 import { Song } from '../../song/entities/song.entity';
 import { CreateResult } from '../../utils/results/creation.result';
-import { RedisLockableService } from '../../utils/services/redis-lockable.service';
 import { FileProcessDTO, FileProcessMode } from '../dto/file-process.dto';
 import { File, FileFlag } from '../entities/file.entity';
 
 @Injectable()
-export class FileService extends RedisLockableService {
+export class FileService {
     private readonly logger: Logger = new Logger(FileService.name);
 
     constructor(
@@ -24,7 +23,6 @@ export class FileService extends RedisLockableService {
         private readonly eventEmitter: EventEmitter2,
         @InjectQueue(QUEUE_FILE_NAME) private readonly queue?: Queue<FileProcessDTO>
     ) {
-        super();
         this.queue?.on("failed", (job, err) => {
             const filepath = path.join(job.data.file.mount.directory, job.data.file.directory, job.data.file.filename);
             this.logger.error(`Could not process file '${filepath}': ${err.message}`, err.stack);

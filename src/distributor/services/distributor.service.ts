@@ -1,7 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
-import { escape } from 'sqlstring';
 import { In, Repository } from 'typeorm';
 import { Artwork } from '../../artwork/entities/artwork.entity';
 import { SyncFlag } from '../../meilisearch/interfaces/syncable.interface';
@@ -81,8 +80,8 @@ export class DistributorService {
      * @returns CreateResult<Distributor>
      */
     public async createIfNotExists(createDistributorDto: CreateDistributorDTO): Promise<CreateResult<Distributor>> {
-        createDistributorDto.name = escape(createDistributorDto.name.trim());
-        createDistributorDto.description = escape(createDistributorDto.description?.trim());
+        createDistributorDto.name = createDistributorDto.name.trim();
+        createDistributorDto.description = createDistributorDto.description?.trim();
 
         const existingDistributor = await this.findByName(createDistributorDto.name);
         if(existingDistributor) return new CreateResult(existingDistributor, true); 
@@ -114,8 +113,8 @@ export class DistributorService {
      * @returns Distributor
      */
     public async update(distributorId: string, updateDistributorDto: UpdateDistributorDTO): Promise<Distributor> {
-        updateDistributorDto.name = escape(updateDistributorDto.name.trim());
-        updateDistributorDto.description = escape(updateDistributorDto.description?.trim());
+        updateDistributorDto.name = updateDistributorDto.name.trim();
+        updateDistributorDto.description = updateDistributorDto.description?.trim();
 
         const distributor = await this.findById(distributorId);
         if(!distributor) throw new NotFoundException("Distributor not found.");

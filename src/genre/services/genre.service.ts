@@ -1,7 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
-import { escape } from 'sqlstring';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 import { CreateResult } from '../../utils/results/creation.result';
 import { CreateGenreDTO } from '../dtos/create-genre.dto';
@@ -81,8 +80,8 @@ export class GenreService {
      * @returns Genre
      */
      public async createIfNotExists(createGenreDto: CreateGenreDTO): Promise<CreateResult<Genre>> {
-        createGenreDto.name = escape(createGenreDto.name.trim());
-        createGenreDto.description = escape(createGenreDto.description?.trim());
+        createGenreDto.name = createGenreDto.name.trim();
+        createGenreDto.description = createGenreDto.description?.trim();
 
         const existingGenre = await this.findByName(createGenreDto.name);
         if(existingGenre) return new CreateResult(existingGenre, true); 
@@ -114,8 +113,8 @@ export class GenreService {
      * @returns Genre
      */
     public async update(genreId: string, updateGenreDto: UpdateGenreDTO): Promise<Genre> {
-        updateGenreDto.name = escape(updateGenreDto.name.trim());
-        updateGenreDto.description = escape(updateGenreDto.description?.trim());
+        updateGenreDto.name = updateGenreDto.name.trim();
+        updateGenreDto.description = updateGenreDto.description?.trim();
 
         const genre = await this.findById(genreId);
         if(!genre) throw new NotFoundException("Genre not found.");

@@ -35,17 +35,17 @@ export class GeniusService {
     }
 
     public async createSongLookupJob(song: Song) {
-        const dto = new GeniusProcessDTO<Song>(GeniusProcessType.SONG, song);
-        return this.queue.add(dto);
+        // const dto = new GeniusProcessDTO<Song>(GeniusProcessType.SONG, song);
+        // return this.queue.add(dto);
     } 
 
     public async createAlbumLookupJob(album: Album) {
-        const dto = new GeniusProcessDTO<Album>(GeniusProcessType.ALBUM, album);
-        return this.queue.add(dto);
+        // const dto = new GeniusProcessDTO<Album>(GeniusProcessType.ALBUM, album);
+        // return this.queue.add(dto);
     } 
 
     public async createArtistLookupJob(artist: Artist) {
-        const dto = new GeniusProcessDTO<Artist>(GeniusProcessType.ARTIST, artist);
-        return this.queue.add(dto);
+        // const dto = new GeniusProcessDTO<Artist>(GeniusProcessType.ARTIST, artist);
+        // return this.queue.add(dto);
     } 
 }

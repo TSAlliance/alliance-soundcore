@@ -21,8 +21,6 @@ import { MeiliSongService } from "../meilisearch/services/meili-song.service";
 import { SyncFlag } from "../meilisearch/interfaces/syncable.interface";
 import { CreateResult } from "../utils/results/creation.result";
 
-import sqlstring from "sqlstring";
-
 @Injectable()
 export class SongService {
     private readonly logger: Logger = new Logger(SongService.name)
@@ -262,7 +260,7 @@ export class SongService {
      */
     public async createIfNotExists(createSongDto: CreateSongDTO): Promise<CreateResult<Song>> {
         // Do some validation to be sure there is an existing value
-        createSongDto.name = sqlstring.escape(createSongDto.name.trim());
+        createSongDto.name = createSongDto.name.trim();
         createSongDto.duration = createSongDto.duration || 0;
         createSongDto.order = createSongDto.order || 0;
         createSongDto.featuredArtists = createSongDto.featuredArtists || [];

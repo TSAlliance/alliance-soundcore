@@ -1,7 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Page, Pageable } from 'nestjs-pager';
-import { escape } from 'sqlstring';
 import { ILike, In, Repository } from 'typeorm';
 import { OIDCUser } from '../authentication/entities/oidc-user.entity';
 import { SyncFlag } from '../meilisearch/interfaces/syncable.interface';
@@ -32,7 +31,7 @@ export class UserService {
         if(existingUser) {
             if(this.hasUpdated(userInstance, existingUser)) {
                 // Update username (currently the only thing that can change which is important)
-                existingUser.name = escape(userInstance.preferred_username?.trim());
+                existingUser.name = userInstance.preferred_username?.trim();
                 return this.save(existingUser).catch((error) => {
                     this._logger.error(`Could not update user object, using old account data: ${error.message}`, error.stack);
                     return existingUser;
@@ -50,7 +49,7 @@ export class UserService {
         // Build new database entry
         const user = new User();
         user.id = userInstance.sub;
-        user.name = escape(userInstance.preferred_username?.trim());
+        user.name = userInstance.preferred_username?.trim();
 
         return this.save(user);
     }

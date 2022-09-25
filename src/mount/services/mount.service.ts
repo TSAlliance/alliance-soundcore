@@ -13,22 +13,18 @@ import { MountScanProcessDTO } from '../dtos/mount-scan.dto';
 import { Random } from '@tsalliance/utilities';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CreateResult } from '../../utils/results/creation.result';
-import { RedisLockableService } from '../../utils/services/redis-lockable.service';
 import { RedlockError } from '../../exceptions/redlock.exception';
 import { FileSystemService } from '../../filesystem/services/filesystem.service';
-import { escape } from 'sqlstring';
 
 @Injectable()
-export class MountService extends RedisLockableService {
+export class MountService {
     private readonly logger: Logger = new Logger(MountService.name);
 
     constructor(
         @InjectRepository(Mount) private readonly repository: Repository<Mount>,
         private readonly fileSystem: FileSystemService,
         @InjectQueue(QUEUE_MOUNTSCAN_NAME) private readonly queue: Queue<MountScanProcessDTO>
-    ) {
-        super();        
-    }
+    ) { }
 
     /**
      * Find a list of mounts inside a bucket.
@@ -168,27 +164,35 @@ export class MountService extends RedisLockableService {
      * @returns Mount
      */
     public async createIfNotExists(createMountDto: CreateMountDTO): Promise<CreateResult<Mount>> {
-        createMountDto.name = escape(createMountDto.name?.trim());
+        createMountDto.name = createMountDto.name?.trim();
         createMountDto.directory = this.fileSystem.resolveMountDirectory(createMountDto.directory);
         const directory = createMountDto.directory
 
-        return this.lock(createMountDto.name, async(signal) => {
-            const existingMount = await this.findByNameInBucket(createMountDto.bucketId, createMountDto.name) || await this.findByDirectoryInBucket(createMountDto.bucketId, createMountDto.directory);
-            if(existingMount) return new CreateResult(existingMount, true);
-            if(signal.aborted) throw new RedlockError();
+        const existingMount = await this.findByNameInBucket(createMountDto.bucketId, createMountDto.name) || await this.findByDirectoryInBucket(createMountDto.bucketId, createMountDto.directory);
+        if(existingMount) return new CreateResult(existingMount, true);
 
-            const mount = new Mount()
-            mount.name = createMountDto.name;
-            mount.directory = directory;
-            mount.bucket = { id: createMountDto.bucketId } as Bucket;
+        const mount = this.repository.create();
+        mount.name = createMountDto.name;
+        mount.directory = directory;
+        mount.bucket = { id: createMountDto.bucketId } as Bucket;
 
-            return this.repository.save(mount).then((result) => {
-                if(createMountDto.setAsDefault) this.setDefaultMount(mount);
-                if(createMountDto.doScan) this.rescanMount(mount);
-
-                return new CreateResult(result, false);
-            });
-        });
+        return this.repository.createQueryBuilder()
+            .insert()
+            .values(mount)
+            .orIgnore()
+            .execute().then((result) => {
+                if(result.identifiers.length > 0) {
+                    return new CreateResult(mount, false);
+                }
+                return this.findByNameInBucket(createMountDto.bucketId, createMountDto.name).then((mount) => {
+                    if(createMountDto.setAsDefault) this.setDefaultMount(mount);
+                    if(createMountDto.doScan) this.rescanMount(mount);
+                    return new CreateResult(mount, true)
+                });
+            }).catch((error) => {
+                this.logger.error(`Could not create database entry for mount: ${error.message}`, error.stack);
+                return null
+            })
     }
 
     /**
@@ -198,7 +202,7 @@ export class MountService extends RedisLockableService {
      * @returns Mount
      */
     public async update(mountId: string, updateMountDto: UpdateMountDTO): Promise<Mount> {
-        updateMountDto.name = escape(updateMountDto.name?.trim());
+        updateMountDto.name = updateMountDto.name?.trim();
         const mount = await this.findById(mountId);
 
         if(!mount || !mount.bucket) {

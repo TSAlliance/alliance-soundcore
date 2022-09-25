@@ -1,5 +1,5 @@
 
-import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn, Index as IndexDec } from "typeorm";
+import { BeforeInsert, BeforeUpdate, Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, OneToOne, PrimaryGeneratedColumn } from "typeorm";
 import { Album } from "../../album/entities/album.entity";
 import { Artist } from "../../artist/entities/artist.entity";
 import { Distributor } from "../../distributor/entities/distributor.entity";
@@ -40,8 +40,7 @@ export class Song implements Resource, Syncable {
     @Column({ nullable: true })
     public geniusId: string;
 
-    @IndexDec()
-    @Column({ nullable: true, name: "title" })
+    @Column({ nullable: true })
     public name: string;
 
     @Column({ nullable: false, default: 0 })
